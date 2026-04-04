@@ -23,7 +23,7 @@ class Clip(BaseModel):
     src_start: float = Field(ge=0.0)
     src_end: float = Field(gt=0.0)
     mode: ClipMode = "copy"
-    # reserviert fuer spaetere Phasen
+    # reserviert fuer kuenftige Effekte (Fade, Speed, Overlay etc.)
     effects: list[str] = Field(default_factory=list)
 
     @field_validator("src_end")

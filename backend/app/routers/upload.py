@@ -1,9 +1,10 @@
 """
-CuttOffl Backend - Upload-Router (einfach, ohne tus.io).
+CuttOffl Backend - Upload-Router.
 
-Phase 1: Multipart-Upload. tus.io-Chunked-Upload folgt in Phase 4.
-Nach erfolgreichem Upload wird sofort ffprobe auf die Datei angewendet
-und die Metadaten in der files-Tabelle persistiert.
+Standard-Multipart-Upload. Nach erfolgreichem Upload wird sofort ffprobe auf
+die Datei angewendet, die Metadaten in der files-Tabelle persistiert und die
+Folgearbeiten angestossen: Thumbnail-Job (schnell) und Proxy-Job (laenger,
+triggert seinerseits Sprite- und Waveform-Extraktion).
 """
 
 from __future__ import annotations

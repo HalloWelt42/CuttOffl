@@ -1,8 +1,9 @@
 """
 CuttOffl Backend - FFmpeg Subprocess-Wrapper.
 
-Phase 1: nur Versions-Abfrage und generischer Run-Helper.
-Spätere Phasen: Proxy-Gen, Render, Concat.
+Versions-Abfrage und generischer Run-Helper. Die konkreten Anwendungsfälle
+(Proxy-Generierung, Render, Concat, Sprite, Waveform) leben in den jeweiligen
+Service-Modulen und rufen diesen Wrapper.
 """
 
 from __future__ import annotations

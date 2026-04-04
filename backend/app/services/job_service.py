@@ -4,11 +4,14 @@ CuttOffl Backend - Job-Service.
 In-Process async Queue für Hintergrund-Jobs.
 Persistiert Status in der jobs-Tabelle und broadcastet Fortschritt über WebSocket.
 
-Phase 2: zwei Job-Typen:
-  - proxy     → proxy_service.generate_proxy + keyframes
-  - thumbnail → thumbnail_service.generate_thumbnail
-
-Spätere Phasen fügen render/chunk/concat hinzu.
+Job-Typen:
+  - proxy      → Proxy-Generierung + anschließende Keyframe-Extraktion,
+                 stößt danach automatisch sprite + waveform an
+  - thumbnail  → Einzelbild-Thumbnail aus dem Original
+  - sprite     → Tile-JPEG mit Frame-Streifen aus dem Proxy
+  - waveform   → Audio-Peak-JSON aus dem Proxy
+  - keyframes  → manuelle Neu-Extraktion der Keyframe-Liste
+  - render     → EDL → FFmpeg-Plan → fertiges Video in data/exports/
 """
 
 from __future__ import annotations

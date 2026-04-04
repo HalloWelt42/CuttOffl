@@ -1,11 +1,17 @@
 """
 CuttOffl Backend - Hauptanwendung.
 
-Phase 4 (v0.4.0):
-  - Phase 3: EDL-CRUD, Render-Pipeline, Snap, Exports
-  - Thumbnail-Sprite (Tile-JPEG) aus dem Proxy
-  - Audio-Wellenform (Peak-JSON) aus dem Proxy
-  - Timeline-Visualisierung mit Frame-Strip und Waveform
+Registriert alle Router, haengt den Job-Worker und die Lifespan-Hooks ein.
+
+Aktueller Funktionsumfang (v0.4.0):
+  - Multipart-Upload mit ffprobe-Metadatenextraktion
+  - Auto-Proxy (480p H.264, GOP 1 s), Thumbnail, Sprite, Waveform
+  - Keyframe-Liste + Snap-Endpunkt
+  - In-Process Job-Queue mit WebSocket-Progress
+  - EDL-CRUD (Projekte, Timeline, Output-Profil)
+  - Hybrid-Render (copy + reencode) mit Concat-Demuxer
+  - Proxy-Streaming mit HTTP-Range
+  - Export-Liste und -Download mit lesbaren Dateinamen
 """
 
 from __future__ import annotations
