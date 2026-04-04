@@ -10,10 +10,13 @@
   import Editor from './views/Editor.svelte';
   import Settings from './views/Settings.svelte';
   import About from './views/About.svelte';
+  import ThanksOverlay from './components/ThanksOverlay.svelte';
   import { nav } from './lib/nav.svelte.js';
   import { applyTheme } from './lib/theme.svelte.js';
   import { persisted, persist } from './lib/persist.svelte.js';
   import { api } from './lib/api.js';
+  import { version as frontendVersion } from '../package.json';
+  import { REPO_URL } from './lib/meta.js';
 
   let sidebarCollapsed = $state(persisted('app.sidebarCollapsed', false));
   let sidebarWidth = $state(persisted('app.sidebarWidth', 200));
@@ -22,7 +25,6 @@
   $effect(() => persist('app.sidebarWidth', sidebarWidth));
 
   let backendVersion = $state('...');
-  const frontendVersion = '0.1.0';
 
   onMount(async () => {
     applyTheme();
