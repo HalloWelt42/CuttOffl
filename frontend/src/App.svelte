@@ -46,6 +46,7 @@
           bind:collapsed={sidebarCollapsed}
           {frontendVersion}
           {backendVersion}
+          {REPO_URL}
         />
       </div>
 
@@ -65,6 +66,7 @@
 
     <JobsBar />
     <ToastHost />
+    <ThanksOverlay />
   </div>
 </ErrorBoundary>
 

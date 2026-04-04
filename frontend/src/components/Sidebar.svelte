@@ -1,11 +1,13 @@
 <script>
   import { nav, go } from '../lib/nav.svelte.js';
   import { toggleTheme, theme } from '../lib/theme.svelte.js';
+  import { openThanks } from '../lib/ui.svelte.js';
 
   let {
     collapsed = $bindable(),
     frontendVersion = '',
     backendVersion = '',
+    REPO_URL = '',
   } = $props();
 
   const GROUPS = [
@@ -17,7 +19,8 @@
       { id: 'editor',    icon: 'fa-scissors',    label: 'Editor' },
     ]},
     { label: 'System', items: [
-      { id: 'settings',  icon: 'fa-gear',        label: 'Einstellungen' },
+      { id: 'settings',  icon: 'fa-gear',         label: 'Einstellungen' },
+      { id: 'about',     icon: 'fa-circle-info',  label: 'Über' },
     ]},
   ];
 </script>
@@ -68,11 +71,21 @@
       {#if !collapsed}<span>Einklappen</span>{/if}
     </button>
 
+    <button class="item" onclick={openThanks}
+            title="Unterstützungs-Möglichkeiten anzeigen (Ko-fi und Kryptowährungen)">
+      <i class="fa-solid fa-heart danke"></i>
+      {#if !collapsed}<span>Danke</span>{/if}
+    </button>
+
     {#if !collapsed}
       <div class="info mono">
         <div class="info-row">
           <span class="k">App</span>
-          <span>CuttOffl</span>
+          <a href={REPO_URL} target="_blank" rel="noopener"
+             class="repo-link"
+             title="CuttOffl-Repository auf GitHub öffnen">
+            CuttOffl <i class="fa-brands fa-github"></i>
+          </a>
         </div>
         <div class="info-row">
           <span class="k">Frontend</span>
@@ -82,10 +95,6 @@
           <span class="k">Backend</span>
           <span>v{backendVersion || '...'}</span>
         </div>
-        <button class="info-link" onclick={() => go('about')}
-                title="Projekt, Lizenz und Spendenmöglichkeiten">
-          <i class="fa-solid fa-heart"></i> Danke &amp; Über
-        </button>
       </div>
     {/if}
   </div>
@@ -171,19 +180,13 @@
   }
   .info-row { display: flex; justify-content: space-between; gap: 8px; }
   .info-row .k { color: var(--fg-faint); letter-spacing: 0.5px; text-transform: uppercase; font-size: 9px; }
-  .info-link {
-    margin-top: 4px;
-    background: transparent;
-    border: none;
-    padding: 4px 0;
-    color: var(--fg-muted);
+  .danke { color: var(--danger); }
+  .repo-link {
+    color: var(--fg-primary);
     text-decoration: none;
-    font: inherit;
-    font-size: 11px;
     display: inline-flex; align-items: center; gap: 6px;
-    cursor: pointer;
-    text-align: left;
   }
-  .info-link i { color: var(--danger); }
-  .info-link:hover { color: var(--accent); }
+  .repo-link i { color: var(--fg-muted); font-size: 11px; }
+  .repo-link:hover { color: var(--accent); }
+  .repo-link:hover i { color: var(--accent); }
 </style>
