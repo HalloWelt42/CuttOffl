@@ -1,0 +1,198 @@
+/* Fonts lokal gehostet via @fontsource */
+@import '@fontsource/chakra-petch/300.css';
+@import '@fontsource/chakra-petch/400.css';
+@import '@fontsource/chakra-petch/500.css';
+@import '@fontsource/chakra-petch/600.css';
+@import '@fontsource/chakra-petch/700.css';
+@import '@fontsource/jetbrains-mono/400.css';
+@import '@fontsource/jetbrains-mono/500.css';
+@import '@fontsource/jetbrains-mono/600.css';
+@import '@fortawesome/fontawesome-free/css/all.min.css';
+
+@import 'tailwindcss';
+
+/* ------------------------------------------------------------------
+   Theme-Variablen -- Dark-first, semantische Palette
+   ------------------------------------------------------------------ */
+:root {
+  --font-scale: 1;
+
+  /* Flächen */
+  --bg-base:    #0b0f14;
+  --bg-panel:   #111821;
+  --bg-elev:    #1a2431;
+  --bg-sink:    #070a0e;
+
+  /* Text */
+  --fg-primary: #e5eaf0;
+  --fg-muted:   #9aa4b2;
+  --fg-faint:   #5f6b7a;
+
+  /* Akzent (Aktionen: Buttons, Selektion, Highlights) -- GitHub-Link-Blau */
+  --accent:       #58a6ff;
+  --accent-hover: #79c0ff;
+  --accent-soft:  rgba(88, 166, 255, 0.16);
+  --accent-on:    #0b0f14;
+
+  /* Rahmen */
+  --border:        #1e2a39;
+  --border-strong: #2a3a4f;
+
+  /* Status */
+  --success: #22c55e;
+  --warning: #eab308;
+  --danger:  #ef4444;
+  --info:    #58a6ff;
+
+  /* Semantische Farben für Timeline-Elemente */
+  --clip-copy:     #0d9488;  /* Teal   -- keyframe-genauer, verlustfreier Clip */
+  --clip-reencode: #6366f1;  /* Indigo -- frame-genauer, neu kodierter Clip */
+  --kf-color:      #cfa06b;  /* Bronze -- Keyframes (Struktur des Originals) */
+  --wave-color:    #f59e0b;  /* Amber  -- Audio-Wellenform */
+  --playhead:      #f472b6;  /* Magenta-- Playhead außerhalb Keyframe */
+  --playhead-kf:   #22c55e;  /* Grün   -- Playhead exakt auf Keyframe */
+  --playing:       #eab308;  /* Gelb   -- Aktuell spielender Clip */
+
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.35);
+  --shadow-md: 0 6px 20px rgba(0, 0, 0, 0.35);
+}
+
+html[data-theme='light'] {
+  --bg-base:    #f4f6f9;
+  --bg-panel:   #ffffff;
+  --bg-elev:    #eef2f7;
+  --bg-sink:    #e4e9ef;
+
+  --fg-primary: #0f172a;
+  --fg-muted:   #475569;
+  --fg-faint:   #94a3b8;
+
+  --accent:       #0284c7;
+  --accent-hover: #0369a1;
+
+  --border:        #d9e0e9;
+  --border-strong: #b7c2d0;
+
+  --clip-copy:     #0f766e;
+  --clip-reencode: #4f46e5;
+  --kf-color:      #a16207;
+  --wave-color:    #d97706;
+  --playhead:      #db2777;
+  --playhead-kf:   #16a34a;
+  --playing:       #ca8a04;
+}
+
+html, body {
+  height: 100%;
+  margin: 0;
+  background: var(--bg-base);
+  color: var(--fg-primary);
+  font-family: 'Chakra Petch', -apple-system, system-ui, sans-serif;
+  font-size: calc(14px * var(--font-scale));
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+  letter-spacing: 0.1px;
+}
+
+* { box-sizing: border-box; }
+
+#app {
+  height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+/* Scrollbars dezent */
+::-webkit-scrollbar { width: 10px; height: 10px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb {
+  background: var(--border-strong);
+  border-radius: 5px;
+}
+::-webkit-scrollbar-thumb:hover { background: var(--fg-faint); }
+
+/* Utility-Klassen */
+.mono { font-family: 'JetBrains Mono', ui-monospace, monospace; font-variant-numeric: tabular-nums; letter-spacing: 0; }
+.soft { font-family: 'Chakra Petch', system-ui; font-weight: 300; }
+
+.card {
+  background: var(--bg-panel);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  box-shadow: var(--shadow-sm);
+}
+
+/* ------------------------------------------------------------------
+   Button-System -- alle Varianten haben dieselbe Hoehe (30px).
+   `.btn` = Standard. `.btn-primary` = Akzent-Hintergrund.
+   `.btn-toggle` = wie `.btn`, aber zeigt aktiven Zustand ueber
+   Akzent-Hintergrund statt einer Checkbox.
+   ------------------------------------------------------------------ */
+.btn,
+.btn-toggle {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  height: 30px;
+  padding: 0 10px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--bg-elev);
+  color: var(--fg-muted);
+  cursor: pointer;
+  font: inherit;
+  font-size: 12px;
+  line-height: 1;
+  white-space: nowrap;
+  box-sizing: border-box;
+  transition: background 120ms, color 120ms, border-color 120ms;
+}
+.btn i,
+.btn-toggle i { font-size: 13px; }
+.btn:hover:not(:disabled),
+.btn-toggle:hover:not(:disabled) {
+  color: var(--fg-primary);
+  border-color: var(--border-strong);
+}
+.btn:disabled,
+.btn-toggle:disabled { opacity: 0.4; cursor: not-allowed; }
+
+.btn-primary {
+  background: var(--accent);
+  color: var(--accent-on);
+  border-color: var(--accent);
+  font-weight: 600;
+}
+.btn-primary:hover:not(:disabled) {
+  background: var(--accent-hover);
+  border-color: var(--accent-hover);
+  color: var(--accent-on);
+}
+.btn-danger { border-color: color-mix(in oklab, var(--danger) 40%, var(--border)); }
+.btn-danger:hover:not(:disabled) { color: var(--danger); border-color: var(--danger); }
+
+.btn-stop {
+  background: var(--danger);
+  color: #fff;
+  border-color: var(--danger);
+  font-weight: 600;
+}
+.btn-stop:hover { filter: brightness(1.1); color: #fff; }
+
+/* Toggle-Zustand */
+.btn-toggle.is-on {
+  background: var(--accent-soft);
+  border-color: var(--accent);
+  color: var(--fg-primary);
+}
+.btn-toggle.is-on i { color: var(--accent); }
+.btn-toggle input[type="checkbox"] {
+  position: absolute;
+  width: 1px; height: 1px;
+  opacity: 0;
+  pointer-events: none;
+}
+
+/* Kleine Variante: schmaler, fuer Listen */
+.btn-sm { height: 26px; padding: 0 8px; font-size: 11px; }

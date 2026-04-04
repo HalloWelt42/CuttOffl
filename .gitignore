@@ -1,0 +1,32 @@
+# Python
+.venv/
+__pycache__/
+*.pyc
+
+# macOS / Editor
+.DS_Store
+.idea/
+.vscode/
+
+# Env
+.env
+
+# Daten (niemals ins Repo)
+data/originals/*
+data/proxies/*
+data/exports/*
+data/thumbs/*
+data/sprites/*
+data/waveforms/*
+data/tmp/*
+data/db/*
+!data/**/.gitkeep
+
+# Laufzeit
+logs/
+
+# Node / Vite
+node_modules/
+dist/
+.vite/
+package-lock.json
