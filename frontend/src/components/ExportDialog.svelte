@@ -1,4 +1,5 @@
 <script>
+  import { onMount } from 'svelte';
   import { editor, setOutput, startRender } from '../lib/editor.svelte.js';
   import { api } from '../lib/api.js';
   import { toast } from '../lib/toast.svelte.js';
@@ -11,6 +12,11 @@
   let crf       = $state(editor.edl?.output?.crf ?? 23);
   let bitrate   = $state(editor.edl?.output?.bitrate || '');
   let useBitrate = $state(!!editor.edl?.output?.bitrate);
+  let codecInfo  = $state(null);
+
+  onMount(async () => {
+    try { codecInfo = await api.systemCodecs(); } catch {}
+  });
 
   $effect(() => {
     if (!open || !editor.edl) return;
@@ -21,6 +27,15 @@
     bitrate = editor.edl.output.bitrate || '';
     useBitrate = !!editor.edl.output.bitrate;
   });
+
+  const hintForCodec = $derived(() => {
+    if (!codecInfo?.recommendations) return null;
+    return codecInfo.recommendations.find((r) => r.codec === codec) ?? null;
+  });
+
+  const defaultRec = $derived(() =>
+    codecInfo?.recommendations?.find((r) => r.default) ?? null
+  );
 
   const stats = $derived(() => {
     const tl = editor.edl?.timeline ?? [];
@@ -63,19 +78,52 @@
 
         <div class="row">
           <label>Codec
-            <select bind:value={codec}>
+            <select bind:value={codec}
+                    title="Videocodec für den Export. Der empfohlene Codec hängt von deinem Gerät ab.">
               <option value="h264">H.264 (weit kompatibel)</option>
               <option value="hevc">HEVC / H.265 (effizienter)</option>
             </select>
           </label>
           <label>Container
-            <select bind:value={container}>
+            <select bind:value={container}
+                    title="Dateiformat. MP4 ist am weitesten kompatibel, MKV erlaubt mehr Codecs, MOV wird vor allem auf Apple-Systemen genutzt.">
               <option value="mp4">MP4</option>
               <option value="mkv">MKV</option>
               <option value="mov">MOV</option>
             </select>
           </label>
         </div>
+
+        {#if codecInfo}
+          <div class="codec-hint" class:is-default={hintForCodec()?.default}>
+            <div class="hint-head">
+              <i class="fa-solid {hintForCodec()?.default ? 'fa-bolt' : 'fa-circle-info'}"></i>
+              <span class="hint-title">
+                {#if hintForCodec()}
+                  {hintForCodec().label}
+                  {#if hintForCodec().default}
+                    <span class="badge-rec">empfohlen für {codecInfo.platform.env_label}</span>
+                  {/if}
+                {:else}
+                  Codec {codec.toUpperCase()}
+                {/if}
+              </span>
+            </div>
+            {#if hintForCodec()}
+              <p class="hint-note">{hintForCodec().note}</p>
+            {/if}
+            {#if !hintForCodec()?.default && defaultRec()}
+              <p class="hint-swap soft">
+                Empfehlung für dieses Gerät:
+                <button class="linklike" type="button"
+                        onclick={() => (codec = defaultRec().codec)}
+                        title="Zum empfohlenen Codec wechseln">
+                  {defaultRec().label}
+                </button>
+              </p>
+            {/if}
+          </div>
+        {/if}
 
         <div class="row">
           <label>Auflösung
@@ -175,6 +223,40 @@
   }
   .dim { color: var(--fg-muted); }
   .small { font-size: 11px; }
+
+  .codec-hint {
+    background: var(--bg-sink);
+    border: 1px solid var(--border);
+    border-left: 3px solid var(--fg-faint);
+    border-radius: 6px;
+    padding: 10px 12px;
+    font-size: 12px;
+  }
+  .codec-hint.is-default { border-left-color: var(--accent); }
+  .hint-head {
+    display: flex; align-items: center; gap: 8px;
+    margin-bottom: 4px;
+  }
+  .hint-head i { color: var(--accent); }
+  .hint-title { font-weight: 600; color: var(--fg-primary); }
+  .badge-rec {
+    background: var(--accent-soft);
+    color: var(--accent);
+    padding: 1px 8px;
+    border-radius: 10px;
+    font-size: 10px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    margin-left: 6px;
+  }
+  .hint-note { margin: 0; line-height: 1.5; color: var(--fg-muted); font-size: 12px; }
+  .hint-swap { margin: 6px 0 0; font-size: 11px; color: var(--fg-muted); }
+  .linklike {
+    background: transparent; border: none; padding: 0;
+    color: var(--accent); cursor: pointer; font: inherit; text-decoration: underline;
+  }
+  .linklike:hover { color: var(--accent-hover); }
   footer {
     padding: 12px 16px;
     border-top: 1px solid var(--border);
