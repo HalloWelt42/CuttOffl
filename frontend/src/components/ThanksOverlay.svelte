@@ -79,13 +79,18 @@
         {#each CRYPTO as c (c.id)}
           {#if activeCrypto === c.id}
             <div class="crypto-detail">
-              <span class="label soft">{c.label}-Adresse</span>
-              <code class="address mono">{c.address}</code>
-              <button class="btn" onclick={() => copyAddress(c.address)}
-                      title="Adresse in die Zwischenablage kopieren">
-                <i class="fa-solid {copied === c.address ? 'fa-check' : 'fa-copy'}"></i>
-                {copied === c.address ? 'Kopiert' : 'Adresse kopieren'}
-              </button>
+              <div class="qr">
+                <img src={c.qr} alt={`QR-Code für ${c.label}-Adresse`} />
+              </div>
+              <div class="addr-block">
+                <span class="label soft">{c.label}-Adresse</span>
+                <code class="address mono">{c.address}</code>
+                <button class="btn" onclick={() => copyAddress(c.address)}
+                        title="Adresse in die Zwischenablage kopieren">
+                  <i class="fa-solid {copied === c.address ? 'fa-check' : 'fa-copy'}"></i>
+                  {copied === c.address ? 'Kopiert' : 'Adresse kopieren'}
+                </button>
+              </div>
             </div>
           {/if}
         {/each}
@@ -194,7 +199,23 @@
     background: var(--bg-sink);
     border: 1px solid var(--border);
     border-radius: 8px;
-    display: flex; flex-direction: column; gap: 8px;
+    display: flex;
+    gap: 14px;
+    align-items: center;
+  }
+  .qr {
+    flex: 0 0 128px;
+    width: 128px; height: 128px;
+    background: #fff;
+    border-radius: 6px;
+    padding: 6px;
+    display: grid; place-items: center;
+  }
+  .qr img { width: 100%; height: 100%; object-fit: contain; }
+  .addr-block { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; gap: 8px; }
+  @media (max-width: 540px) {
+    .crypto-detail { flex-direction: column; align-items: stretch; }
+    .qr { align-self: center; }
   }
   .label {
     font-size: 11px; letter-spacing: 1px; text-transform: uppercase;
