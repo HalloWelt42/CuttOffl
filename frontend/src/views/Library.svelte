@@ -142,6 +142,10 @@
                           : 'Bitte warten bis die Proxy-Vorschau fertig ist'}>
                   <i class="fa-solid fa-scissors"></i> Öffnen
                 </button>
+                <a class="btn" href={api.fileDownloadUrl(f.id)} download
+                   title="Original-Datei herunterladen (nicht die Proxy-Vorschau)">
+                  <i class="fa-solid fa-download"></i>
+                </a>
                 <button class="btn" onclick={() => onRegenProxy(f)}
                         title="Proxy-Vorschau (480p-Streaming-Version) neu erzeugen">
                   <i class="fa-solid fa-arrows-rotate"></i>
