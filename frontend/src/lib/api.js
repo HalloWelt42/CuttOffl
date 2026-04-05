@@ -27,6 +27,12 @@ export const api = {
   listFiles: () => request('/files'),
   getFile: (id) => request(`/files/${id}`),
   deleteFile: (id) => request(`/files/${id}`, { method: 'DELETE' }),
+  fileDownloadUrl: (id) => `${BASE}/files/${id}/download`,
+
+  // System
+  systemOverview: () => request('/system/overview'),
+  systemStorage:  () => request('/system/storage'),
+  systemCodecs:   () => request('/system/codecs'),
 
   // Upload
   upload: async (file, onProgress) => {
