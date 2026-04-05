@@ -1,7 +1,7 @@
 """
 CuttOffl Backend - Files-Router.
 
-Liste, Detail, Löschen der hochgeladenen Originale.
+Liste, Detail, Download, Löschen der hochgeladenen Originale.
 """
 
 from __future__ import annotations
@@ -9,6 +9,7 @@ from __future__ import annotations
 from pathlib import Path
 
 from fastapi import APIRouter, HTTPException
+from fastapi.responses import FileResponse
 
 from app.db import db
 from app.models.schemas import FileOut
@@ -51,6 +52,34 @@ async def get_file(file_id: str) -> FileOut:
     if row is None:
         raise HTTPException(status_code=404, detail="Datei nicht gefunden")
     return _row_to_fileout(row)
+
+
+@router.get("/{file_id}/download")
+async def download_file(file_id: str):
+    """Liefert die Original-Datei zum Herunterladen aus.
+    Der Download-Header traegt den urspruenglichen Dateinamen.
+    """
+    row = await db.fetch_one(
+        "SELECT path, original_name FROM files WHERE id = ?", (file_id,)
+    )
+    if row is None:
+        raise HTTPException(status_code=404, detail="Datei nicht gefunden")
+    path = Path(row["path"])
+    if not path.exists():
+        raise HTTPException(status_code=410, detail="Originaldatei fehlt auf Platte")
+
+    suffix = path.suffix.lower()
+    media = {
+        ".mp4": "video/mp4", ".mov": "video/quicktime",
+        ".mkv": "video/x-matroska", ".webm": "video/webm",
+        ".avi": "video/x-msvideo", ".m4v": "video/x-m4v",
+    }.get(suffix, "application/octet-stream")
+
+    return FileResponse(
+        path,
+        media_type=media,
+        filename=row["original_name"] or path.name,
+    )
 
 
 @router.delete("/{file_id}")
