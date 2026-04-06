@@ -1,7 +1,6 @@
 <script>
   import { onMount } from 'svelte';
   import PanelHeader from '../components/PanelHeader.svelte';
-  import { theme, applyTheme, setScale } from '../lib/theme.svelte.js';
   import { api } from '../lib/api.js';
 
   let ping = $state(null);
@@ -22,20 +21,6 @@
   <PanelHeader icon="fa-gear" title="Einstellungen" subtitle="Erscheinung & System" />
 
   <div class="body">
-    <div class="card block">
-      <h3>Schriftgröße</h3>
-      <p class="soft hint">Skaliert die gesamte Oberfläche.</p>
-      <div class="opts">
-        {#each ['small','normal','large'] as s (s)}
-          <button class="btn" class:btn-primary={theme.scale === s}
-                  onclick={() => setScale(s)}
-                  title={`Schriftgröße auf "${s}" stellen (wirkt sofort)`}>
-            {s}
-          </button>
-        {/each}
-      </div>
-    </div>
-
     <div class="card block">
       <h3>System</h3>
       <dl class="kv mono">
@@ -83,7 +68,6 @@
   .block { padding: 16px; }
   h3 { margin: 0 0 6px; font-size: 14px; color: var(--fg-primary); }
   .hint { font-size: 12px; margin: 0 0 10px; color: var(--fg-muted); }
-  .opts { display: flex; gap: 8px; flex-wrap: wrap; }
   .kv {
     display: grid;
     grid-template-columns: max-content 1fr;

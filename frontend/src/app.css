@@ -15,8 +15,6 @@
    Theme-Variablen -- Dark-first, semantische Palette
    ------------------------------------------------------------------ */
 :root {
-  --font-scale: 1;
-
   /* Flächen */
   --bg-base:    #0b0f14;
   --bg-panel:   #111821;
@@ -88,7 +86,7 @@ html, body {
   background: var(--bg-base);
   color: var(--fg-primary);
   font-family: 'Chakra Petch', -apple-system, system-ui, sans-serif;
-  font-size: calc(14px * var(--font-scale));
+  font-size: 14px;
   -webkit-font-smoothing: antialiased;
   text-rendering: optimizeLegibility;
   letter-spacing: 0.1px;
