@@ -5,7 +5,7 @@ Teil der Vault-Familie. Fokus auf große Dateien, nicht auf Echtzeit-Preview.
 
 ## Status
 
-**Backend v0.3.0 -- Phase 3 abgeschlossen**
+**Backend v0.5.0**
 
 - FastAPI läuft nativ auf Mac (kein Docker)
 - SQLite via `aiosqlite`, natives SQL
@@ -23,7 +23,7 @@ Teil der Vault-Familie. Fokus auf große Dateien, nicht auf Echtzeit-Preview.
 - **Keyframe-Snap-Endpunkt** (`GET /api/proxy/{id}/snap?t=x&mode=nearest|prev|next`)
 - **Exports-Liste + Download** (`GET /api/exports`, `GET /api/exports/{job_id}/download`)
 
-**Frontend v0.1.0 -- Phase 5 abgeschlossen**
+**Frontend v0.2.0**
 
 - Svelte 5 (Runes) + Vite 8 + Tailwind 4, kein SvelteKit
 - Studio-Layout: Sidebar (kollabierbar, resizable) + Content + JobsBar + Footer
@@ -34,7 +34,8 @@ Teil der Vault-Familie. Fokus auf große Dateien, nicht auf Echtzeit-Preview.
 - Toast-System, Error-Boundary
 - Live-Jobs-Anzeige via WebSocket
 
-tus.io-Chunked-Upload (Phase 4), EDL-Editor & Renderer (Phase 3/7) folgen.
+Erweiterungsideen: tus.io-Chunked-Upload fuer sehr grosse Dateien,
+zusaetzliche Effekte (Fade, Speed), Multi-File-Projekte.
 
 ## Ports
 

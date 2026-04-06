@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
-# CuttOffl - nativer Mac-Setup (Phase 1, Backend).
-# Legt venv an, installiert Backend-Dependencies, prüft ffmpeg.
+# CuttOffl - nativer Mac-Setup fuer das Backend.
+# Legt venv an, installiert Backend-Dependencies, prueft ffmpeg.
 
 set -euo pipefail
 
