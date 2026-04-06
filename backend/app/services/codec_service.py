@@ -77,92 +77,88 @@ async def get_recommendations(force: bool = False) -> dict:
     if env == "apple-silicon":
         if have_vt_hevc:
             recs.append({
-                "id":      "small",
+                "id":      "hevc",
                 "codec":   "hevc",
                 "encoder": "hevc_videotoolbox",
-                "label":   "HEVC (H.265) mit VideoToolbox",
-                "tag":     "klein",
-                "note":    "Rund 30-50 % kleinere Datei als H.264 bei vergleichbarer "
-                           "Qualitaet. Wiedergabe ab iOS 11, macOS High Sierra, Windows 10 "
-                           "(mit Codec) oder VLC problemlos. Nicht optimal fuer aeltere Geraete.",
+                "label":   "HEVC (H.265)",
+                "tag":     "klein & schnell",
+                "speed":   "fast",
+                "note":    "Etwa 30-50 % kleinere Datei als H.264 bei vergleichbarer "
+                           "Qualitaet. Auf deinem Mac wird HEVC in Hardware beschleunigt, "
+                           "Render ist also ungefaehr so schnell wie bei H.264. "
+                           "Wiedergabe ab iOS 11, macOS High Sierra, Windows 10 (mit "
+                           "Codec) oder VLC problemlos; aeltere Geraete koennen HEVC "
+                           "aber nicht abspielen.",
                 "default": True,
             })
         if have_vt_h264:
             recs.append({
-                "id":      "fast",
+                "id":      "h264",
                 "codec":   "h264",
                 "encoder": "h264_videotoolbox",
-                "label":   "H.264 mit VideoToolbox",
-                "tag":     "kompatibel",
-                "note":    "Ueberall abspielbar. Auf Apple Silicon sehr schnell und "
-                           "in guter Qualitaet. Etwas groessere Dateien als HEVC.",
+                "label":   "H.264",
+                "tag":     "weit kompatibel",
+                "speed":   "fast",
+                "note":    "H.264 ist ueberall abspielbar -- vom alten Smartphone bis "
+                           "zum Fernseher. Auf deinem Mac wird der Render in Hardware "
+                           "beschleunigt und ist sehr schnell. Dateien werden nur "
+                           "etwas groesser als bei HEVC.",
                 "default": not have_vt_hevc,
-            })
-        if have_x264:
-            recs.append({
-                "id":      "software",
-                "codec":   "h264",
-                "encoder": "libx264",
-                "label":   "H.264 Software (libx264)",
-                "tag":     "vorsichtig",
-                "note":    "Reiner Software-Encoder, etwas besser konfigurierbar. Deutlich "
-                           "langsamer als VideoToolbox, hier selten noetig.",
             })
 
     elif env == "raspberry-pi":
         if have_x264:
             recs.append({
-                "id":      "fast",
+                "id":      "h264",
                 "codec":   "h264",
                 "encoder": "libx264",
-                "label":   "H.264 Software (libx264 fast)",
-                "tag":     "empfohlen",
-                "note":    "Auf dem Pi 5 liefert libx264 meist bessere Qualitaet als der "
-                           "V4L2-Hardware-Encoder. Preset 'fast' ist ein guter Kompromiss.",
+                "label":   "H.264",
+                "tag":     "weit kompatibel",
+                "speed":   "medium",
+                "note":    "Ueberall abspielbar. Auf dem Pi wird H.264 per Software "
+                           "berechnet (optional auch ueber den V4L2-Hardware-Encoder, "
+                           "dann mit etwas weniger Qualitaet). Render-Zeit merklich "
+                           "laenger als auf einem Mac, aber noch alltagstauglich.",
                 "default": True,
-            })
-        if have_v4l2:
-            recs.append({
-                "id":      "turbo",
-                "codec":   "h264",
-                "encoder": "h264_v4l2m2m",
-                "label":   "H.264 Hardware (V4L2)",
-                "tag":     "schnell, grob",
-                "note":    "Hardware-Encoder auf dem Pi. Spart CPU, Qualitaet teils "
-                           "merklich schlechter als libx264. Nur wenn Geschwindigkeit klar "
-                           "Prioritaet hat.",
             })
         if have_x265:
             recs.append({
-                "id":      "small",
+                "id":      "hevc",
                 "codec":   "hevc",
                 "encoder": "libx265",
-                "label":   "HEVC Software (libx265)",
-                "tag":     "langsam, klein",
-                "note":    "Kleinere Dateien, aber auf dem Pi sehr langsam. Fuer lange "
-                           "Videos oft nicht praxistauglich.",
+                "label":   "HEVC (H.265)",
+                "tag":     "kleiner, aber langsam",
+                "speed":   "slow",
+                "note":    "Kleinere Dateien als H.264. Auf dem Pi wird HEVC nur per "
+                           "Software berechnet, der Render ist deshalb deutlich langsamer. "
+                           "Fuer kurze Clips in Ordnung, fuer lange Videos eher nicht "
+                           "praktikabel.",
             })
 
     else:  # software
         if have_x264:
             recs.append({
-                "id":      "fast",
+                "id":      "h264",
                 "codec":   "h264",
                 "encoder": "libx264",
-                "label":   "H.264 Software (libx264)",
-                "tag":     "empfohlen",
-                "note":    "Allround-Codec. Ueberall abspielbar, solide Qualitaet.",
+                "label":   "H.264",
+                "tag":     "weit kompatibel",
+                "speed":   "medium",
+                "note":    "Ueberall abspielbar. Render wird per Software berechnet, "
+                           "Geschwindigkeit haengt von der CPU ab.",
                 "default": True,
             })
         if have_x265:
             recs.append({
-                "id":      "small",
+                "id":      "hevc",
                 "codec":   "hevc",
                 "encoder": "libx265",
-                "label":   "HEVC Software (libx265)",
-                "tag":     "langsam, klein",
-                "note":    "Kleinere Dateien, aber deutlich langsamer. Nur wenn "
-                           "Dateigroesse wichtiger als Render-Zeit ist.",
+                "label":   "HEVC (H.265)",
+                "tag":     "kleiner, aber langsam",
+                "speed":   "slow",
+                "note":    "Kleinere Dateien als H.264, dafuer deutlich laengere "
+                           "Render-Zeit. Nur sinnvoll, wenn Dateigroesse wichtiger "
+                           "als Geschwindigkeit ist.",
             })
 
     _cache = {

@@ -95,24 +95,28 @@
         </div>
 
         {#if codecInfo}
-          <div class="codec-hint" class:is-default={hintForCodec()?.default}>
+          {@const h = hintForCodec()}
+          <div class="codec-hint" class:is-default={h?.default}>
             <div class="hint-head">
-              <i class="fa-solid {hintForCodec()?.default ? 'fa-bolt' : 'fa-circle-info'}"></i>
+              <i class="fa-solid {h?.default ? 'fa-bolt' : 'fa-circle-info'}"></i>
               <span class="hint-title">
-                {#if hintForCodec()}
-                  {hintForCodec().label}
-                  {#if hintForCodec().default}
+                {#if h}
+                  {h.label}
+                  {#if h.default}
                     <span class="badge-rec">empfohlen für {codecInfo.platform.env_label}</span>
                   {/if}
                 {:else}
                   Codec {codec.toUpperCase()}
                 {/if}
               </span>
+              {#if h?.tag}
+                <span class="hint-tag hint-tag-{h.speed ?? 'medium'}">{h.tag}</span>
+              {/if}
             </div>
-            {#if hintForCodec()}
-              <p class="hint-note">{hintForCodec().note}</p>
+            {#if h}
+              <p class="hint-note">{h.note}</p>
             {/if}
-            {#if !hintForCodec()?.default && defaultRec()}
+            {#if !h?.default && defaultRec()}
               <p class="hint-swap soft">
                 Empfehlung für dieses Gerät:
                 <button class="linklike" type="button"
@@ -242,6 +246,19 @@
   .hint-head i { color: var(--fg-muted); }
   .codec-hint.is-default .hint-head i { color: var(--accent); }
   .hint-title { font-weight: 600; color: var(--fg-primary); }
+  .hint-tag {
+    margin-left: auto;
+    font-size: 10px;
+    letter-spacing: 0.4px;
+    padding: 2px 8px;
+    border-radius: 10px;
+    background: var(--bg-panel);
+    color: var(--fg-muted);
+    border: 1px solid var(--border);
+  }
+  .hint-tag-fast   { color: var(--success); border-color: color-mix(in oklab, var(--success) 35%, var(--border)); }
+  .hint-tag-medium { color: var(--fg-muted); }
+  .hint-tag-slow   { color: var(--warning); border-color: color-mix(in oklab, var(--warning) 35%, var(--border)); }
   .badge-rec {
     background: var(--accent-soft);
     color: var(--accent);
