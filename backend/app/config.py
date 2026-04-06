@@ -34,7 +34,22 @@ PORT = int(os.getenv("CUTTOFFL_PORT", "10036"))
 
 LOG_LEVEL = os.getenv("CUTTOFFL_LOG_LEVEL", "INFO").upper()
 
-CORS_ORIGINS = ["*"]
+# CORS: standardmaessig nur die erwarteten Dev-Origins. Erlaubte Werte
+# koennen per CUTTOFFL_CORS_ORIGINS ueberschrieben werden (komma-separiert).
+# "*" als Eintrag bleibt moeglich fuer offene Umgebungen; in dem Fall
+# wird allow_credentials in main.py bewusst auf False gezwungen, weil
+# Browser "Origin: *" + Credentials sowieso ignorieren.
+_DEFAULT_CORS = (
+    "http://127.0.0.1:10037,http://localhost:10037,"
+    "http://127.0.0.1:10036,http://localhost:10036"
+)
+CORS_ORIGINS = [
+    o.strip()
+    for o in os.getenv("CUTTOFFL_CORS_ORIGINS", _DEFAULT_CORS).split(",")
+    if o.strip()
+]
+CORS_ALLOW_ANY = "*" in CORS_ORIGINS
+CORS_ALLOW_CREDENTIALS = not CORS_ALLOW_ANY
 
 MAX_UPLOAD_MB = int(os.getenv("CUTTOFFL_MAX_UPLOAD_MB", "10240"))
 ALLOWED_EXTENSIONS = {

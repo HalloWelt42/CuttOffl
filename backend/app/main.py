@@ -22,7 +22,10 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from app.config import APP_NAME, CORS_ORIGINS, HOST, LOG_LEVEL, PORT, VERSION, ensure_directories
+from app.config import (
+    APP_NAME, CORS_ALLOW_CREDENTIALS, CORS_ORIGINS, HOST, LOG_LEVEL,
+    PORT, VERSION, ensure_directories,
+)
 from app.db import db
 from app.routers import (
     exports, files, jobs, probe, projects, proxy, sprite,
@@ -67,10 +70,13 @@ app = FastAPI(
 app.add_middleware(
     CORSMiddleware,
     allow_origins=CORS_ORIGINS,
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-    expose_headers=["Content-Range", "Accept-Ranges", "Content-Length"],
+    allow_credentials=CORS_ALLOW_CREDENTIALS,
+    allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+    allow_headers=["Authorization", "Content-Type", "Accept",
+                   "Range", "X-Requested-With"],
+    expose_headers=["Content-Range", "Accept-Ranges", "Content-Length",
+                    "Content-Disposition"],
+    max_age=600,
 )
 
 app.include_router(system.router)
