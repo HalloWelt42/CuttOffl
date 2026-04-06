@@ -14,6 +14,7 @@ from app.models.edl import (
     EDL, OutputProfile, ProjectCreate, ProjectOut, ProjectUpdate,
     RenderStartResponse,
 )
+from app.services.error_helper import sanitize_error
 from app.services.job_service import job_service
 
 router = APIRouter(prefix="/api/projects", tags=["projects"])
@@ -120,7 +121,10 @@ async def render_project(project_id: str) -> RenderStartResponse:
     try:
         edl = EDL.model_validate(json.loads(row["edl_json"] or "{}"))
     except Exception as e:
-        raise HTTPException(status_code=400, detail=f"EDL unlesbar: {e}")
+        raise HTTPException(
+            status_code=400,
+            detail=f"EDL unlesbar: {sanitize_error(str(e))}",
+        )
     if not edl.timeline:
         raise HTTPException(status_code=400, detail="EDL-Timeline ist leer")
 

@@ -29,6 +29,7 @@ import json as _json
 from app.config import PROXIES_DIR, SPRITES_DIR, THUMBS_DIR, WAVEFORMS_DIR
 from app.db import db
 from app.models.edl import EDL
+from app.services.error_helper import sanitize_error
 from app.services.keyframe_service import extract_keyframes
 from app.services.proxy_service import generate_proxy
 from app.services.render_service import render_edl
@@ -112,7 +113,7 @@ class JobService:
             except Exception as e:
                 logger.exception(f"Job-Fehler ({job.kind} {job.id}): {e}")
                 job.status = "failed"
-                job.error = str(e)
+                job.error = sanitize_error(str(e), fallback="Job-Fehler")
                 await self._persist(job)
                 if job.kind == "proxy" and job.file_id:
                     await db.execute(

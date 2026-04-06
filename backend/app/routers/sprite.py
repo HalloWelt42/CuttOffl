@@ -17,6 +17,7 @@ from fastapi import APIRouter, HTTPException
 from fastapi.responses import FileResponse, JSONResponse
 
 from app.db import db
+from app.services.error_helper import sanitize_error
 from app.services.job_service import job_service
 
 router = APIRouter(prefix="/api", tags=["visualisation"])
@@ -74,7 +75,10 @@ async def get_waveform(file_id: str):
     try:
         data = json.loads(Path(p).read_text(encoding="utf-8"))
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Waveform unlesbar: {e}")
+        raise HTTPException(
+            status_code=500,
+            detail=f"Waveform unlesbar: {sanitize_error(str(e))}",
+        )
     return JSONResponse(data)
 
 

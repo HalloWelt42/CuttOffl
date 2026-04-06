@@ -13,6 +13,7 @@ from fastapi import APIRouter, HTTPException
 
 from app.db import db
 from app.models.schemas import ProbeResponse
+from app.services.error_helper import sanitize_error
 from app.services.probe_service import probe_file, summarize
 
 router = APIRouter(prefix="/api/probe", tags=["probe"])
@@ -35,7 +36,10 @@ async def probe(file_id: str, refresh: bool = False) -> ProbeResponse:
         try:
             raw = await probe_file(path)
         except Exception as e:
-            raise HTTPException(status_code=500, detail=f"ffprobe-Fehler: {e}")
+            raise HTTPException(
+                status_code=500,
+                detail=f"ffprobe-Fehler: {sanitize_error(str(e))}",
+            )
         summary = summarize(raw)
         await db.execute(
             """UPDATE files SET duration_s=?, width=?, height=?, fps=?,
