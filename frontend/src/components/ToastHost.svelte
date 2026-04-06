@@ -43,15 +43,16 @@
     background: var(--bg-elev);
     color: var(--fg-primary);
     border: 1px solid var(--border-strong);
-    border-left: 3px solid var(--accent);
     border-radius: 8px;
     box-shadow: var(--shadow-md);
     font-size: 13px;
   }
-  .toast.success { border-left-color: var(--success); }
-  .toast.warning { border-left-color: var(--warning); }
-  .toast.error   { border-left-color: var(--danger); }
-  .toast.info    { border-left-color: var(--info); }
+  /* Typ-Signal ueber Icon-Farbe, nicht ueber Seitenleiste */
+  .toast > i { font-size: 15px; flex: 0 0 auto; }
+  .toast.success > i { color: var(--success); }
+  .toast.warning > i { color: var(--warning); }
+  .toast.error   > i { color: var(--danger); }
+  .toast.info    > i { color: var(--info); }
   .msg { flex: 1; line-height: 1.35; }
   .close {
     background: transparent;

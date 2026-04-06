@@ -414,13 +414,11 @@
     padding: 0 14px;
     background: var(--bg-elev);
     border-top: 1px solid var(--border);
-    border-left: 3px solid var(--accent);
+    border-bottom: 1px solid var(--border);
     font-size: 12px;
     overflow: hidden;
     white-space: nowrap;
   }
-  .mode-banner.copy     { border-left-color: var(--clip-copy); }
-  .mode-banner.reencode { border-left-color: var(--clip-reencode); }
   .mode-banner i        { color: var(--accent); }
   .mode-banner.copy     i { color: var(--clip-copy); }
   .mode-banner.reencode i { color: var(--clip-reencode); }
@@ -428,6 +426,17 @@
     font-weight: 700; text-transform: uppercase; letter-spacing: 1px;
     font-size: 11px;
     color: var(--fg-primary);
+    padding: 2px 8px;
+    border-radius: 3px;
+    background: var(--bg-panel);
+  }
+  .mode-banner.copy     .mode-name {
+    background: color-mix(in oklab, var(--clip-copy) 24%, var(--bg-panel));
+    color: #dff7f3;
+  }
+  .mode-banner.reencode .mode-name {
+    background: color-mix(in oklab, var(--clip-reencode) 24%, var(--bg-panel));
+    color: #e3e0ff;
   }
   .mode-desc {
     color: var(--fg-muted);

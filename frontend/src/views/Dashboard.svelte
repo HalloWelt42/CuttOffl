@@ -336,9 +336,8 @@
 
   /* Codec */
   .codec-hero {
-    background: var(--bg-sink);
-    border: 1px solid var(--border);
-    border-left: 3px solid var(--accent);
+    background: var(--accent-soft);
+    border: 1px solid var(--accent);
     border-radius: 8px;
     padding: 12px 14px;
     display: flex; flex-direction: column; gap: 4px;

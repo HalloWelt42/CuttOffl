@@ -227,17 +227,20 @@
   .codec-hint {
     background: var(--bg-sink);
     border: 1px solid var(--border);
-    border-left: 3px solid var(--fg-faint);
     border-radius: 6px;
     padding: 10px 12px;
     font-size: 12px;
   }
-  .codec-hint.is-default { border-left-color: var(--accent); }
+  .codec-hint.is-default {
+    background: var(--accent-soft);
+    border-color: var(--accent);
+  }
   .hint-head {
     display: flex; align-items: center; gap: 8px;
     margin-bottom: 4px;
   }
-  .hint-head i { color: var(--accent); }
+  .hint-head i { color: var(--fg-muted); }
+  .codec-hint.is-default .hint-head i { color: var(--accent); }
   .hint-title { font-weight: 600; color: var(--fg-primary); }
   .badge-rec {
     background: var(--accent-soft);
