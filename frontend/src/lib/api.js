@@ -79,6 +79,9 @@ export const api = {
   listJobs: (limit = 50) => request(`/jobs?limit=${limit}`),
   activeJob: () => request('/jobs/active'),
   getJob: (id) => request(`/jobs/${id}`),
+  clearFailedJobs: () => request('/jobs/failed', { method: 'DELETE' }),
+  clearCompletedJobs: (keep_renders = true) =>
+    request(`/jobs/completed?keep_renders=${keep_renders}`, { method: 'DELETE' }),
 
   // Probe
   probe: (id) => request(`/probe/${id}`),

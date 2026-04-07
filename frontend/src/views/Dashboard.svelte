@@ -4,6 +4,7 @@
   import { go, openInEditor } from '../lib/nav.svelte.js';
   import PanelHeader from '../components/PanelHeader.svelte';
   import { wsOn, wsStart } from '../lib/ws.svelte.js';
+  import { toast } from '../lib/toast.svelte.js';
 
   let overview = $state(null);
   let storage = $state(null);
@@ -29,6 +30,14 @@
       if (m.type === 'file_event' || m.type === 'job_event') refresh();
     });
   });
+
+  async function clearFailed() {
+    try {
+      const r = await api.clearFailedJobs();
+      toast.success(`${r.deleted} fehlgeschlagene Jobs aufgeräumt`);
+      refresh();
+    } catch (e) { toast.error(e.message); }
+  }
 
   function fmtSize(n) {
     if (!n) return '0 B';
@@ -104,18 +113,40 @@
         <div class="kpi-label soft">Fertige Schnitte</div>
         <div class="kpi-sub mono">gerendert und abrufbar</div>
       </button>
-      <div class="kpi static" title={`${overview?.counts?.active_jobs ?? 0} aktiv, ${overview?.counts?.failed_jobs ?? 0} fehlgeschlagen`}>
-        <i class="fa-solid fa-gears"></i>
-        <div class="kpi-value mono">
-          {overview?.counts?.active_jobs ?? 0}
-          {#if overview?.counts?.failed_jobs}
-            <span class="fail">· {overview.counts.failed_jobs} ✗</span>
-          {/if}
+      {@const active = overview?.counts?.active_jobs ?? 0}
+      <div class="kpi static" title={active > 0
+          ? 'Aktuell werden Hintergrund-Aufgaben bearbeitet (Proxy-Erzeugung, Thumbnails, Wellenform oder Render).'
+          : 'Aktuell werden keine Hintergrund-Aufgaben bearbeitet.'}>
+        <i class="fa-solid {active > 0 ? 'fa-gears fa-spin' : 'fa-circle-check'}"></i>
+        <div class="kpi-value mono">{active}</div>
+        <div class="kpi-label soft">
+          {active === 0 ? 'Im Leerlauf' : active === 1 ? 'Laufender Job' : 'Laufende Jobs'}
         </div>
-        <div class="kpi-label soft">Aktive Jobs</div>
         <div class="kpi-sub mono">{overview?.counts?.projects ?? 0} Projekte insgesamt</div>
       </div>
     </div>
+
+    {#if overview?.counts?.failed_jobs}
+      <div class="card block fail-banner">
+        <div class="fail-left">
+          <i class="fa-solid fa-triangle-exclamation"></i>
+          <div>
+            <div class="fail-title">
+              {overview.counts.failed_jobs}
+              {overview.counts.failed_jobs === 1 ? 'fehlgeschlagener Job' : 'fehlgeschlagene Jobs'}
+            </div>
+            <div class="fail-sub soft">
+              Details stehen im Server-Log unter <code>logs/backend.log</code>.
+              Wenn es nicht mehr relevant ist, kannst du die Fehler-Historie aufräumen.
+            </div>
+          </div>
+        </div>
+        <button class="btn" onclick={clearFailed}
+                title="Fehlgeschlagene Jobs aus der Historie entfernen">
+          <i class="fa-solid fa-broom"></i> Aufräumen
+        </button>
+      </div>
+    {/if}
 
     <!-- Speicher -->
     <div class="card block">
@@ -282,6 +313,17 @@
 
   /* Block */
   .block { padding: 16px; }
+
+  .fail-banner {
+    display: flex; align-items: center; gap: 14px;
+    border-color: var(--danger);
+    background: color-mix(in oklab, var(--danger) 10%, var(--bg-panel));
+  }
+  .fail-left { display: flex; align-items: flex-start; gap: 12px; flex: 1 1 auto; }
+  .fail-left > i { color: var(--danger); font-size: 20px; padding-top: 1px; }
+  .fail-title { font-weight: 600; font-size: 14px; color: var(--fg-primary); }
+  .fail-sub { font-size: 12px; color: var(--fg-muted); margin-top: 2px; line-height: 1.5; }
+  .fail-sub code { background: var(--bg-sink); padding: 1px 5px; border-radius: 3px; font-size: 11px; }
   .block-head {
     display: flex; align-items: center; justify-content: space-between;
     gap: 10px;
