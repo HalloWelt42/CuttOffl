@@ -26,6 +26,12 @@ export const api = {
   // Files
   listFiles: () => request('/files'),
   getFile: (id) => request(`/files/${id}`),
+  renameFile: (id, original_name) =>
+    request(`/files/${id}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ original_name }),
+    }),
   deleteFile: (id) => request(`/files/${id}`, { method: 'DELETE' }),
   fileDownloadUrl: (id) => `${BASE}/files/${id}/download`,
 

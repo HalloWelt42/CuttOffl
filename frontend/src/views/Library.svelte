@@ -57,6 +57,18 @@
     } catch (e) { toast.error(e.message); }
   }
 
+  async function onRename(f) {
+    const next = prompt('Neuen Dateinamen eingeben:', f.original_name);
+    if (next == null) return;
+    const name = next.trim();
+    if (!name || name === f.original_name) return;
+    try {
+      await api.renameFile(f.id, name);
+      toast.success('Datei umbenannt');
+      refresh();
+    } catch (e) { toast.error(e.message); }
+  }
+
   function fmtSize(n) {
     if (!n) return '-';
     const u = ['B','KB','MB','GB','TB'];
@@ -138,6 +150,10 @@
                           ? 'Dieses Video im Schnitt-Editor öffnen'
                           : 'Bitte warten bis die Proxy-Vorschau fertig ist'}>
                   <i class="fa-solid fa-scissors"></i> Öffnen
+                </button>
+                <button class="btn" onclick={() => onRename(f)}
+                        title="Angezeigten Dateinamen ändern (die Datei selbst bleibt unverändert auf der Platte)">
+                  <i class="fa-solid fa-pen"></i>
                 </button>
                 <a class="btn" href={api.fileDownloadUrl(f.id)} download
                    title="Original-Datei herunterladen (nicht die Proxy-Vorschau)">
