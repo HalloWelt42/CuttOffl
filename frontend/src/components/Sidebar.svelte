@@ -65,11 +65,6 @@
       <i class="fa-solid {theme.mode === 'dark' ? 'fa-moon' : 'fa-sun'}"></i>
       {#if !collapsed}<span>{theme.mode === 'dark' ? 'Dunkel' : 'Hell'}</span>{/if}
     </button>
-    <button class="item" onclick={() => (collapsed = !collapsed)}
-            title={collapsed ? 'Seitenleiste ausklappen' : 'Seitenleiste einklappen'}>
-      <i class="fa-solid {collapsed ? 'fa-angles-right' : 'fa-angles-left'}"></i>
-      {#if !collapsed}<span>Einklappen</span>{/if}
-    </button>
 
     <button class="item" onclick={openThanks}
             title="Unterstützungs-Möglichkeiten anzeigen (Ko-fi und Kryptowährungen)">
@@ -97,6 +92,12 @@
         </div>
       </div>
     {/if}
+
+    <button class="item collapse-toggle" onclick={() => (collapsed = !collapsed)}
+            title={collapsed ? 'Seitenleiste ausklappen' : 'Seitenleiste einklappen'}>
+      <i class="fa-solid {collapsed ? 'fa-angles-right' : 'fa-angles-left'}"></i>
+      {#if !collapsed}<span>Einklappen</span>{/if}
+    </button>
   </div>
 </aside>
 
