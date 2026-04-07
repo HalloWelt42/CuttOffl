@@ -12,7 +12,7 @@ from fastapi import APIRouter, HTTPException
 from fastapi.responses import FileResponse
 
 from app.db import db
-from app.models.schemas import FileOut
+from app.models.schemas import FileOut, FileRenameBody
 
 router = APIRouter(prefix="/api/files", tags=["files"])
 
@@ -51,6 +51,28 @@ async def get_file(file_id: str) -> FileOut:
     row = await db.fetch_one("SELECT * FROM files WHERE id = ?", (file_id,))
     if row is None:
         raise HTTPException(status_code=404, detail="Datei nicht gefunden")
+    return _row_to_fileout(row)
+
+
+@router.patch("/{file_id}", response_model=FileOut)
+async def rename_file(file_id: str, body: FileRenameBody) -> FileOut:
+    """Aendert nur den angezeigten Dateinamen (original_name).
+    Der physische Pfad auf der Platte bleibt unveraendert (UUID-basiert).
+    """
+    row = await db.fetch_one("SELECT id FROM files WHERE id = ?", (file_id,))
+    if row is None:
+        raise HTTPException(status_code=404, detail="Datei nicht gefunden")
+    new_name = body.original_name.strip()
+    if not new_name:
+        raise HTTPException(status_code=400, detail="Name darf nicht leer sein")
+    # Zeichen die im Download-Content-Disposition kaputtgehen koennten, filtern
+    if any(ch in new_name for ch in ("\x00", "\r", "\n")):
+        raise HTTPException(status_code=400, detail="Unerlaubte Zeichen im Namen")
+    await db.execute(
+        "UPDATE files SET original_name=?, updated_at=datetime('now') WHERE id = ?",
+        (new_name, file_id),
+    )
+    row = await db.fetch_one("SELECT * FROM files WHERE id = ?", (file_id,))
     return _row_to_fileout(row)
 
 

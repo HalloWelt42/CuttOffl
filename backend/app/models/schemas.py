@@ -46,6 +46,10 @@ class UploadStartResponse(BaseModel):
     thumb_job_id: str
 
 
+class FileRenameBody(BaseModel):
+    original_name: str = Field(min_length=1, max_length=255)
+
+
 class UploadResponse(BaseModel):
     file: FileOut
 
