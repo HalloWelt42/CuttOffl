@@ -50,12 +50,33 @@ async def lifespan(app: FastAPI):
     hw = await detect_hw_encoder()
     job_service.set_broadcaster(ws.broadcaster.broadcast)
     await job_service.start()
+    await _auto_cleanup_jobs()
     logger.info(f"[OK] API: http://{HOST}:{PORT}  Docs: http://{HOST}:{PORT}/docs  HW: {hw}")
     yield
     logger.info(f"[STOP] {APP_NAME} fährt herunter...")
     await job_service.stop()
     await db.disconnect()
     logger.info(f"[BYE] {APP_NAME} gestoppt")
+
+
+async def _auto_cleanup_jobs() -> None:
+    """Haelt die jobs-Tabelle klein: alte abgeschlossene Hintergrund-Jobs und
+    alte fehlgeschlagene Jobs werden nach 14 Tagen entfernt. Render-Jobs
+    bleiben erhalten (Referenz auf das Export-Video)."""
+    try:
+        await db.execute(
+            """DELETE FROM jobs
+               WHERE status = 'failed'
+                 AND updated_at < datetime('now', '-14 days')"""
+        )
+        await db.execute(
+            """DELETE FROM jobs
+               WHERE status = 'completed'
+                 AND kind IN ('proxy','thumbnail','sprite','waveform','keyframes')
+                 AND updated_at < datetime('now', '-14 days')"""
+        )
+    except Exception as e:
+        logger.warning(f"Auto-Cleanup Jobs fehlgeschlagen: {e}")
 
 
 app = FastAPI(
