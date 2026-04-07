@@ -113,9 +113,16 @@ async def delete_project(project_id: str) -> dict:
 
 
 @router.post("/{project_id}/render", response_model=RenderStartResponse)
-async def render_project(project_id: str) -> RenderStartResponse:
-    row = await db.fetch_one("SELECT id, source_file_id, edl_json FROM projects WHERE id = ?",
-                             (project_id,))
+async def render_project(
+    project_id: str,
+    clip_id: str | None = None,
+) -> RenderStartResponse:
+    """Rendert das Projekt. Optional mit `?clip_id=...` nur diesen einen Clip
+    als eigenstaendiges Video exportieren."""
+    row = await db.fetch_one(
+        "SELECT id, source_file_id, edl_json FROM projects WHERE id = ?",
+        (project_id,),
+    )
     if row is None:
         raise HTTPException(status_code=404, detail="Projekt nicht gefunden")
     try:
@@ -128,9 +135,25 @@ async def render_project(project_id: str) -> RenderStartResponse:
     if not edl.timeline:
         raise HTTPException(status_code=400, detail="EDL-Timeline ist leer")
 
+    payload: dict = {}
+    if clip_id:
+        match = next((c for c in edl.timeline if c.id == clip_id), None)
+        if match is None:
+            raise HTTPException(status_code=404, detail="Clip nicht gefunden")
+        # Wir rendern per Ad-hoc-EDL nur diesen einen Clip. Die gespeicherte
+        # EDL des Projekts bleibt unveraendert.
+        adhoc = EDL(
+            source_file_id=edl.source_file_id,
+            timeline=[match],
+            output=edl.output,
+        )
+        payload["edl_override"] = json.loads(adhoc.model_dump_json())
+        payload["clip_id"] = clip_id
+
     job_id = await job_service.enqueue(
         "render",
         file_id=row["source_file_id"],
         project_id=project_id,
+        payload=payload,
     )
     return RenderStartResponse(job_id=job_id)

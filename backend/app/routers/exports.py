@@ -34,18 +34,23 @@ def _slug(s: str, maxlen: int = 80) -> str:
 def _display_name_for(project_name: str | None,
                       source_name: str | None,
                       updated_at: str | None,
-                      suffix: str) -> str:
-    """Baut einen lesbaren Download-Namen: "<Projekt> - <YYYY-MM-DD HHMM>.<ext>"."""
+                      suffix: str,
+                      clip_id: str | None = None) -> str:
+    """Baut einen lesbaren Download-Namen:
+    "<Projekt> - <YYYY-MM-DD HHMM>.<ext>"
+    bzw. bei Einzel-Clip-Export:
+    "<Projekt> - Clip <id> - <YYYY-MM-DD HHMM>.<ext>"
+    """
     base = _slug(project_name) or _slug(source_name and Path(source_name).stem)
     if not base:
         base = "CuttOffl-Schnitt"
+    clip_part = f" - Clip {clip_id}" if clip_id else ""
     ts = ""
     if updated_at:
-        # "2026-04-17 00:32:23" → "2026-04-17 0032"
         m = re.match(r"(\d{4}-\d{2}-\d{2})[ T](\d{2}):(\d{2})", updated_at)
         if m:
             ts = f" {m.group(1)} {m.group(2)}{m.group(3)}"
-    return f"{base}{ts}{suffix}"
+    return f"{base}{clip_part}{ts}{suffix}"
 
 
 @router.get("")

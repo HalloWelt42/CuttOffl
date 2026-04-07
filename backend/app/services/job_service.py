@@ -232,7 +232,13 @@ class JobService:
         )
         if frow is None:
             raise RuntimeError("Quelldatei nicht gefunden")
-        edl = EDL.model_validate(_json.loads(prow["edl_json"] or "{}"))
+        # Falls der Job einen EDL-Override mitbringt (z. B. Einzel-Clip-Export),
+        # hat dieser Vorrang vor der gespeicherten Projekt-EDL.
+        override = (job.payload or {}).get("edl_override")
+        if override:
+            edl = EDL.model_validate(override)
+        else:
+            edl = EDL.model_validate(_json.loads(prow["edl_json"] or "{}"))
 
         last_sent = -1.0
 
