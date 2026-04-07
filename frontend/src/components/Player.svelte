@@ -4,7 +4,9 @@
   import { editor, seek, tickPreview } from '../lib/editor.svelte.js';
 
   let videoEl;
+  let playerEl;
   let lastExternal = 0;
+  let isFullscreen = $state(false);
 
   function fmt(t) {
     if (!isFinite(t)) return '--:--:--.--';
@@ -70,10 +72,36 @@
     const fps = editor.file?.fps || 25;
     nudge(dir / fps);
   }
+
+  async function toggleFullscreen() {
+    if (!playerEl) return;
+    try {
+      if (document.fullscreenElement) {
+        await document.exitFullscreen();
+      } else if (playerEl.requestFullscreen) {
+        await playerEl.requestFullscreen();
+      } else if (playerEl.webkitRequestFullscreen) {
+        // Safari
+        playerEl.webkitRequestFullscreen();
+      }
+    } catch {
+      // ignorieren (z. B. User-Gesture-Policy)
+    }
+  }
+
+  onMount(() => {
+    const on = () => { isFullscreen = !!document.fullscreenElement; };
+    document.addEventListener('fullscreenchange', on);
+    document.addEventListener('webkitfullscreenchange', on);
+    return () => {
+      document.removeEventListener('fullscreenchange', on);
+      document.removeEventListener('webkitfullscreenchange', on);
+    };
+  });
 </script>
 
 {#if editor.file}
-  <div class="player">
+  <div class="player" class:is-fullscreen={isFullscreen} bind:this={playerEl}>
     <div class="vid-wrap">
       {#key editor.fileId}
         <video
@@ -111,6 +139,13 @@
       <span class="t">{fmt(editor.playhead)}</span>
       <span class="sep">/</span>
       <span class="t dim">{fmt(editor.duration)}</span>
+      <span class="spacer"></span>
+      <button class="btn" onclick={toggleFullscreen}
+              title={isFullscreen
+                ? 'Vollbild verlassen (Esc)'
+                : 'Video im Vollbild abspielen; auch die Timeline-Vorschau läuft in Vollbild weiter'}>
+        <i class="fa-solid {isFullscreen ? 'fa-compress' : 'fa-expand'}"></i>
+      </button>
     </div>
   </div>
 {:else}
@@ -123,6 +158,22 @@
     background: var(--bg-sink);
     border-bottom: 1px solid var(--border);
   }
+  /* Fullscreen: Player fuellt Screen, Video nimmt den gesamten verfuegbaren
+     Raum bis auf die Controls-Leiste ein. Die Controls bleiben sichtbar,
+     damit auch Preview/Play/Stop im Vollbild funktioniert. */
+  .player.is-fullscreen,
+  .player:fullscreen,
+  .player:-webkit-full-screen {
+    width: 100vw;
+    height: 100vh;
+    background: #000;
+    border: none;
+  }
+  .player:fullscreen .vid-wrap,
+  .player:-webkit-full-screen .vid-wrap { flex: 1 1 auto; }
+  .player:fullscreen video,
+  .player:-webkit-full-screen video { max-width: 100vw; max-height: calc(100vh - 52px); }
+  .spacer { flex: 1; }
   .vid-wrap {
     flex: 1;
     display: grid; place-items: center;
