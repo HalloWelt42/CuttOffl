@@ -117,9 +117,6 @@
                   <i class="fa-solid fa-image"></i>
                 {/if}
                 <span class="badge {s.c}">{s.t}</span>
-                {#if f.has_proxy}
-                  <span class="play-overlay"><i class="fa-solid fa-play"></i> Öffnen</span>
-                {/if}
               </div>
             </button>
             <div class="meta">
@@ -192,17 +189,7 @@
     color: var(--fg-faint);
   }
   .thumb img { width: 100%; height: 100%; object-fit: cover; }
-  .play-overlay {
-    position: absolute; inset: 0;
-    display: grid; place-items: center;
-    background: rgba(0,0,0,0.45);
-    color: #fff;
-    font-weight: 600;
-    opacity: 0;
-    transition: opacity 120ms;
-  }
-  .play-overlay i { margin-right: 6px; }
-  .thumb-btn:hover:not(:disabled) .play-overlay { opacity: 1; }
+  .thumb-btn:not(:disabled):hover .thumb { outline: 2px solid var(--accent); outline-offset: -2px; }
   .badge {
     position: absolute; top: 8px; right: 8px;
     font-size: 10px; letter-spacing: 0.5px; text-transform: uppercase;
