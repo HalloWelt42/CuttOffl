@@ -64,6 +64,9 @@
     overview?.codecs?.recommendations?.[0] ?? null
   );
 
+  const activeJobs = $derived(overview?.counts?.active_jobs ?? 0);
+  const failedJobs = $derived(overview?.counts?.failed_jobs ?? 0);
+
   const bucketRows = $derived(() => {
     if (!storage) return [];
     const b = storage.buckets;
@@ -113,27 +116,26 @@
         <div class="kpi-label soft">Fertige Schnitte</div>
         <div class="kpi-sub mono">gerendert und abrufbar</div>
       </button>
-      {@const active = overview?.counts?.active_jobs ?? 0}
-      <div class="kpi static" title={active > 0
+      <div class="kpi static" title={activeJobs > 0
           ? 'Aktuell werden Hintergrund-Aufgaben bearbeitet (Proxy-Erzeugung, Thumbnails, Wellenform oder Render).'
           : 'Aktuell werden keine Hintergrund-Aufgaben bearbeitet.'}>
-        <i class="fa-solid {active > 0 ? 'fa-gears fa-spin' : 'fa-circle-check'}"></i>
-        <div class="kpi-value mono">{active}</div>
+        <i class="fa-solid {activeJobs > 0 ? 'fa-gears fa-spin' : 'fa-circle-check'}"></i>
+        <div class="kpi-value mono">{activeJobs}</div>
         <div class="kpi-label soft">
-          {active === 0 ? 'Im Leerlauf' : active === 1 ? 'Laufender Job' : 'Laufende Jobs'}
+          {activeJobs === 0 ? 'Im Leerlauf' : activeJobs === 1 ? 'Laufender Job' : 'Laufende Jobs'}
         </div>
         <div class="kpi-sub mono">{overview?.counts?.projects ?? 0} Projekte insgesamt</div>
       </div>
     </div>
 
-    {#if overview?.counts?.failed_jobs}
+    {#if failedJobs > 0}
       <div class="card block fail-banner">
         <div class="fail-left">
           <i class="fa-solid fa-triangle-exclamation"></i>
           <div>
             <div class="fail-title">
-              {overview.counts.failed_jobs}
-              {overview.counts.failed_jobs === 1 ? 'fehlgeschlagener Job' : 'fehlgeschlagene Jobs'}
+              {failedJobs}
+              {failedJobs === 1 ? 'fehlgeschlagener Job' : 'fehlgeschlagene Jobs'}
             </div>
             <div class="fail-sub soft">
               Details stehen im Server-Log unter <code>logs/backend.log</code>.
