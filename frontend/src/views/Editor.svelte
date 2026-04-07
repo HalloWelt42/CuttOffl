@@ -157,12 +157,49 @@
     const total = tl.reduce((s, c) => s + (c.src_end - c.src_start), 0);
     return { count: tl.length, total };
   });
+
+  async function onRenameProject() {
+    if (!editor.projectId) return;
+    const next = prompt('Projektname:', editor.project?.name ?? '');
+    if (next == null) return;
+    const name = next.trim();
+    if (!name || name === editor.project?.name) return;
+    try {
+      const updated = await api.updateProject(editor.projectId, { name });
+      editor.project = updated;
+      toast.success('Projekt umbenannt');
+    } catch (e) { toast.error(e.message); }
+  }
+
+  async function onRenameFile() {
+    if (!editor.fileId) return;
+    const next = prompt('Dateiname:', editor.file?.original_name ?? '');
+    if (next == null) return;
+    const name = next.trim();
+    if (!name || name === editor.file?.original_name) return;
+    try {
+      const updated = await api.renameFile(editor.fileId, name);
+      editor.file = updated;
+      toast.success('Datei umbenannt');
+    } catch (e) { toast.error(e.message); }
+  }
 </script>
 
 <section class="wrap">
-  <PanelHeader icon="fa-scissors" title="Editor"
+  <PanelHeader icon="fa-scissors"
+               title={editor.project?.name ?? 'Editor'}
                subtitle={editor.file?.original_name ?? 'keine Datei gewählt'}>
     {#if editor.fileId}
+      <button class="btn" onclick={onRenameProject}
+              title="Projektnamen ändern (wird für den Dateinamen des späteren Exports verwendet)">
+        <i class="fa-solid fa-pen"></i>
+        <span class="sm-hide">Projekt</span>
+      </button>
+      <button class="btn" onclick={onRenameFile}
+              title="Dateinamen des Originals ändern">
+        <i class="fa-solid fa-pen-to-square"></i>
+        <span class="sm-hide">Datei</span>
+      </button>
       <button class="btn" onclick={() => { saveNow(); go('library'); }}
               title="Den aktuellen Schnitt speichern und zurück zur Bibliothek">
         <i class="fa-solid fa-arrow-left"></i> Bibliothek
