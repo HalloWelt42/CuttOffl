@@ -158,9 +158,11 @@
     background: var(--bg-sink);
     border-bottom: 1px solid var(--border);
   }
-  /* Fullscreen: Player fuellt Screen, Video nimmt den gesamten verfuegbaren
-     Raum bis auf die Controls-Leiste ein. Die Controls bleiben sichtbar,
-     damit auch Preview/Play/Stop im Vollbild funktioniert. */
+  /* Fullscreen: Player fuellt den kompletten Screen. Das Video nimmt den
+     gesamten verfuegbaren Raum bis auf die Controls-Leiste ein (object-fit
+     contain behaelt die Aspect Ratio und zeigt ggf. schwarze Letterbox-
+     Balken). Controls bleiben sichtbar, damit Preview/Play/Stop im
+     Vollbild funktioniert. */
   .player.is-fullscreen,
   .player:fullscreen,
   .player:-webkit-full-screen {
@@ -169,10 +171,22 @@
     background: #000;
     border: none;
   }
+  .player.is-fullscreen .vid-wrap,
   .player:fullscreen .vid-wrap,
-  .player:-webkit-full-screen .vid-wrap { flex: 1 1 auto; }
+  .player:-webkit-full-screen .vid-wrap {
+    flex: 1 1 auto;
+    width: 100%;
+    min-height: 0;
+  }
+  .player.is-fullscreen video,
   .player:fullscreen video,
-  .player:-webkit-full-screen video { max-width: 100vw; max-height: calc(100vh - 52px); }
+  .player:-webkit-full-screen video {
+    width: 100%;
+    height: 100%;
+    max-width: none;
+    max-height: none;
+    object-fit: contain;
+  }
   .spacer { flex: 1; }
   .vid-wrap {
     flex: 1;
