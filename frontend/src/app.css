@@ -121,6 +121,22 @@ html, body {
 }
 
 /* ------------------------------------------------------------------
+   Info-Ansichten: Fliesstext soll gut lesbar sein.
+   Wird auf Dashboard, Bibliothek, Einstellungen und Ueber angewendet.
+   Der Editor bleibt ausgenommen, weil dort Dichte wichtiger ist.
+   ------------------------------------------------------------------ */
+.view-readable,
+.view-readable p,
+.view-readable li {
+  font-size: 15px;
+  line-height: 1.6;
+}
+.view-readable .block p { font-size: 15px; line-height: 1.65; }
+.view-readable .block h2 { font-size: 20px; }
+.view-readable .block h3 { font-size: 16px; }
+.view-readable .hint    { font-size: 13px; }
+
+/* ------------------------------------------------------------------
    Button-System -- alle Varianten haben dieselbe Hoehe (30px).
    `.btn` = Standard. `.btn-primary` = Akzent-Hintergrund.
    `.btn-toggle` = wie `.btn`, aber zeigt aktiven Zustand ueber

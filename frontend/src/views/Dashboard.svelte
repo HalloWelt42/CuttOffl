@@ -83,7 +83,7 @@
   });
 </script>
 
-<section class="wrap">
+<section class="wrap view-readable">
   <PanelHeader icon="fa-gauge-high" title="Dashboard" subtitle="Übersicht und Speicher" />
 
   <div class="body">

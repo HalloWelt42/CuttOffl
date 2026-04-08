@@ -17,7 +17,7 @@
   });
 </script>
 
-<section class="wrap">
+<section class="wrap view-readable">
   <PanelHeader icon="fa-gear" title="Einstellungen" subtitle="Erscheinung & System" />
 
   <div class="body">

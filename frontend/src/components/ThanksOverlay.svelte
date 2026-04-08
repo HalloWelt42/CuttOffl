@@ -156,7 +156,7 @@
     display: flex; flex-direction: column; gap: 14px;
     overflow: auto;
   }
-  .intro { margin: 0; font-size: 13px; line-height: 1.55; color: var(--fg-muted); }
+  .intro { margin: 0; font-size: 15px; line-height: 1.6; color: var(--fg-muted); }
   .kofi { align-self: center; height: 40px; padding: 0 22px; font-size: 13px; }
 
   .divider {

@@ -4,7 +4,7 @@
   import { openThanks } from '../lib/ui.svelte.js';
 </script>
 
-<section class="wrap">
+<section class="wrap view-readable">
   <PanelHeader icon="fa-circle-info" title="Über" subtitle="Projekt, Lizenz und Rechtliches" />
 
   <div class="body">
