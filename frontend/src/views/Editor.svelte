@@ -171,6 +171,12 @@
     } catch (e) { toast.error(e.message); }
   }
 
+  async function onRenderSingleClip(clipId) {
+    if (!clipId) return;
+    const jobId = await startRender(clipId);
+    if (jobId) toast.info('Einzel-Clip-Render gestartet');
+  }
+
   async function onRenameFile() {
     if (!editor.fileId) return;
     const next = prompt('Dateiname:', editor.file?.original_name ?? '');
@@ -324,6 +330,11 @@
                   disabled={!editor.selectedClipId || editor.preview}
                   title="Den ausgewählten Clip einmal vom Anfang bis zum Ende abspielen">
             <i class="fa-solid fa-play"></i> Clip abspielen
+          </button>
+          <button class="btn" onclick={() => onRenderSingleClip(editor.selectedClipId)}
+                  disabled={!editor.selectedClipId || editor.rendering}
+                  title="Nur den ausgewählten Clip als eigene Videodatei exportieren">
+            <i class="fa-solid fa-file-export"></i> Clip exportieren
           </button>
           <button class="btn" onclick={splitAtPlayhead}
                   title="Den Clip am Playhead in zwei Clips teilen (Taste S)">

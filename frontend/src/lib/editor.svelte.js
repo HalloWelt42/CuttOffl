@@ -366,10 +366,14 @@ export function tickPreview(t) {
 
 export async function saveNow() { if (saveTimer) clearTimeout(saveTimer); await persist(); }
 
-export async function startRender() {
+export async function startRender(clipId = null) {
   if (!editor.projectId) return null;
   if (!editor.edl?.timeline.length) {
     toast.warn('Timeline ist leer -- nichts zum Rendern');
+    return null;
+  }
+  if (clipId && !editor.edl.timeline.find((c) => c.id === clipId)) {
+    toast.error('Clip nicht mehr vorhanden');
     return null;
   }
   await saveNow();
@@ -377,7 +381,7 @@ export async function startRender() {
   editor.renderProgress = 0;
   editor.renderPhase = 'queued';
   try {
-    const { job_id } = await api.startRender(editor.projectId);
+    const { job_id } = await api.startRender(editor.projectId, clipId);
     return job_id;
   } catch (e) {
     editor.rendering = false;

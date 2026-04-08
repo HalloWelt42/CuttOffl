@@ -106,8 +106,10 @@ export const api = {
       body: JSON.stringify(body),
     }),
   deleteProject: (id) => request(`/projects/${id}`, { method: 'DELETE' }),
-  startRender: (id) =>
-    request(`/projects/${id}/render`, { method: 'POST' }),
+  startRender: (id, clipId = null) => {
+    const qs = clipId ? `?clip_id=${encodeURIComponent(clipId)}` : '';
+    return request(`/projects/${id}/render${qs}`, { method: 'POST' });
+  },
 
   // Exports
   listExports: () => request('/exports'),
