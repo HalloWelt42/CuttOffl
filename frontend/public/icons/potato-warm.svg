@@ -1,5 +1,5 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" width="128" height="128">
-  <!-- Warme Erd-Kartoffel mit leichtem Schnitt -->
+  <!-- Warme Erd-Kartoffel mit kraeftiger Kontur, ohne Schnitt-Kerbe -->
   <defs>
     <linearGradient id="pw" x1="0" y1="0" x2="1" y2="1">
       <stop offset="0%"  stop-color="#d9a36a"/>
@@ -15,16 +15,23 @@
     </filter>
   </defs>
 
-  <!-- Kartoffel-Form: unregelmaessiges Oval -->
+  <!-- Kraeftige Outline + Fuellung in einem Pfad.
+       stroke-linejoin=round fuer gleichmaessige, weiche Ecken.
+       paint-order=stroke fill damit die Fuellung nicht ueber die Kontur
+       haengt (ergibt gleichmaessige Linienstaerke). -->
   <path d="M 28 56
            C 20 34, 46 14, 68 18
            C 92 22, 108 40, 108 60
            C 108 86, 92 110, 66 112
            C 38 114, 20 90, 22 72
            C 22 68, 24 62, 28 56 Z"
-        fill="url(#pw)"/>
+        fill="url(#pw)"
+        stroke="#2b1708"
+        stroke-width="5"
+        stroke-linejoin="round"
+        paint-order="stroke fill"/>
 
-  <!-- Highlight oben links -->
+  <!-- Highlight oben links, innerhalb der Kontur -->
   <path d="M 28 56
            C 20 34, 46 14, 68 18
            C 92 22, 108 40, 108 60
@@ -41,8 +48,4 @@
     <ellipse cx="42" cy="76" rx="2.5" ry="1.6" fill="#3b1e0b" opacity="0.6"/>
     <ellipse cx="92" cy="84" rx="2.8" ry="1.7" fill="#3b1e0b" opacity="0.65"/>
   </g>
-
-  <!-- Schnitt-Kerbe rechts oben -->
-  <path d="M 96 34 L 106 28 L 104 38 L 94 44 Z" fill="#3b1e0b" opacity="0.55"/>
-  <path d="M 96 34 L 106 28" stroke="#ffe7c2" stroke-width="1.2" opacity="0.6" stroke-linecap="round"/>
 </svg>
