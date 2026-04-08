@@ -257,11 +257,13 @@ class JobService:
                     "phase": phase,
                 })
 
+        clip_tag = (job.payload or {}).get("clip_id")
         final = await render_edl(
             source=Path(frow["path"]),
             edl=edl,
             job_id=job.id,
             progress_cb=on_progress,
+            filename_suffix=f"clip-{clip_tag}" if clip_tag else "",
         )
         job.result_path = str(final)
 

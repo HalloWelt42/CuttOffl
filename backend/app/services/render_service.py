@@ -197,6 +197,7 @@ async def render_edl(
     edl: EDL,
     job_id: str,
     progress_cb: ProgressCb = None,
+    filename_suffix: str = "",
 ) -> Path:
     """Rendert die EDL gegen `source` und gibt den Pfad zum fertigen Video zurueck."""
     if not edl.timeline:
@@ -252,7 +253,10 @@ async def render_edl(
             progress_cb(0.999, "merging")
 
         EXPORTS_DIR.mkdir(parents=True, exist_ok=True)
-        final = EXPORTS_DIR / f"{job_id}.{container}"
+        # Dateiname darf die UUID behalten, aber bei Einzel-Clip-Render wird
+        # noch ein Marker eingefuegt (zum Unterscheiden in exports/).
+        suffix_part = f"-{filename_suffix}" if filename_suffix else ""
+        final = EXPORTS_DIR / f"{job_id}{suffix_part}.{container}"
 
         if len(segments) == 1:
             shutil.move(str(segments[0]), str(final))

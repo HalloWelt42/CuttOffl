@@ -81,8 +81,15 @@ async def list_exports() -> list[dict]:
         exists = bool(p and Path(p).exists())
         size = Path(p).stat().st_size if exists else 0
         suffix = Path(p).suffix if p else ".mp4"
+        stem = Path(p).stem if p else ""
+        clip_id = None
+        # Datei-Stem "<job-id>-clip-<id>" => Clip-Export-Erkennung
+        m = re.match(r"^[0-9a-f]{32}-clip-(.+)$", stem)
+        if m:
+            clip_id = m.group(1)
         display_name = _display_name_for(
             r["project_name"], r["source_name"], r["updated_at"], suffix,
+            clip_id=clip_id,
         )
         result.append({
             "job_id": r["job_id"],
@@ -119,8 +126,14 @@ async def download_export(job_id: str):
         raise HTTPException(status_code=410, detail="Datei nicht mehr vorhanden")
     path = Path(p)
     media = "video/mp4" if path.suffix.lower() == ".mp4" else "application/octet-stream"
+    stem = path.stem
+    clip_id = None
+    m = re.match(r"^[0-9a-f]{32}-clip-(.+)$", stem)
+    if m:
+        clip_id = m.group(1)
     display = _display_name_for(
         row["project_name"], row["source_name"], row["updated_at"], path.suffix,
+        clip_id=clip_id,
     )
     return FileResponse(path, media_type=media, filename=display)
 
