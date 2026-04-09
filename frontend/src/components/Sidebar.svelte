@@ -31,7 +31,7 @@
     {#if !collapsed}
       <div class="brand-text">
         <span class="name">CuttOffl</span>
-        <span class="soft tag">Video-Cutter</span>
+        <span class="soft tag">Video Studio</span>
       </div>
     {/if}
   </div>
