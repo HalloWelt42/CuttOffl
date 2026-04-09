@@ -27,9 +27,7 @@
 
 <aside class="sidebar" class:collapsed>
   <div class="brand">
-    <div class="logo">
-      <i class="fa-solid fa-scissors"></i>
-    </div>
+    <img class="logo" src="/favicon.svg" alt="CuttOffl" />
     {#if !collapsed}
       <div class="brand-text">
         <span class="name">CuttOffl</span>
@@ -119,13 +117,11 @@
     border-bottom: 1px solid var(--border);
   }
   .logo {
-    width: 32px; height: 32px; flex: 0 0 32px;
-    border-radius: 8px;
-    background: linear-gradient(135deg, var(--accent), var(--clip-reencode));
-    color: #0b0f14;
-    display: grid; place-items: center;
-    font-size: 15px;
-    box-shadow: var(--shadow-sm);
+    width: 36px;
+    height: 36px;
+    flex: 0 0 36px;
+    display: block;
+    /* transparenter Hintergrund: die Kartoffel bleibt freigestellt */
   }
   .brand-text { display: flex; flex-direction: column; line-height: 1.05; }
   .name { font-weight: 700; letter-spacing: 0.3px; }
