@@ -12,7 +12,8 @@ from fastapi import APIRouter, HTTPException
 from fastapi.responses import FileResponse
 
 from app.db import db
-from app.models.schemas import FileOut, FileRenameBody
+from app.models.schemas import FileBulkMoveBody, FileMoveBody, FileOut, FileRenameBody
+from app.services.folder_service import FolderError, normalize
 
 router = APIRouter(prefix="/api/files", tags=["files"])
 
@@ -36,13 +37,45 @@ def _row_to_fileout(row) -> FileOut:
         has_sprite=bool(row["sprite_path"]) if "sprite_path" in row.keys() else False,
         has_waveform=bool(row["waveform_path"]) if "waveform_path" in row.keys() else False,
         keyframe_count=row["keyframe_count"] if "keyframe_count" in row.keys() else None,
+        folder_path=row["folder_path"] if "folder_path" in row.keys() else "",
         created_at=row["created_at"],
     )
 
 
 @router.get("", response_model=list[FileOut])
-async def list_files() -> list[FileOut]:
-    rows = await db.fetch_all("SELECT * FROM files ORDER BY created_at DESC")
+async def list_files(
+    folder: str | None = None,
+    recursive: bool = False,
+) -> list[FileOut]:
+    """Listet Dateien.
+    - Ohne folder: alle Dateien
+    - Mit folder='A/B': nur Dateien in A/B (exakt)
+    - recursive=true: auch alle Unterordner von folder
+    """
+    if folder is None:
+        rows = await db.fetch_all(
+            "SELECT * FROM files ORDER BY created_at DESC"
+        )
+    else:
+        try:
+            f = normalize(folder)
+        except FolderError as e:
+            raise HTTPException(status_code=400, detail=f"Ungueltiger Ordner: {e}")
+        if recursive and f:
+            rows = await db.fetch_all(
+                "SELECT * FROM files WHERE folder_path = ? OR folder_path LIKE ? "
+                "ORDER BY created_at DESC",
+                (f, f + "/%"),
+            )
+        elif recursive:
+            rows = await db.fetch_all(
+                "SELECT * FROM files ORDER BY created_at DESC"
+            )
+        else:
+            rows = await db.fetch_all(
+                "SELECT * FROM files WHERE folder_path = ? ORDER BY created_at DESC",
+                (f,),
+            )
     return [_row_to_fileout(r) for r in rows]
 
 
@@ -51,6 +84,43 @@ async def get_file(file_id: str) -> FileOut:
     row = await db.fetch_one("SELECT * FROM files WHERE id = ?", (file_id,))
     if row is None:
         raise HTTPException(status_code=404, detail="Datei nicht gefunden")
+    return _row_to_fileout(row)
+
+
+@router.post("/move", response_model=dict)
+async def bulk_move(body: FileBulkMoveBody) -> dict:
+    """Verschiebt mehrere Dateien in einen Ordner."""
+    try:
+        target = normalize(body.folder_path)
+    except FolderError as e:
+        raise HTTPException(status_code=400, detail=f"Ungueltiger Zielordner: {e}")
+    ids = list({fid for fid in body.file_ids if fid})
+    if not ids:
+        return {"moved": 0}
+    placeholders = ",".join("?" * len(ids))
+    await db.execute(
+        f"UPDATE files SET folder_path = ?, updated_at=datetime('now') "
+        f"WHERE id IN ({placeholders})",
+        (target, *ids),
+    )
+    return {"moved": len(ids), "folder_path": target}
+
+
+@router.patch("/{file_id}/move", response_model=FileOut)
+async def move_file(file_id: str, body: FileMoveBody) -> FileOut:
+    """Verschiebt eine einzelne Datei in einen Ordner."""
+    try:
+        target = normalize(body.folder_path)
+    except FolderError as e:
+        raise HTTPException(status_code=400, detail=f"Ungueltiger Zielordner: {e}")
+    row = await db.fetch_one("SELECT id FROM files WHERE id = ?", (file_id,))
+    if row is None:
+        raise HTTPException(status_code=404, detail="Datei nicht gefunden")
+    await db.execute(
+        "UPDATE files SET folder_path = ?, updated_at=datetime('now') WHERE id = ?",
+        (target, file_id),
+    )
+    row = await db.fetch_one("SELECT * FROM files WHERE id = ?", (file_id,))
     return _row_to_fileout(row)
 
 

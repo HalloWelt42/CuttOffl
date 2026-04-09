@@ -37,6 +37,7 @@ class FileOut(BaseModel):
     has_sprite: bool = False
     has_waveform: bool = False
     keyframe_count: Optional[int] = None
+    folder_path: str = ""
     created_at: str
 
 
@@ -48,6 +49,15 @@ class UploadStartResponse(BaseModel):
 
 class FileRenameBody(BaseModel):
     original_name: str = Field(min_length=1, max_length=255)
+
+
+class FileMoveBody(BaseModel):
+    folder_path: str = Field(default="", max_length=512)
+
+
+class FileBulkMoveBody(BaseModel):
+    file_ids: list[str] = Field(min_length=1, max_length=500)
+    folder_path: str = Field(default="", max_length=512)
 
 
 class UploadResponse(BaseModel):

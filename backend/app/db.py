@@ -48,6 +48,7 @@ SCHEMA: tuple[str, ...] = (
         waveform_path   TEXT,
         waveform_samples INTEGER,
         waveform_rate    REAL,
+        folder_path     TEXT NOT NULL DEFAULT '',
         probe_json      TEXT,
         created_at      TEXT NOT NULL DEFAULT (datetime('now')),
         updated_at      TEXT NOT NULL DEFAULT (datetime('now'))
@@ -66,6 +67,9 @@ SCHEMA: tuple[str, ...] = (
     "ALTER TABLE files ADD COLUMN waveform_path TEXT",
     "ALTER TABLE files ADD COLUMN waveform_samples INTEGER",
     "ALTER TABLE files ADD COLUMN waveform_rate REAL",
+    # Virtueller Ordnerpfad (leer = Wurzel, sonst 'A/B/C')
+    "ALTER TABLE files ADD COLUMN folder_path TEXT NOT NULL DEFAULT ''",
+    "CREATE INDEX IF NOT EXISTS idx_files_folder_path ON files(folder_path)",
     """
     CREATE TABLE IF NOT EXISTS projects (
         id              TEXT PRIMARY KEY,
