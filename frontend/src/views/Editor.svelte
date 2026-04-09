@@ -12,6 +12,7 @@
     deleteSelected, undo, redo, setSnap, setFollow, handleJobEvent, toggleClipMode,
     saveNow, jumpToPrevKeyframe, jumpToNextKeyframe,
     startRangePreview, startClipPreview, startTimelinePreview, stopPreview,
+    startRender,
   } from '../lib/editor.svelte.js';
   import { api } from '../lib/api.js';
   import { wsOn, wsStart } from '../lib/ws.svelte.js';
