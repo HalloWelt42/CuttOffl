@@ -17,6 +17,7 @@
   import { api } from '../lib/api.js';
   import { wsOn, wsStart } from '../lib/ws.svelte.js';
   import { toast } from '../lib/toast.svelte.js';
+  import { confirmDialog, promptDialog } from '../lib/dialog.svelte.js';
 
   let playerRef;
   let inPoint = $state(null);
@@ -134,7 +135,11 @@
     window.location.href = api.exportDownloadUrl(jobId);
   }
   async function onDeleteExport(jobId) {
-    if (!confirm('Dieses Export-Ergebnis löschen?')) return;
+    const ok = await confirmDialog(
+      'Dieses gerenderte Video endgültig löschen?',
+      { title: 'Export löschen', okLabel: 'Löschen', okVariant: 'danger' },
+    );
+    if (!ok) return;
     try { await api.deleteExport(jobId); refreshExports(); }
     catch (e) { toast.error(e.message); }
   }
@@ -161,7 +166,11 @@
 
   async function onRenameProject() {
     if (!editor.projectId) return;
-    const next = prompt('Projektname:', editor.project?.name ?? '');
+    const next = await promptDialog(
+      'Name des aktuellen Schnitt-Projekts:',
+      editor.project?.name ?? '',
+      { title: 'Projekt umbenennen' },
+    );
     if (next == null) return;
     const name = next.trim();
     if (!name || name === editor.project?.name) return;
@@ -180,7 +189,11 @@
 
   async function onRenameFile() {
     if (!editor.fileId) return;
-    const next = prompt('Dateiname:', editor.file?.original_name ?? '');
+    const next = await promptDialog(
+      'Neuer Dateiname für das Original:',
+      editor.file?.original_name ?? '',
+      { title: 'Datei umbenennen' },
+    );
     if (next == null) return;
     const name = next.trim();
     if (!name || name === editor.file?.original_name) return;

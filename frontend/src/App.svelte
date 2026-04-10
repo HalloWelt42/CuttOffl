@@ -11,6 +11,7 @@
   import Settings from './views/Settings.svelte';
   import About from './views/About.svelte';
   import ThanksOverlay from './components/ThanksOverlay.svelte';
+  import DialogHost from './components/DialogHost.svelte';
   import { nav } from './lib/nav.svelte.js';
   import { applyTheme } from './lib/theme.svelte.js';
   import { persisted, persist } from './lib/persist.svelte.js';
@@ -67,6 +68,7 @@
     <JobsBar />
     <ToastHost />
     <ThanksOverlay />
+    <DialogHost />
   </div>
 </ErrorBoundary>
 

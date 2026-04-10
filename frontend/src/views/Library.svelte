@@ -5,6 +5,7 @@
   import { toast } from '../lib/toast.svelte.js';
   import { openInEditor } from '../lib/nav.svelte.js';
   import { library, setCurrentFolder, parentOf, breadcrumbs } from '../lib/library.svelte.js';
+  import { confirmDialog, promptDialog } from '../lib/dialog.svelte.js';
   import PanelHeader from '../components/PanelHeader.svelte';
 
   let files = $state([]);
@@ -55,7 +56,11 @@
   }
 
   async function onDelete(f) {
-    if (!confirm(`Datei "${f.original_name}" wirklich löschen?`)) return;
+    const ok = await confirmDialog(
+      `Datei "${f.original_name}" wirklich löschen? Originaldatei, Proxy, Thumbnail, Sprite und Wellenform werden entfernt.`,
+      { title: 'Datei löschen', okLabel: 'Löschen', okVariant: 'danger' },
+    );
+    if (!ok) return;
     try {
       await api.deleteFile(f.id);
       toast.info(`Gelöscht: ${f.original_name}`);
@@ -71,7 +76,11 @@
   }
 
   async function onRename(f) {
-    const next = prompt('Neuen Dateinamen eingeben:', f.original_name);
+    const next = await promptDialog(
+      'Neuen Dateinamen eingeben:',
+      f.original_name,
+      { title: 'Datei umbenennen' },
+    );
     if (next == null) return;
     const name = next.trim();
     if (!name || name === f.original_name) return;
@@ -83,7 +92,11 @@
   }
 
   async function onCreateFolder() {
-    const name = prompt('Neuen Ordner anlegen -- Name:');
+    const name = await promptDialog(
+      'Wie soll der neue Ordner heißen?',
+      '',
+      { title: 'Neuen Ordner anlegen', placeholder: 'z. B. Urlaub 2026' },
+    );
     if (name == null) return;
     const clean = name.trim();
     if (!clean) return;
@@ -103,7 +116,11 @@
   }
 
   async function onRenameFolder(child) {
-    const next = prompt('Ordner umbenennen:', child.name);
+    const next = await promptDialog(
+      'Neuer Name für den Ordner:',
+      child.name,
+      { title: 'Ordner umbenennen' },
+    );
     if (next == null) return;
     const name = next.trim();
     if (!name || name === child.name) return;
@@ -125,7 +142,11 @@
       toast.warn('Ordner ist nicht leer -- bitte zuerst Dateien verschieben oder löschen');
       return;
     }
-    if (!confirm(`Leeren Ordner "${child.name}" löschen?`)) return;
+    const ok = await confirmDialog(
+      `Leeren Ordner "${child.name}" entfernen?`,
+      { title: 'Ordner löschen', okLabel: 'Löschen', okVariant: 'danger' },
+    );
+    if (!ok) return;
     try {
       await api.deleteFolder(child.path);
       toast.info('Ordner entfernt');
@@ -147,9 +168,10 @@
   }
 
   async function onMoveTo(f) {
-    const target = prompt(
-      'Zielordner (leer = Wurzel, sonst z. B. "Urlaub/2026"):',
+    const target = await promptDialog(
+      'Zielordner angeben (leer lassen = Wurzel, sonst z. B. "Urlaub/2026"):',
       f.folder_path || '',
+      { title: 'Datei verschieben', placeholder: 'z. B. Urlaub/2026' },
     );
     if (target == null) return;
     doMove(f, target.trim());
