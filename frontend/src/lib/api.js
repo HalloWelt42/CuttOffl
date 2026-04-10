@@ -24,7 +24,13 @@ export const api = {
   ping: () => request('/ping'),
 
   // Files
-  listFiles: () => request('/files'),
+  listFiles: (folder = null, recursive = false) => {
+    const params = new URLSearchParams();
+    if (folder !== null) params.set('folder', folder);
+    if (recursive) params.set('recursive', 'true');
+    const qs = params.toString();
+    return request(`/files${qs ? '?' + qs : ''}`);
+  },
   getFile: (id) => request(`/files/${id}`),
   renameFile: (id, original_name) =>
     request(`/files/${id}`, {
@@ -32,7 +38,33 @@ export const api = {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ original_name }),
     }),
+  moveFile: (id, folder_path) =>
+    request(`/files/${id}/move`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ folder_path }),
+    }),
+  bulkMoveFiles: (file_ids, folder_path) =>
+    request('/files/move', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ file_ids, folder_path }),
+    }),
   deleteFile: (id) => request(`/files/${id}`, { method: 'DELETE' }),
+
+  // Folders
+  listFolders: () => request('/folders'),
+  folderChildren: (folder = '') =>
+    request(`/folders/children?folder=${encodeURIComponent(folder)}`),
+  folderTree: () => request('/folders/tree'),
+  renameFolder: (source, target) =>
+    request('/folders/rename', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ source, target }),
+    }),
+  deleteFolder: (folder) =>
+    request(`/folders?folder=${encodeURIComponent(folder)}`, { method: 'DELETE' }),
   fileDownloadUrl: (id) => `${BASE}/files/${id}/download`,
 
   // System
@@ -41,7 +73,7 @@ export const api = {
   systemCodecs:   () => request('/system/codecs'),
 
   // Upload
-  upload: async (file, onProgress) => {
+  upload: async (file, onProgress, folder = '') => {
     return new Promise((resolve, reject) => {
       const xhr = new XMLHttpRequest();
       xhr.open('POST', `${BASE}/upload`);
@@ -58,6 +90,7 @@ export const api = {
       xhr.onerror = () => reject(new Error('Netzwerkfehler beim Upload'));
       const fd = new FormData();
       fd.append('file', file);
+      if (folder) fd.append('folder', folder);
       xhr.send(fd);
     });
   },
