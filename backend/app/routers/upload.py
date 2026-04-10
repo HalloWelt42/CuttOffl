@@ -15,11 +15,12 @@ import uuid
 from pathlib import Path
 
 import aiofiles
-from fastapi import APIRouter, File, HTTPException, UploadFile
+from fastapi import APIRouter, File, Form, HTTPException, UploadFile
 
 from app.config import ALLOWED_EXTENSIONS, MAX_UPLOAD_MB, ORIGINALS_DIR
 from app.db import db
 from app.models.schemas import FileOut, UploadStartResponse
+from app.services.folder_service import FolderError, normalize as normalize_folder
 from app.services.job_service import job_service
 from app.services.probe_service import probe_file, summarize
 
@@ -29,7 +30,10 @@ router = APIRouter(prefix="/api/upload", tags=["upload"])
 
 
 @router.post("", response_model=UploadStartResponse)
-async def upload(file: UploadFile = File(...)) -> UploadStartResponse:
+async def upload(
+    file: UploadFile = File(...),
+    folder: str = Form(default=""),
+) -> UploadStartResponse:
     filename = file.filename or "upload.bin"
     suffix = Path(filename).suffix.lower()
     if suffix not in ALLOWED_EXTENSIONS:
@@ -37,6 +41,10 @@ async def upload(file: UploadFile = File(...)) -> UploadStartResponse:
             status_code=415,
             detail=f"Dateiendung {suffix!r} nicht erlaubt. Erlaubt: {sorted(ALLOWED_EXTENSIONS)}",
         )
+    try:
+        folder_path = normalize_folder(folder)
+    except FolderError as e:
+        raise HTTPException(status_code=400, detail=f"Ungueltiger Ordner: {e}")
 
     file_id = uuid.uuid4().hex
     stored_name = f"{file_id}{suffix}"
@@ -72,8 +80,8 @@ async def upload(file: UploadFile = File(...)) -> UploadStartResponse:
         INSERT INTO files (
             id, original_name, stored_name, path, size_bytes,
             mime_type, duration_s, width, height, fps,
-            video_codec, audio_codec, probe_json
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            video_codec, audio_codec, folder_path, probe_json
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         """,
         (
             file_id,
@@ -88,6 +96,7 @@ async def upload(file: UploadFile = File(...)) -> UploadStartResponse:
             probe_summary.get("fps"),
             probe_summary.get("video_codec"),
             probe_summary.get("audio_codec"),
+            folder_path,
             json.dumps(probe_raw) if probe_raw else None,
         ),
     )
@@ -117,6 +126,7 @@ async def upload(file: UploadFile = File(...)) -> UploadStartResponse:
             has_sprite=bool(row["sprite_path"]),
             has_waveform=bool(row["waveform_path"]),
             keyframe_count=row["keyframe_count"],
+            folder_path=row["folder_path"] if "folder_path" in row.keys() else "",
             created_at=row["created_at"],
         ),
         proxy_job_id=proxy_job_id,
