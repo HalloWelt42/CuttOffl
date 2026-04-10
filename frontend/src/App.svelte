@@ -8,6 +8,7 @@
   import Dashboard from './views/Dashboard.svelte';
   import Library from './views/Library.svelte';
   import Editor from './views/Editor.svelte';
+  import Exports from './views/Exports.svelte';
   import Settings from './views/Settings.svelte';
   import About from './views/About.svelte';
   import ThanksOverlay from './components/ThanksOverlay.svelte';
@@ -59,6 +60,7 @@
         {#if nav.view === 'dashboard'}<Dashboard />
         {:else if nav.view === 'library'}<Library />
         {:else if nav.view === 'editor'}<Editor />
+        {:else if nav.view === 'exports'}<Exports />
         {:else if nav.view === 'settings'}<Settings />
         {:else if nav.view === 'about'}<About />
         {/if}

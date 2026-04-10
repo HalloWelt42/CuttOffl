@@ -2,7 +2,7 @@
 
 import { persisted, persist } from './persist.svelte.js';
 
-export const VIEWS = ['dashboard', 'library', 'editor', 'settings', 'about'];
+export const VIEWS = ['dashboard', 'library', 'editor', 'exports', 'settings', 'about'];
 
 const initial = () => {
   const hash = location.hash.replace(/^#/, '');

@@ -16,7 +16,8 @@
       { id: 'library',   icon: 'fa-folder-tree', label: 'Bibliothek' },
     ]},
     { label: 'Arbeitsplatz', items: [
-      { id: 'editor',    icon: 'fa-scissors',    label: 'Editor' },
+      { id: 'editor',    icon: 'fa-scissors',     label: 'Editor' },
+      { id: 'exports',   icon: 'fa-box-archive',  label: 'Fertige Videos' },
     ]},
     { label: 'System', items: [
       { id: 'settings',  icon: 'fa-gear',         label: 'Einstellungen' },

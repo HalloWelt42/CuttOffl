@@ -109,11 +109,11 @@
         <div class="kpi-label soft">Vorschau fertig</div>
         <div class="kpi-sub mono">Proxy-Videos bereit</div>
       </button>
-      <button class="kpi" onclick={() => go('library')}
-              title="Fertige Schnitt-Exports in der Bibliothek">
+      <button class="kpi" onclick={() => go('exports')}
+              title="Alle gerenderten Videos anzeigen und herunterladen">
         <i class="fa-solid fa-box-archive"></i>
         <div class="kpi-value mono">{overview?.counts?.exports ?? '...'}</div>
-        <div class="kpi-label soft">Fertige Schnitte</div>
+        <div class="kpi-label soft">Fertige Videos</div>
         <div class="kpi-sub mono">gerendert und abrufbar</div>
       </button>
       <div class="kpi static" title={activeJobs > 0
