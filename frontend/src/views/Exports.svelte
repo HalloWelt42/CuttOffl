@@ -6,6 +6,18 @@
   import { confirmDialog } from '../lib/dialog.svelte.js';
   import { go } from '../lib/nav.svelte.js';
   import PanelHeader from '../components/PanelHeader.svelte';
+  import VideoPreviewOverlay from '../components/VideoPreviewOverlay.svelte';
+
+  let previewOpen = $state(false);
+  let previewSrc = $state('');
+  let previewTitle = $state('');
+
+  function openPreview(ex) {
+    if (!ex.exists) return;
+    previewSrc = api.exportDownloadUrl(ex.job_id);
+    previewTitle = ex.display_name;
+    previewOpen = true;
+  }
 
   let exports = $state([]);
   let loading = $state(true);
@@ -80,7 +92,9 @@
       <ul class="list">
         {#each exports as ex (ex.job_id)}
           <li class:disabled={!ex.exists}>
-            <div class="left">
+            <button class="left" onclick={() => openPreview(ex)}
+                    disabled={!ex.exists}
+                    title={ex.exists ? 'Vorschau öffnen' : 'Datei nicht vorhanden'}>
               <i class="fa-solid fa-film"></i>
               <div class="info">
                 <div class="name" title={ex.display_name}>{ex.display_name}</div>
@@ -91,8 +105,13 @@
                   {#if !ex.exists}<span class="warn">Datei fehlt</span>{/if}
                 </div>
               </div>
-            </div>
+            </button>
             <div class="actions">
+              <button class="btn" onclick={() => openPreview(ex)}
+                      disabled={!ex.exists}
+                      title="Video im Overlay abspielen">
+                <i class="fa-solid fa-play"></i>
+              </button>
               <a class="btn btn-primary" href={api.exportDownloadUrl(ex.job_id)} download
                  class:disabled={!ex.exists}
                  title="Dieses Video herunterladen">
@@ -109,6 +128,8 @@
     {/if}
   </div>
 </section>
+
+<VideoPreviewOverlay bind:open={previewOpen} src={previewSrc} title={previewTitle} />
 
 <style>
   .wrap { display: flex; flex-direction: column; height: 100%; }
