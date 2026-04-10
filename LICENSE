@@ -162,7 +162,7 @@ DEUTSCH:
      - Die Datei LICENSE im Wurzelverzeichnis
      - Copyright-Header in Quelldateien (© HalloWelt42)
      - SPDX-License-Identifier in Quelldateien
-     - Autorenangaben in package.json, Dockerfile und Konfiguration
+     - Autorenangaben in package.json und Konfigurationsdateien
   c) Bei Weiterverbreitung (soweit gestattet) muss auf das
      Original-Repository verwiesen werden:
      https://github.com/HalloWelt42/CuttOffl
@@ -175,7 +175,7 @@ ENGLISH:
      - The LICENSE file in the root directory
      - Copyright headers in source files (© HalloWelt42)
      - SPDX-License-Identifier in source files
-     - Author credits in package.json, Dockerfile, and configuration
+     - Author credits in package.json and configuration files
   c) Any redistribution (to the extent permitted) must reference the
      original repository:
      https://github.com/HalloWelt42/CuttOffl

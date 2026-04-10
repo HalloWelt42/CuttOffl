@@ -8,7 +8,7 @@ Fokus auf große Dateien, lokal, ohne Cloud, ohne Konto.
 
 **Backend v0.5.0**
 
-- FastAPI, läuft nativ auf Mac (kein Docker nötig)
+- FastAPI, läuft nativ auf Mac und Linux/Raspberry Pi
 - SQLite via `aiosqlite`, natives SQL (kein ORM)
 - Multipart-Upload mit sofortiger `ffprobe`-Metadatenextraktion
 - Auto-Proxy nach Upload (480p H.264, GOP = 1 s, schnelles Scrubbing)
