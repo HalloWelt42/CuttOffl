@@ -28,7 +28,7 @@ from app.config import (
 )
 from app.db import db
 from app.routers import (
-    exports, files, jobs, probe, projects, proxy, sprite,
+    exports, files, folders, jobs, probe, projects, proxy, sprite,
     system, thumbnail, upload, ws,
 )
 from app.services.hwaccel_service import detect_hw_encoder
@@ -103,6 +103,7 @@ app.add_middleware(
 app.include_router(system.router)
 app.include_router(upload.router)
 app.include_router(files.router)
+app.include_router(folders.router)
 app.include_router(probe.router)
 app.include_router(proxy.router)
 app.include_router(thumbnail.router)
