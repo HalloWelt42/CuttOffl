@@ -13,6 +13,7 @@
   import About from './views/About.svelte';
   import ThanksOverlay from './components/ThanksOverlay.svelte';
   import DialogHost from './components/DialogHost.svelte';
+  import FolderPickerOverlay from './components/FolderPickerOverlay.svelte';
   import { nav } from './lib/nav.svelte.js';
   import { applyTheme } from './lib/theme.svelte.js';
   import { persisted, persist } from './lib/persist.svelte.js';
@@ -71,6 +72,7 @@
     <ToastHost />
     <ThanksOverlay />
     <DialogHost />
+    <FolderPickerOverlay />
   </div>
 </ErrorBoundary>
 

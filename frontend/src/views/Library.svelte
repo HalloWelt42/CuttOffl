@@ -6,6 +6,7 @@
   import { openInEditor } from '../lib/nav.svelte.js';
   import { library, setCurrentFolder, parentOf, breadcrumbs } from '../lib/library.svelte.js';
   import { confirmDialog, promptDialog } from '../lib/dialog.svelte.js';
+  import { openFolderPicker } from '../lib/folderPicker.svelte.js';
   import PanelHeader from '../components/PanelHeader.svelte';
 
   let files = $state([]);
@@ -168,13 +169,13 @@
   }
 
   async function onMoveTo(f) {
-    const target = await promptDialog(
-      'Zielordner angeben (leer lassen = Wurzel, sonst z. B. "Urlaub/2026"):',
-      f.folder_path || '',
-      { title: 'Datei verschieben', placeholder: 'z. B. Urlaub/2026' },
-    );
+    const target = await openFolderPicker({
+      title: `"${f.original_name}" verschieben nach …`,
+      current: f.folder_path || '',
+    });
     if (target == null) return;
-    doMove(f, target.trim());
+    if ((f.folder_path || '') === target) return;
+    doMove(f, target);
   }
 
   function fmtSize(n) {
@@ -219,6 +220,12 @@
 
   <!-- Breadcrumb -->
   <nav class="breadcrumb" aria-label="Ordner-Navigation">
+    {#if library.currentFolder}
+      <button class="up" onclick={() => setCurrentFolder(parentOf(library.currentFolder))}
+              title="Eine Ebene höher">
+        <i class="fa-solid fa-arrow-up"></i>
+      </button>
+    {/if}
     {#each crumbs as c, i (c.path)}
       {#if i > 0}<span class="sep">/</span>{/if}
       <button class="crumb" class:current={i === crumbs.length - 1}
@@ -318,8 +325,9 @@
                       <i class="fa-solid fa-pen"></i>
                     </button>
                     <button class="btn" onclick={() => onMoveTo(f)}
-                            title="Datei in einen anderen Ordner verschieben">
+                            title="In einen anderen Ordner verschieben -- ein Dialog zeigt alle vorhandenen Ordner und erlaubt auch Neuanlegen">
                       <i class="fa-solid fa-folder-tree"></i>
+                      <span class="sm-hide">Verschieben</span>
                     </button>
                     <a class="btn" href={api.fileDownloadUrl(f.id)} download
                        title="Original-Datei herunterladen">
@@ -365,6 +373,14 @@
   .crumb.current { color: var(--fg-primary); font-weight: 600; cursor: default; }
   .crumb.current:hover { background: transparent; }
   .sep { color: var(--fg-faint); }
+  .up {
+    background: var(--bg-elev); border: 1px solid var(--border);
+    color: var(--fg-muted); cursor: pointer;
+    padding: 4px 10px; border-radius: 4px; margin-right: 4px;
+    display: inline-flex; align-items: center; gap: 6px;
+    font: inherit; font-size: 13px;
+  }
+  .up:hover { color: var(--fg-primary); border-color: var(--border-strong); }
 
   .sec-title {
     margin: 0 0 10px;
