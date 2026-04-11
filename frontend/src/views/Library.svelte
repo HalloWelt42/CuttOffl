@@ -163,7 +163,7 @@
   async function doMove(f, target) {
     try {
       await api.moveFile(f.id, target);
-      toast.info(target ? `Verschoben nach ${target}` : 'In die Wurzel verschoben');
+      toast.info(target ? `Verschoben nach ${target}` : 'In die Basis verschoben');
       refresh();
     } catch (e) { toast.error(e.message); }
   }
@@ -230,7 +230,7 @@
       {#if i > 0}<span class="sep">/</span>{/if}
       <button class="crumb" class:current={i === crumbs.length - 1}
               onclick={() => setCurrentFolder(c.path)}
-              title={i === 0 ? 'Zur Wurzel' : `Zu ${c.path}`}>
+              title={i === 0 ? 'Zur Basis (oberste Ebene)' : `Zu ${c.path}`}>
         {#if i === 0}<i class="fa-solid fa-house"></i>{/if}
         {c.label}
       </button>

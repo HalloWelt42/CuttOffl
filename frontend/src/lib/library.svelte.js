@@ -29,10 +29,10 @@ export function parentOf(p) {
 }
 
 export function breadcrumbs(path) {
-  // [{label, path}] inklusive Wurzel
+  // [{label, path}] inklusive Basis (Wurzel-Ebene)
   const n = normalizePath(path);
   const parts = n ? n.split('/') : [];
-  const out = [{ label: 'Wurzel', path: '' }];
+  const out = [{ label: 'Basis', path: '' }];
   let acc = '';
   for (const seg of parts) {
     acc = acc ? `${acc}/${seg}` : seg;

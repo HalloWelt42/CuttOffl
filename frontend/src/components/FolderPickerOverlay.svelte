@@ -11,7 +11,7 @@
     loading = true;
     try {
       const raw = await api.listFolders();
-      // Sortieren nach Pfad, Wurzel zuerst
+      // Sortieren nach Pfad, Basis-Ebene zuerst
       folders = raw.sort((a, b) => (a.path || '').localeCompare(b.path || ''));
     } catch {}
     finally { loading = false; }
@@ -92,9 +92,9 @@
               >
                 <button onclick={() => select(f.path)}
                         ondblclick={() => { select(f.path); pickerOk(); }}
-                        title={f.path || 'Wurzel'}>
+                        title={f.path || 'Basis (oberste Ebene)'}>
                   <i class="fa-solid {f.path ? 'fa-folder' : 'fa-house'}"></i>
-                  <span class="name">{f.path ? f.name : 'Wurzel'}</span>
+                  <span class="name">{f.path ? f.name : 'Basis'}</span>
                   <span class="count mono">
                     {f.total_count || 0}
                   </span>
@@ -110,7 +110,7 @@
           <input type="text" bind:value={newName}
                  placeholder={folderPicker.selected
                    ? `Neuer Unterordner in "${folderPicker.selected}"`
-                   : 'Neuer Ordner auf Wurzel-Ebene'}
+                   : 'Neuer Ordner auf Basis-Ebene'}
                  onkeydown={(e) => { if (e.key === 'Enter') { e.preventDefault(); createHere(); } }} />
           <button class="btn" type="button" onclick={createHere}
                   disabled={!newName.trim()}
@@ -123,7 +123,7 @@
       <footer>
         <div class="target">
           Ziel:
-          <span class="path mono">{folderPicker.selected || '— Wurzel —'}</span>
+          <span class="path mono">{folderPicker.selected || '— Basis —'}</span>
         </div>
         <div class="actions">
           <button class="btn" onclick={pickerCancel}>Abbrechen</button>

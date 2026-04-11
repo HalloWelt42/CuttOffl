@@ -1,6 +1,7 @@
 // Ordner-Picker als Promise-basiertes Overlay.
 // Laedt den Ordnerbaum ueber /api/folders und laesst den User einen
-// bestehenden Ordner oder die Wurzel waehlen. Neuanlegen per Eingabe.
+// bestehenden Ordner oder die Basis (oberste Ebene) waehlen.
+// Neuanlegen per Eingabe.
 
 let _resolve = null;
 
