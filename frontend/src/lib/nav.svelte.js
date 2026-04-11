@@ -10,7 +10,11 @@ const initial = () => {
   return persisted('app.view', 'dashboard');
 };
 
-export const nav = $state({ view: initial(), activeFileId: null });
+export const nav = $state({
+  view: initial(),
+  activeFileId: null,
+  activeProjectId: null,
+});
 
 export function go(view) {
   if (!VIEWS.includes(view)) return;
@@ -21,6 +25,13 @@ export function go(view) {
 
 export function openInEditor(fileId) {
   nav.activeFileId = fileId;
+  nav.activeProjectId = null;
+  go('editor');
+}
+
+export function openProjectInEditor(projectId) {
+  nav.activeProjectId = projectId;
+  nav.activeFileId = null;
   go('editor');
 }
 

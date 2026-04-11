@@ -138,6 +138,60 @@ export async function loadFile(fileId) {
   }
 }
 
+export async function loadProject(projectId) {
+  // Laedt ein bestimmtes Projekt (mit seiner Quelldatei). Anders als
+  // loadFile, das fuer eine Datei automatisch das erste vorhandene Projekt
+  // verwendet oder ein neues anlegt, wird hier genau dieses Projekt
+  // verwendet -- wichtig fuer Export-Rueckkehr in den Editor.
+  try {
+    const project = await api.getProject(projectId);
+    const fileId = project.source_file_id;
+    if (!fileId) {
+      toast.error('Projekt hat keine Quelldatei');
+      return;
+    }
+
+    // Reset
+    Object.assign(editor, {
+      fileId,
+      file: null,
+      project: null,
+      projectId: null,
+      edl: null,
+      keyframes: [],
+      duration: 0,
+      playhead: 0,
+      isPlaying: false,
+      selectedClipId: null,
+      dirty: false,
+      history: [],
+      future: [],
+      rendering: false,
+      renderProgress: 0,
+      renderPhase: '',
+      spriteMeta: null,
+      spriteImage: null,
+      waveform: null,
+    });
+
+    const [file, kf] = await Promise.all([
+      api.getFile(fileId),
+      api.keyframes(fileId).catch(() => ({ keyframes: [] })),
+    ]);
+    editor.file = file;
+    editor.duration = file.duration_s || 0;
+    editor.keyframes = kf.keyframes || [];
+    editor.project = project;
+    editor.projectId = project.id;
+    editor.edl = project.edl || emptyEdl(fileId);
+
+    if (file.has_sprite) void loadSprite(fileId);
+    if (file.has_waveform) void loadWaveform(fileId);
+  } catch (e) {
+    toast.error(`Projekt laden: ${e.message}`);
+  }
+}
+
 export async function loadSprite(fileId) {
   try {
     const meta = await api.spriteMeta(fileId);

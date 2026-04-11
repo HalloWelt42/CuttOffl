@@ -8,7 +8,7 @@
   import { persisted, persist } from '../lib/persist.svelte.js';
   import { nav, go } from '../lib/nav.svelte.js';
   import {
-    editor, loadFile, seek, snapTime, addClipFromRange, splitAtPlayhead,
+    editor, loadFile, loadProject, seek, snapTime, addClipFromRange, splitAtPlayhead,
     deleteSelected, undo, redo, setSnap, setFollow, handleJobEvent, toggleClipMode,
     saveNow, jumpToPrevKeyframe, jumpToNextKeyframe,
     startRangePreview, startClipPreview, startTimelinePreview, stopPreview,
@@ -33,12 +33,19 @@
 
   async function onMountHook() {
     wsStart();
-    if (nav.activeFileId) await loadFile(nav.activeFileId);
+    if (nav.activeProjectId) {
+      await loadProject(nav.activeProjectId);
+    } else if (nav.activeFileId) {
+      await loadFile(nav.activeFileId);
+    }
     refreshExports();
   }
 
   $effect(() => {
-    if (nav.activeFileId && editor.fileId !== nav.activeFileId) {
+    if (nav.activeProjectId && editor.projectId !== nav.activeProjectId) {
+      loadProject(nav.activeProjectId);
+    } else if (!nav.activeProjectId && nav.activeFileId
+               && editor.fileId !== nav.activeFileId) {
       loadFile(nav.activeFileId);
     }
   });

@@ -4,7 +4,7 @@
   import { wsOn, wsStart } from '../lib/ws.svelte.js';
   import { toast } from '../lib/toast.svelte.js';
   import { confirmDialog } from '../lib/dialog.svelte.js';
-  import { go } from '../lib/nav.svelte.js';
+  import { go, openProjectInEditor } from '../lib/nav.svelte.js';
   import PanelHeader from '../components/PanelHeader.svelte';
   import VideoPreviewOverlay from '../components/VideoPreviewOverlay.svelte';
 
@@ -112,6 +112,12 @@
                       title="Video im Overlay abspielen">
                 <i class="fa-solid fa-play"></i>
               </button>
+              {#if ex.project_id}
+                <button class="btn" onclick={() => openProjectInEditor(ex.project_id)}
+                        title="Zurück in den Editor, um den Schnitt dieses Projekts weiter zu bearbeiten">
+                  <i class="fa-solid fa-scissors"></i>
+                </button>
+              {/if}
               <a class="btn btn-primary" href={api.exportDownloadUrl(ex.job_id)} download
                  class:disabled={!ex.exists}
                  title="Dieses Video herunterladen">
