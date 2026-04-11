@@ -11,6 +11,9 @@ __pycache__/
 # Env
 .env
 
+# Nutzer-Konfiguration (lokale Pfade)
+user_config.json
+
 # Daten (niemals ins Repo)
 data/originals/*
 data/proxies/*

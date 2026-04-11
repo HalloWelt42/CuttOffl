@@ -14,9 +14,34 @@ VERSION = "0.5.0"
 BASE_DIR = Path(__file__).resolve().parent.parent
 DATA_DIR = Path(os.getenv("CUTTOFFL_DATA_DIR", str(BASE_DIR.parent / "data"))).resolve()
 
-ORIGINALS_DIR = DATA_DIR / "originals"
+
+def _resolve_path(custom: str | None, default: Path) -> Path:
+    """Nimmt den nutzerdefinierten Pfad, wenn er existiert und ein Verzeichnis
+    ist, sonst den Default."""
+    if custom:
+        try:
+            p = Path(custom).expanduser().resolve()
+            if p.exists() and p.is_dir():
+                return p
+        except Exception:
+            pass
+    return default
+
+
+# Nutzer-Overrides aus user_config.json (falls vorhanden) sind fuer die
+# beiden grossen Datenbereiche moeglich, in denen echte Video-Dateien
+# landen. DB, Proxy, Thumbs, Sprites und Waveforms bleiben bewusst beim
+# Default im Daten-Verzeichnis -- das sind interne Caches.
+try:
+    from app.services.user_config import load as _load_user_config
+    _uc = _load_user_config()
+except Exception:
+    _uc = {}
+
+ORIGINALS_DIR = _resolve_path(_uc.get("originals_dir"), DATA_DIR / "originals")
+EXPORTS_DIR   = _resolve_path(_uc.get("exports_dir"),   DATA_DIR / "exports")
+
 PROXIES_DIR = DATA_DIR / "proxies"
-EXPORTS_DIR = DATA_DIR / "exports"
 THUMBS_DIR = DATA_DIR / "thumbs"
 SPRITES_DIR = DATA_DIR / "sprites"
 WAVEFORMS_DIR = DATA_DIR / "waveforms"

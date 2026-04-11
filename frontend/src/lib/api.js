@@ -71,6 +71,13 @@ export const api = {
   systemOverview: () => request('/system/overview'),
   systemStorage:  () => request('/system/storage'),
   systemCodecs:   () => request('/system/codecs'),
+  systemPaths:    () => request('/system/paths'),
+  setSystemPaths: (body) =>
+    request('/system/paths', {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    }),
 
   // Upload
   upload: async (file, onProgress, folder = '') => {

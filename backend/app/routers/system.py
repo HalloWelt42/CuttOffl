@@ -15,11 +15,14 @@ from app.config import (
     APP_NAME, DATA_DIR, EXPORTS_DIR, HOST, ORIGINALS_DIR,
     PORT, PROXIES_DIR, SPRITES_DIR, THUMBS_DIR, TMP_DIR, VERSION, WAVEFORMS_DIR,
 )
+from pydantic import BaseModel
+
 from app.db import db
 from app.models.schemas import PingResponse
 from app.services.codec_service import get_recommendations
 from app.services.ffmpeg_service import get_ffmpeg_version
 from app.services.hwaccel_service import detect_hw_encoder
+from app.services import user_config as uc
 
 router = APIRouter(prefix="/api", tags=["system"])
 
@@ -121,3 +124,68 @@ async def system_overview() -> dict:
 @router.get("/system/codecs")
 async def system_codecs() -> dict:
     return await get_recommendations()
+
+
+# --- Nutzer-Pfade ---------------------------------------------------------
+
+class PathsBody(BaseModel):
+    originals_dir: str | None = None
+    exports_dir:   str | None = None
+
+
+@router.get("/system/paths")
+async def system_paths() -> dict:
+    """Gibt aktuell aktive und persistierte Pfade zurueck."""
+    data = uc.load()
+    return {
+        "active": {
+            "originals_dir": str(ORIGINALS_DIR),
+            "exports_dir":   str(EXPORTS_DIR),
+        },
+        "saved": {
+            "originals_dir": data.get("originals_dir"),
+            "exports_dir":   data.get("exports_dir"),
+        },
+        "default": {
+            "originals_dir": str(DATA_DIR / "originals"),
+            "exports_dir":   str(DATA_DIR / "exports"),
+        },
+        "note": (
+            "Aenderungen werden persistiert, aber erst nach einem Neustart "
+            "des Backends wirksam. Bereits vorhandene Dateien bleiben am "
+            "alten Ort -- sie muessen bei Bedarf manuell uebertragen werden."
+        ),
+    }
+
+
+@router.put("/system/paths")
+async def set_system_paths(body: PathsBody) -> dict:
+    """Speichert neue Pfade. Validiert jeden gegen Existenz, is_dir und
+    Schreibrecht. Ein leerer String setzt den jeweiligen Override zurueck
+    auf den Default.
+    """
+    current = uc.load()
+
+    def _apply(key: str, value: str | None):
+        if value is None:
+            return None  # nichts tun
+        v = value.strip()
+        if v == "":
+            current.pop(key, None)
+            return None
+        err = uc.validate_directory(v)
+        if err:
+            from fastapi import HTTPException
+            raise HTTPException(status_code=400, detail=f"{key}: {err}")
+        # resolve -> speichere expandierten, absoluten Pfad
+        from pathlib import Path as _P
+        current[key] = str(_P(v).expanduser().resolve())
+        return None
+
+    _apply("originals_dir", body.originals_dir)
+    _apply("exports_dir",   body.exports_dir)
+    uc.save(current)
+    return {
+        "saved": current,
+        "restart_required": True,
+    }
