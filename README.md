@@ -6,7 +6,7 @@ Fokus auf große Dateien, lokal, ohne Cloud, ohne Konto.
 
 ## Status
 
-**Backend v0.5.0**
+**Backend v0.7.0**
 
 - FastAPI, läuft nativ auf Mac und Linux/Raspberry Pi
 - SQLite via `aiosqlite`, natives SQL (kein ORM)
@@ -25,7 +25,7 @@ Fokus auf große Dateien, lokal, ohne Cloud, ohne Konto.
 - System-Endpunkte für Disk-Usage und Dashboard-Overview
 - Error-Sanitizer: absolute Pfade werden nicht nach außen gereicht
 
-**Frontend v0.2.0**
+**Frontend v0.4.0**
 
 - Svelte 5 (Runes) + Vite 8 + Tailwind 4, kein SvelteKit
 - Studio-Layout: Sidebar (kollabierbar, resizable) + Content + JobsBar
