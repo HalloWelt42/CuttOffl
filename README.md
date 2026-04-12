@@ -3,6 +3,15 @@
 Video schneiden -- lokal, ohne Cloud, ohne Konto.
 
 <p align="center">
+  <img src="https://img.shields.io/badge/license-NC--2.0-blue" alt="Lizenz">
+  <img src="https://img.shields.io/badge/python-3.11+-3776AB?logo=python&logoColor=white" alt="Python 3.11+">
+  <img src="https://img.shields.io/badge/FastAPI-009688?logo=fastapi&logoColor=white" alt="FastAPI">
+  <img src="https://img.shields.io/badge/Svelte-5-FF3E00?logo=svelte&logoColor=white" alt="Svelte 5">
+  <img src="https://img.shields.io/badge/FFmpeg-6+-007808?logo=ffmpeg&logoColor=white" alt="FFmpeg 6+">
+  <img src="https://img.shields.io/badge/platform-macOS%20%7C%20Linux%20%7C%20RPi%205-lightgrey" alt="Plattformen">
+</p>
+
+<p align="center">
   <img src="docs/screenshots/hero-editor-dark.png" alt="CuttOffl Editor" width="880">
 </p>
 
@@ -132,12 +141,28 @@ Vollstaendig in [`LICENSE`](LICENSE) und in der App unter **Ueber**.
 
 ## Unterstuetzung
 
-Wenn es nuetzlich ist und du die Weiterentwicklung unterstuetzen moechtest:
+Wenn es nuetzlich ist und du die Weiterentwicklung unterstuetzen moechtest --
+rein freiwillig:
 
-- **Ko-fi:** <https://ko-fi.com/HalloWelt42>
-- **Bitcoin:** `bc1qnd599khdkv3v3npmj9ufxzf6h4fzanny2acwqr`
-- **Dogecoin:** `DL7tuiYCqm3xQjMDXChdxeQxqUGMACn1ZV`
-- **Ethereum:** `0x8A28fc47bFFFA03C8f685fa0836E2dBe1CA14F27`
+<p>
+  <a href="https://ko-fi.com/HalloWelt42">
+    <img src="https://ko-fi.com/img/githubbutton_sm.svg" alt="Ko-fi">
+  </a>
+</p>
+
+<p>
+  <img src="https://img.shields.io/badge/Bitcoin-F7931A?style=for-the-badge&logo=bitcoin&logoColor=white" alt="Bitcoin">
+  <code>bc1qnd599khdkv3v3npmj9ufxzf6h4fzanny2acwqr</code>
+</p>
+<p>
+  <img src="https://img.shields.io/badge/Dogecoin-C2A633?style=for-the-badge&logo=dogecoin&logoColor=white" alt="Dogecoin">
+  <code>DL7tuiYCqm3xQjMDXChdxeQxqUGMACn1ZV</code>
+</p>
+<p>
+  <img src="https://img.shields.io/badge/Ethereum-3C3C3D?style=for-the-badge&logo=ethereum&logoColor=white" alt="Ethereum">
+  <code>0x8A28fc47bFFFA03C8f685fa0836E2dBe1CA14F27</code>
+</p>
 
 Der Spenden-Dialog in der App (Button **Danke** in der Seitenleiste) zeigt
-QR-Codes. Projekt-Infos stehen auf der Seite **Ueber**.
+die gleichen Adressen mit QR-Codes. Projekt-Infos und Lizenz stehen auf der
+Seite **Ueber**.
