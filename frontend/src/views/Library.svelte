@@ -4,7 +4,10 @@
   import { wsOn, wsStart } from '../lib/ws.svelte.js';
   import { toast } from '../lib/toast.svelte.js';
   import { openInEditor } from '../lib/nav.svelte.js';
-  import { library, setCurrentFolder, parentOf, breadcrumbs } from '../lib/library.svelte.js';
+  import {
+    library, setCurrentFolder, parentOf, breadcrumbs,
+    setView, setSort, toggleSortDir, sortFiles,
+  } from '../lib/library.svelte.js';
   import { confirmDialog, promptDialog } from '../lib/dialog.svelte.js';
   import { openFolderPicker } from '../lib/folderPicker.svelte.js';
   import PanelHeader from '../components/PanelHeader.svelte';
@@ -16,6 +19,15 @@
   let fileInput;
 
   const crumbs = $derived(breadcrumbs(library.currentFolder));
+  const sortedFiles = $derived(sortFiles(files));
+
+  // Sortieroptionen fuer das Dropdown (Label passt zur Ansicht)
+  const SORT_OPTIONS = [
+    { k: 'date',     label: 'Datum'  },
+    { k: 'name',     label: 'Name'   },
+    { k: 'size',     label: 'Groesse' },
+    { k: 'duration', label: 'Dauer'  },
+  ];
 
   async function refresh() {
     try {
@@ -220,6 +232,50 @@
     </button>
   </PanelHeader>
 
+  <!-- Toolbar: Ansicht + Sortierung -->
+  <div class="toolbar">
+    <div class="group view-switch" role="group" aria-label="Ansicht waehlen">
+      <button class="seg" class:active={library.view === 'grid'}
+              onclick={() => setView('grid')}
+              title="Kachelansicht mit grossen Vorschaubildern">
+        <i class="fa-solid fa-grip"></i>
+        <span class="lbl">Kacheln</span>
+      </button>
+      <button class="seg" class:active={library.view === 'list'}
+              onclick={() => setView('list')}
+              title="Tabellenansicht mit allen Details in einer Zeile">
+        <i class="fa-solid fa-list"></i>
+        <span class="lbl">Liste</span>
+      </button>
+      <button class="seg" class:active={library.view === 'compact'}
+              onclick={() => setView('compact')}
+              title="Dichte Ansicht fuer viele Dateien auf einen Blick">
+        <i class="fa-solid fa-bars-staggered"></i>
+        <span class="lbl">Kompakt</span>
+      </button>
+    </div>
+
+    <div class="group sort-group">
+      <label class="sort-label" for="lib-sort">Sortieren:</label>
+      <select id="lib-sort" class="sort-select"
+              value={library.sortBy}
+              onchange={(e) => setSort(e.currentTarget.value, null)}
+              title="Sortierreihenfolge der Dateien">
+        {#each SORT_OPTIONS as o (o.k)}
+          <option value={o.k}>{o.label}</option>
+        {/each}
+      </select>
+      <button class="btn btn-sm" onclick={toggleSortDir}
+              title={library.sortDir === 'asc'
+                ? 'Aufsteigend -- klicken fuer absteigend'
+                : 'Absteigend -- klicken fuer aufsteigend'}>
+        <i class="fa-solid {library.sortDir === 'asc'
+          ? 'fa-arrow-up-short-wide'
+          : 'fa-arrow-down-wide-short'}"></i>
+      </button>
+    </div>
+  </div>
+
   <!-- Breadcrumb -->
   <nav class="breadcrumb" aria-label="Ordner-Navigation">
     {#if library.currentFolder}
@@ -300,68 +356,167 @@
       {#if files.length > 0}
         <section class:with-gap={folderChildren.length > 0}>
           <h3 class="sec-title">Videos</h3>
-          <div class="grid">
-            {#each files as f (f.id)}
-              {@const s = statusBadge(f)}
-              <article class="card file">
-                <button class="thumb-btn" onclick={() => f.has_proxy && openInEditor(f.id)}
-                        disabled={!f.has_proxy}
-                        title={f.has_proxy ? 'Im Editor öffnen' : 'Proxy noch nicht fertig'}>
-                  <div class="thumb">
-                    {#if f.has_thumb}
-                      <img src={api.thumbUrl(f.id)} alt="" />
-                    {:else}
-                      <i class="fa-solid fa-image"></i>
-                    {/if}
+
+          {#if library.view === 'grid'}
+            <div class="grid">
+              {#each sortedFiles as f (f.id)}
+                {@const s = statusBadge(f)}
+                <article class="card file">
+                  <button class="thumb-btn" onclick={() => f.has_proxy && openInEditor(f.id)}
+                          disabled={!f.has_proxy}
+                          title={f.has_proxy ? 'Im Editor öffnen' : 'Proxy noch nicht fertig'}>
+                    <div class="thumb">
+                      {#if f.has_thumb}
+                        <img src={api.thumbUrl(f.id)} alt="" />
+                      {:else}
+                        <i class="fa-solid fa-image"></i>
+                      {/if}
+                      <span class="badge {s.c}">{s.t}</span>
+                    </div>
+                  </button>
+                  <div class="meta">
+                    <div class="name" title={f.original_name}>{f.original_name}</div>
+                    <div class="row mono">
+                      <span>{fmtDur(f.duration_s)}</span>
+                      <span>{f.width}x{f.height}</span>
+                      <span>{f.video_codec ?? '-'}</span>
+                      <span>{fmtSize(f.size_bytes)}</span>
+                    </div>
+                    <div class="row mono subtle">
+                      <span>FPS {f.fps ?? '-'}</span>
+                      <span>KF {f.keyframe_count ?? '-'}</span>
+                    </div>
+                    <div class="actions">
+                      <button class="btn btn-primary" onclick={() => openInEditor(f.id)}
+                              disabled={!f.has_proxy}
+                              title={f.has_proxy
+                                ? 'Dieses Video im Schnitt-Editor öffnen'
+                                : 'Bitte warten bis die Proxy-Vorschau fertig ist'}>
+                        <i class="fa-solid fa-scissors"></i> Öffnen
+                      </button>
+                      <button class="btn" onclick={() => onRename(f)}
+                              title="Angezeigten Dateinamen ändern">
+                        <i class="fa-solid fa-pen"></i>
+                      </button>
+                      <button class="btn" onclick={() => onMoveTo(f)}
+                              title="In einen anderen Ordner verschieben">
+                        <i class="fa-solid fa-folder-tree"></i>
+                        <span class="sm-hide">Verschieben</span>
+                      </button>
+                      <a class="btn" href={api.fileDownloadUrl(f.id)} download
+                         title="Original-Datei herunterladen">
+                        <i class="fa-solid fa-download"></i>
+                      </a>
+                      <button class="btn" onclick={() => onRegenProxy(f)}
+                              title="Proxy-Vorschau neu erzeugen">
+                        <i class="fa-solid fa-arrows-rotate"></i>
+                      </button>
+                      <button class="btn btn-danger" onclick={() => onDelete(f)}
+                              title="Datei samt Vorschau, Thumbnail, Sprite und Wellenform löschen">
+                        <i class="fa-solid fa-trash"></i>
+                      </button>
+                    </div>
+                  </div>
+                </article>
+              {/each}
+            </div>
+
+          {:else if library.view === 'list'}
+            <div class="table-wrap">
+              <table class="file-table">
+                <thead>
+                  <tr>
+                    <th class="c-thumb"></th>
+                    <th class="c-name">Name</th>
+                    <th class="c-dur mono">Dauer</th>
+                    <th class="c-res mono">Aufloesung</th>
+                    <th class="c-codec mono">Codec</th>
+                    <th class="c-size mono">Groesse</th>
+                    <th class="c-status">Proxy</th>
+                    <th class="c-actions"></th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {#each sortedFiles as f (f.id)}
+                    {@const s = statusBadge(f)}
+                    <tr>
+                      <td class="c-thumb">
+                        <button class="thumb-mini" onclick={() => f.has_proxy && openInEditor(f.id)}
+                                disabled={!f.has_proxy}
+                                title={f.has_proxy ? 'Im Editor öffnen' : 'Proxy noch nicht fertig'}>
+                          {#if f.has_thumb}
+                            <img src={api.thumbUrl(f.id)} alt="" />
+                          {:else}
+                            <i class="fa-solid fa-image"></i>
+                          {/if}
+                        </button>
+                      </td>
+                      <td class="c-name">
+                        <div class="name-cell" title={f.original_name}>{f.original_name}</div>
+                      </td>
+                      <td class="c-dur mono">{fmtDur(f.duration_s)}</td>
+                      <td class="c-res mono">{f.width}x{f.height}</td>
+                      <td class="c-codec mono">{f.video_codec ?? '-'}</td>
+                      <td class="c-size mono">{fmtSize(f.size_bytes)}</td>
+                      <td class="c-status"><span class="badge {s.c}">{s.t}</span></td>
+                      <td class="c-actions">
+                        <button class="btn btn-sm btn-primary" onclick={() => openInEditor(f.id)}
+                                disabled={!f.has_proxy} title="Im Editor öffnen">
+                          <i class="fa-solid fa-scissors"></i>
+                        </button>
+                        <button class="btn btn-sm" onclick={() => onRename(f)}
+                                title="Umbenennen">
+                          <i class="fa-solid fa-pen"></i>
+                        </button>
+                        <button class="btn btn-sm" onclick={() => onMoveTo(f)}
+                                title="Verschieben">
+                          <i class="fa-solid fa-folder-tree"></i>
+                        </button>
+                        <a class="btn btn-sm" href={api.fileDownloadUrl(f.id)} download
+                           title="Download">
+                          <i class="fa-solid fa-download"></i>
+                        </a>
+                        <button class="btn btn-sm btn-danger" onclick={() => onDelete(f)}
+                                title="Löschen">
+                          <i class="fa-solid fa-trash"></i>
+                        </button>
+                      </td>
+                    </tr>
+                  {/each}
+                </tbody>
+              </table>
+            </div>
+
+          {:else}
+            <ul class="compact-list">
+              {#each sortedFiles as f (f.id)}
+                {@const s = statusBadge(f)}
+                <li class="compact-row">
+                  <button class="compact-main" onclick={() => f.has_proxy && openInEditor(f.id)}
+                          disabled={!f.has_proxy}
+                          title={f.has_proxy ? 'Im Editor öffnen' : 'Proxy noch nicht fertig'}>
+                    <i class="fa-solid fa-film"></i>
+                    <span class="compact-name" title={f.original_name}>{f.original_name}</span>
+                    <span class="compact-meta mono">
+                      {fmtDur(f.duration_s)} · {f.width}x{f.height} · {fmtSize(f.size_bytes)}
+                    </span>
                     <span class="badge {s.c}">{s.t}</span>
-                  </div>
-                </button>
-                <div class="meta">
-                  <div class="name" title={f.original_name}>{f.original_name}</div>
-                  <div class="row mono">
-                    <span>{fmtDur(f.duration_s)}</span>
-                    <span>{f.width}x{f.height}</span>
-                    <span>{f.video_codec ?? '-'}</span>
-                    <span>{fmtSize(f.size_bytes)}</span>
-                  </div>
-                  <div class="row mono subtle">
-                    <span>FPS {f.fps ?? '-'}</span>
-                    <span>KF {f.keyframe_count ?? '-'}</span>
-                  </div>
-                  <div class="actions">
-                    <button class="btn btn-primary" onclick={() => openInEditor(f.id)}
-                            disabled={!f.has_proxy}
-                            title={f.has_proxy
-                              ? 'Dieses Video im Schnitt-Editor öffnen'
-                              : 'Bitte warten bis die Proxy-Vorschau fertig ist'}>
-                      <i class="fa-solid fa-scissors"></i> Öffnen
-                    </button>
-                    <button class="btn" onclick={() => onRename(f)}
-                            title="Angezeigten Dateinamen ändern">
+                  </button>
+                  <div class="compact-actions">
+                    <button class="btn btn-sm" onclick={() => onRename(f)} title="Umbenennen">
                       <i class="fa-solid fa-pen"></i>
                     </button>
-                    <button class="btn" onclick={() => onMoveTo(f)}
-                            title="In einen anderen Ordner verschieben -- ein Dialog zeigt alle vorhandenen Ordner und erlaubt auch Neuanlegen">
+                    <button class="btn btn-sm" onclick={() => onMoveTo(f)} title="Verschieben">
                       <i class="fa-solid fa-folder-tree"></i>
-                      <span class="sm-hide">Verschieben</span>
                     </button>
-                    <a class="btn" href={api.fileDownloadUrl(f.id)} download
-                       title="Original-Datei herunterladen">
-                      <i class="fa-solid fa-download"></i>
-                    </a>
-                    <button class="btn" onclick={() => onRegenProxy(f)}
-                            title="Proxy-Vorschau neu erzeugen">
-                      <i class="fa-solid fa-arrows-rotate"></i>
-                    </button>
-                    <button class="btn btn-danger" onclick={() => onDelete(f)}
-                            title="Datei samt Vorschau, Thumbnail, Sprite und Wellenform löschen">
+                    <button class="btn btn-sm btn-danger" onclick={() => onDelete(f)} title="Löschen">
                       <i class="fa-solid fa-trash"></i>
                     </button>
                   </div>
-                </div>
-              </article>
-            {/each}
-          </div>
+                </li>
+              {/each}
+            </ul>
+          {/if}
         </section>
       {/if}
     {/if}
@@ -495,4 +650,192 @@
 
   label.btn.busy { cursor: wait; filter: brightness(0.9); }
   label.btn input { display: none; }
+
+  /* Toolbar unter dem PanelHeader: Ansicht + Sortierung */
+  .toolbar {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    padding: 8px 16px;
+    background: var(--bg-panel);
+    border-bottom: 1px solid var(--border);
+    flex-wrap: wrap;
+  }
+  .toolbar .group { display: flex; align-items: center; gap: 6px; }
+
+  .view-switch {
+    background: var(--bg-elev);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 2px;
+    gap: 0;
+  }
+  .view-switch .seg {
+    background: transparent;
+    border: none;
+    color: var(--fg-muted);
+    padding: 5px 10px;
+    cursor: pointer;
+    font: inherit;
+    font-size: 12px;
+    border-radius: 4px;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    transition: background 120ms, color 120ms;
+  }
+  .view-switch .seg:hover { color: var(--fg-primary); }
+  .view-switch .seg.active {
+    background: var(--bg-panel);
+    color: var(--accent);
+    box-shadow: 0 1px 2px rgba(0,0,0,0.15);
+  }
+  .view-switch .seg .lbl { font-size: 12px; }
+
+  .sort-label {
+    font-size: 12px;
+    color: var(--fg-muted);
+    letter-spacing: 0.3px;
+  }
+  .sort-select {
+    background: var(--bg-elev);
+    color: var(--fg-primary);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    padding: 4px 8px;
+    font: inherit;
+    font-size: 12px;
+    cursor: pointer;
+  }
+  .sort-select:focus {
+    outline: none;
+    border-color: var(--accent);
+  }
+
+  /* Liste-Ansicht: Tabelle */
+  .table-wrap {
+    overflow-x: auto;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    background: var(--bg-panel);
+  }
+  .file-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 13px;
+  }
+  .file-table thead th {
+    background: var(--bg-elev);
+    color: var(--fg-muted);
+    text-align: left;
+    font-weight: 600;
+    font-size: 11px;
+    letter-spacing: 0.5px;
+    text-transform: uppercase;
+    padding: 8px 10px;
+    border-bottom: 1px solid var(--border);
+    white-space: nowrap;
+  }
+  .file-table tbody td {
+    padding: 8px 10px;
+    border-bottom: 1px solid var(--border);
+    vertical-align: middle;
+  }
+  .file-table tbody tr:last-child td { border-bottom: none; }
+  .file-table tbody tr:hover { background: var(--bg-elev); }
+
+  .c-thumb { width: 80px; }
+  .c-dur, .c-res, .c-codec, .c-size { white-space: nowrap; }
+  .c-size { text-align: right; }
+  .c-status { width: 80px; }
+  .c-actions { text-align: right; white-space: nowrap; }
+  .c-actions .btn { margin-left: 2px; }
+
+  .thumb-mini {
+    width: 64px; height: 40px;
+    background: var(--bg-sink);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    padding: 0;
+    overflow: hidden;
+    cursor: pointer;
+    display: grid; place-items: center;
+    color: var(--fg-faint);
+  }
+  .thumb-mini:disabled { cursor: default; opacity: 0.7; }
+  .thumb-mini img { width: 100%; height: 100%; object-fit: cover; }
+  .thumb-mini:not(:disabled):hover { outline: 2px solid var(--accent); outline-offset: -2px; }
+
+  .name-cell {
+    font-weight: 600;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 360px;
+  }
+
+  /* Kompakt-Ansicht */
+  .compact-list {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    background: var(--bg-panel);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    overflow: hidden;
+  }
+  .compact-row {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 0;
+    border-bottom: 1px solid var(--border);
+  }
+  .compact-row:last-child { border-bottom: none; }
+  .compact-row:hover { background: var(--bg-elev); }
+
+  .compact-main {
+    flex: 1 1 auto;
+    min-width: 0;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 6px 10px;
+    background: transparent;
+    border: none;
+    color: var(--fg-primary);
+    font: inherit;
+    text-align: left;
+    cursor: pointer;
+  }
+  .compact-main:disabled { cursor: default; opacity: 0.7; }
+  .compact-main > i {
+    color: var(--accent);
+    width: 18px;
+    text-align: center;
+  }
+  .compact-name {
+    flex: 1 1 auto;
+    min-width: 0;
+    font-weight: 600;
+    font-size: 13px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .compact-meta {
+    font-size: 11px;
+    color: var(--fg-muted);
+    flex: 0 0 auto;
+    white-space: nowrap;
+  }
+  .compact-actions {
+    display: flex;
+    gap: 4px;
+    padding: 4px 8px;
+    flex: 0 0 auto;
+  }
 </style>
