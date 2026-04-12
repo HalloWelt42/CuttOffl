@@ -124,8 +124,8 @@
     display: block;
     /* transparenter Hintergrund: die Kartoffel bleibt freigestellt */
   }
-  .brand-text { display: flex; flex-direction: column; line-height: 1.1; gap: 2px; }
-  .name { font-weight: 700; font-size: 17px; letter-spacing: 0.3px; }
+  .brand-text { display: flex; flex-direction: column; line-height: 1.1; gap: 3px; }
+  .name { font-weight: 700; font-size: 21px; letter-spacing: 0.4px; }
   .tag  { font-size: 12px; color: var(--fg-muted); letter-spacing: 0.3px; }
 
   nav {
