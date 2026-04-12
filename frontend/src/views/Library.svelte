@@ -200,7 +200,9 @@
 
 <section class="panel">
   <PanelHeader icon="fa-folder-tree" title="Bibliothek"
-               subtitle={`${files.length} Datei(en), ${folderChildren.length} Ordner`}>
+               subtitle={library.currentFolder
+                 ? `${library.currentFolder}  ·  ${files.length} Datei(en), ${folderChildren.length} Unterordner`
+                 : `${files.length} Datei(en), ${folderChildren.length} Ordner`}>
     <button class="btn" onclick={onCreateFolder}
             title="Neuen Unterordner im aktuellen Ordner anlegen">
       <i class="fa-solid fa-folder-plus"></i>
@@ -240,8 +242,21 @@
   <div class="body">
     {#if folderChildren.length === 0 && files.length === 0}
       <div class="empty soft">
-        <i class="fa-solid fa-film"></i>
-        <p>Hier ist nichts. Lade ein Video hoch oder lege einen Ordner an.</p>
+        <i class="fa-solid fa-folder-open"></i>
+        {#if library.currentFolder}
+          <p>Der Ordner <b>{library.currentFolder}</b> ist leer.</p>
+          <p>Lade hier ein Video hoch, lege einen Unterordner an, oder gehe zurück.</p>
+          <div class="empty-actions">
+            <button class="btn" onclick={() => setCurrentFolder(parentOf(library.currentFolder))}>
+              <i class="fa-solid fa-arrow-up"></i> Eine Ebene höher
+            </button>
+            <button class="btn" onclick={() => setCurrentFolder('')}>
+              <i class="fa-solid fa-house"></i> Zur Basis
+            </button>
+          </div>
+        {:else}
+          <p>Hier ist nichts. Lade ein Video hoch oder lege einen Ordner an.</p>
+        {/if}
       </div>
     {:else}
       {#if folderChildren.length > 0}
@@ -251,7 +266,7 @@
             {#each folderChildren as child (child.path)}
               <article class="card folder">
                 <button class="folder-btn" onclick={() => setCurrentFolder(child.path)}
-                        title={`${child.path} öffnen`}>
+                        title={`In den Ordner "${child.path}" wechseln`}>
                   <div class="folder-icon">
                     <i class="fa-solid fa-folder"></i>
                   </div>
@@ -261,6 +276,7 @@
                       <span>{child.total_count} Datei{child.total_count === 1 ? '' : 'en'}</span>
                     </div>
                   </div>
+                  <i class="fa-solid fa-chevron-right chev"></i>
                 </button>
                 <div class="actions">
                   <button class="btn btn-sm" onclick={() => onRenameFolder(child)}
@@ -407,12 +423,15 @@
   .folder {
     display: flex; flex-direction: column;
     overflow: hidden;
+    transition: border-color 120ms, transform 120ms;
   }
+  .folder:hover { border-color: var(--accent); transform: translateY(-1px); }
   .folder-btn {
     background: transparent; border: none; padding: 14px;
     color: inherit; cursor: pointer; text-align: left;
     display: flex; gap: 12px; align-items: center;
     font: inherit;
+    width: 100%;
   }
   .folder-btn:hover { background: var(--bg-elev); }
   .folder-icon {
@@ -424,10 +443,19 @@
     flex: 0 0 auto;
   }
   .folder-meta { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 4px; }
+  .folder-btn .chev {
+    color: var(--fg-faint);
+    font-size: 14px;
+    transition: transform 120ms, color 120ms;
+  }
+  .folder-btn:hover .chev { color: var(--accent); transform: translateX(2px); }
   .folder .actions {
     padding: 0 12px 12px;
     display: flex; gap: 6px; justify-content: flex-end;
   }
+
+  .empty-actions { display: flex; gap: 10px; margin-top: 10px; flex-wrap: wrap; justify-content: center; }
+  .empty b { color: var(--fg-primary); }
 
   /* Datei-Kachel */
   .file { overflow: hidden; display: flex; flex-direction: column; }
