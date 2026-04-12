@@ -21,6 +21,14 @@
   let uploadPct = $state(0);
   let fileInput;
 
+  // Drag & Drop
+  let dropActive = $state(false);         // Fuer das Panel-Overlay (OS-Dateien)
+  let dropDepth = 0;                      // Counter fuer nested dragenter/leave
+  let dragOverFolder = $state(null);      // Pfad des hover-Ziel-Ordners
+  let dragOverUp = $state(false);         // Breadcrumb / Up-Button als Ziel
+  let osDragging = $state(false);         // true, wenn OS-Datei gezogen wird
+  const DT_FILE_IDS = 'application/x-cuttoffl-file-ids';
+
   const crumbs = $derived(breadcrumbs(library.currentFolder));
   const visibleFiles = $derived(sortFiles(filterFiles(files)));
   const availableCodecs = $derived(codecOptions(files));
@@ -82,20 +90,44 @@
   $effect(() => { library.currentFolder; clearSelection(); refresh(); });
 
   async function onUpload(ev) {
-    const file = ev.target.files?.[0];
-    if (!file) return;
+    const list = ev.target.files;
+    if (!list || list.length === 0) return;
+    await uploadFiles([...list]);
+    if (fileInput) fileInput.value = '';
+  }
+
+  // Sequenzieller Upload -- zeigt Gesamtfortschritt, ein toast am Ende.
+  async function uploadFiles(list) {
+    if (!list.length) return;
     uploading = true;
     uploadPct = 0;
-    try {
-      await api.upload(file, (p) => (uploadPct = p), library.currentFolder);
-      toast.success(`${file.name} hochgeladen -- Proxy wird erzeugt`);
-      refresh();
-    } catch (e) {
-      toast.error(e.message);
-    } finally {
-      uploading = false;
-      fileInput.value = '';
+    let ok = 0, fail = 0;
+    for (let i = 0; i < list.length; i++) {
+      const file = list[i];
+      try {
+        await api.upload(
+          file,
+          (p) => {
+            // Gesamtfortschritt ueber alle Dateien, Anteil pro Datei gleich
+            uploadPct = (i + p) / list.length;
+          },
+          library.currentFolder,
+        );
+        ok++;
+      } catch (e) {
+        fail++;
+        toast.error(`${file.name}: ${e.message}`);
+      }
     }
+    uploading = false;
+    uploadPct = 0;
+    if (ok > 0) toast.success(
+      list.length === 1
+        ? `${list[0].name} hochgeladen -- Proxy wird erzeugt`
+        : `${ok} Datei(en) hochgeladen`
+    );
+    if (fail > 0 && ok === 0) toast.error(`${fail} Datei(en) fehlgeschlagen`);
+    refresh();
   }
 
   async function onDelete(f) {
@@ -242,6 +274,133 @@
     } catch (e) { toast.error(e.message); }
   }
 
+  // ---- Drag & Drop ---------------------------------------------------------
+  function hasOSFiles(e) {
+    const dt = e.dataTransfer;
+    if (!dt) return false;
+    // Firefox: types ist DOMStringList, enthaelt 'Files' beim OS-Drag
+    const types = dt.types ? Array.from(dt.types) : [];
+    return types.includes('Files');
+  }
+
+  function hasInternalFiles(e) {
+    const dt = e.dataTransfer;
+    if (!dt) return false;
+    const types = dt.types ? Array.from(dt.types) : [];
+    return types.includes(DT_FILE_IDS);
+  }
+
+  function onPanelDragEnter(e) {
+    if (!hasOSFiles(e)) return;
+    e.preventDefault();
+    dropDepth++;
+    osDragging = true;
+    dropActive = true;
+  }
+
+  function onPanelDragOver(e) {
+    if (!hasOSFiles(e)) return;
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'copy';
+  }
+
+  function onPanelDragLeave(e) {
+    if (!hasOSFiles(e)) return;
+    dropDepth = Math.max(0, dropDepth - 1);
+    if (dropDepth === 0) {
+      dropActive = false;
+      osDragging = false;
+    }
+  }
+
+  async function onPanelDrop(e) {
+    if (!hasOSFiles(e)) return;
+    e.preventDefault();
+    dropActive = false;
+    osDragging = false;
+    dropDepth = 0;
+    const osFiles = [...(e.dataTransfer.files || [])];
+    if (osFiles.length === 0) return;
+    // Nur Video-Endungen durchlassen
+    const accept = /\.(mp4|mov|mkv|webm|avi|m4v|mts|ts|mpg|mpeg|flv|wmv)$/i;
+    const good = osFiles.filter((f) => accept.test(f.name));
+    const bad = osFiles.length - good.length;
+    if (bad > 0) toast.warn(`${bad} Datei(en) uebersprungen (kein Video-Format)`);
+    if (good.length === 0) return;
+    await uploadFiles(good);
+  }
+
+  // Datei-Kachel / Zeile starten Drag
+  function onFileDragStart(e, f) {
+    if (!e.dataTransfer) return;
+    // Wenn die gezogene Datei Teil der aktuellen Auswahl ist, ziehen wir
+    // die ganze Auswahl -- sonst nur dieses eine Item.
+    const ids = library.selection.includes(f.id)
+      ? [...library.selection]
+      : [f.id];
+    e.dataTransfer.effectAllowed = 'move';
+    e.dataTransfer.setData(DT_FILE_IDS, JSON.stringify(ids));
+    // Fallback-Text fuer externe Ziele
+    e.dataTransfer.setData('text/plain', f.original_name);
+  }
+
+  function onFileDragEnd() {
+    dragOverFolder = null;
+    dragOverUp = false;
+  }
+
+  // Ordner-Kachel / Up-Button / Breadcrumb als Drop-Ziel
+  function onFolderDragOver(e, targetPath) {
+    if (!hasInternalFiles(e)) return;
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'move';
+    dragOverFolder = targetPath;
+  }
+
+  function onFolderDragLeave(e, targetPath) {
+    if (dragOverFolder === targetPath) dragOverFolder = null;
+  }
+
+  async function onFolderDrop(e, targetPath) {
+    if (!hasInternalFiles(e)) return;
+    e.preventDefault();
+    e.stopPropagation();
+    dragOverFolder = null;
+    dragOverUp = false;
+    let ids = [];
+    try {
+      ids = JSON.parse(e.dataTransfer.getData(DT_FILE_IDS) || '[]');
+    } catch {
+      ids = [];
+    }
+    if (!Array.isArray(ids) || ids.length === 0) return;
+    // Nicht auf denselben Ordner droppen
+    const tgt = targetPath === undefined ? '' : targetPath;
+    try {
+      const res = await api.bulkMoveFiles(ids, tgt);
+      toast.success(
+        res.moved === 1
+          ? `Verschoben nach ${tgt || 'Basis'}`
+          : `${res.moved} Datei(en) nach ${tgt || 'Basis'} verschoben`,
+      );
+      clearSelection();
+      refresh();
+    } catch (err) { toast.error(err.message); }
+  }
+
+  function onUpDragOver(e) {
+    if (!hasInternalFiles(e)) return;
+    if (!library.currentFolder) return;
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'move';
+    dragOverUp = true;
+  }
+  function onUpDragLeave() { dragOverUp = false; }
+  async function onUpDrop(e) {
+    if (!library.currentFolder) return;
+    await onFolderDrop(e, parentOf(library.currentFolder));
+  }
+
   async function onBulkDelete() {
     const ids = [...library.selection];
     if (ids.length === 0) return;
@@ -278,7 +437,21 @@
   }
 </script>
 
-<section class="panel">
+<section class="panel" class:drop-active={dropActive}
+         aria-label="Bibliothek"
+         ondragenter={onPanelDragEnter}
+         ondragover={onPanelDragOver}
+         ondragleave={onPanelDragLeave}
+         ondrop={onPanelDrop}>
+  {#if dropActive}
+    <div class="drop-overlay" aria-hidden="true">
+      <i class="fa-solid fa-cloud-arrow-up"></i>
+      <div class="drop-title">Hier loslassen zum Hochladen</div>
+      <div class="drop-sub">
+        Ordner: <b>{library.currentFolder || 'Basis'}</b>
+      </div>
+    </div>
+  {/if}
   <PanelHeader icon="fa-folder-tree" title="Bibliothek"
                subtitle={library.currentFolder
                  ? `${library.currentFolder}  ·  ${files.length} Datei(en), ${folderChildren.length} Unterordner`
@@ -293,7 +466,7 @@
       <i class="fa-solid fa-upload"></i>
       <span>{uploading ? `Hochladen ${Math.round(uploadPct * 100)} %` : 'Video hochladen'}</span>
       <input bind:this={fileInput} type="file" accept="video/*"
-             onchange={onUpload} disabled={uploading} />
+             multiple onchange={onUpload} disabled={uploading} />
     </label>
     <button class="btn" onclick={refresh} title="Liste neu vom Server laden">
       <i class="fa-solid fa-rotate"></i>
@@ -426,15 +599,23 @@
   <!-- Breadcrumb -->
   <nav class="breadcrumb" aria-label="Ordner-Navigation">
     {#if library.currentFolder}
-      <button class="up" onclick={() => setCurrentFolder(parentOf(library.currentFolder))}
-              title="Eine Ebene höher">
+      <button class="up" class:drop-target={dragOverUp}
+              onclick={() => setCurrentFolder(parentOf(library.currentFolder))}
+              ondragover={onUpDragOver}
+              ondragleave={onUpDragLeave}
+              ondrop={onUpDrop}
+              title="Eine Ebene höher (Drop zum Verschieben)">
         <i class="fa-solid fa-arrow-up"></i>
       </button>
     {/if}
     {#each crumbs as c, i (c.path)}
       {#if i > 0}<span class="sep">/</span>{/if}
       <button class="crumb" class:current={i === crumbs.length - 1}
+              class:drop-target={dragOverFolder === c.path}
               onclick={() => setCurrentFolder(c.path)}
+              ondragover={(e) => onFolderDragOver(e, c.path)}
+              ondragleave={(e) => onFolderDragLeave(e, c.path)}
+              ondrop={(e) => onFolderDrop(e, c.path)}
               title={i === 0 ? 'Zur Basis (oberste Ebene)' : `Zu ${c.path}`}>
         {#if i === 0}<i class="fa-solid fa-house"></i>{/if}
         {c.label}
@@ -467,9 +648,13 @@
           <h3 class="sec-title">Ordner</h3>
           <div class="grid">
             {#each folderChildren as child (child.path)}
-              <article class="card folder">
+              <article class="card folder"
+                       class:drop-target={dragOverFolder === child.path}
+                       ondragover={(e) => onFolderDragOver(e, child.path)}
+                       ondragleave={(e) => onFolderDragLeave(e, child.path)}
+                       ondrop={(e) => onFolderDrop(e, child.path)}>
                 <button class="folder-btn" onclick={() => setCurrentFolder(child.path)}
-                        title={`In den Ordner "${child.path}" wechseln`}>
+                        title={`In den Ordner "${child.path}" wechseln (Drop zum Verschieben)`}>
                   <div class="folder-icon">
                     <i class="fa-solid fa-folder"></i>
                   </div>
@@ -525,7 +710,10 @@
             <div class="grid">
               {#each visibleFiles as f (f.id)}
                 {@const s = statusBadge(f)}
-                <article class="card file" class:selected={isSelected(f.id)}>
+                <article class="card file" class:selected={isSelected(f.id)}
+                         draggable="true"
+                         ondragstart={(e) => onFileDragStart(e, f)}
+                         ondragend={onFileDragEnd}>
                   <label class="sel-corner" title="Für Mehrfachaktionen auswählen">
                     <input type="checkbox"
                            checked={isSelected(f.id)}
@@ -616,7 +804,10 @@
                 <tbody>
                   {#each visibleFiles as f (f.id)}
                     {@const s = statusBadge(f)}
-                    <tr class:selected={isSelected(f.id)}>
+                    <tr class:selected={isSelected(f.id)}
+                        draggable="true"
+                        ondragstart={(e) => onFileDragStart(e, f)}
+                        ondragend={onFileDragEnd}>
                       <td class="c-sel">
                         <input type="checkbox"
                                checked={isSelected(f.id)}
@@ -674,7 +865,10 @@
             <ul class="compact-list">
               {#each visibleFiles as f (f.id)}
                 {@const s = statusBadge(f)}
-                <li class="compact-row" class:selected={isSelected(f.id)}>
+                <li class="compact-row" class:selected={isSelected(f.id)}
+                    draggable="true"
+                    ondragstart={(e) => onFileDragStart(e, f)}
+                    ondragend={onFileDragEnd}>
                   <label class="compact-sel" title="Für Mehrfachaktionen auswählen">
                     <input type="checkbox"
                            checked={isSelected(f.id)}
@@ -1157,4 +1351,57 @@
   }
   .compact-sel input { accent-color: var(--accent); cursor: pointer; margin: 0; }
   .compact-row.selected { background: var(--accent-soft); }
+
+  /* Drag & Drop -- OS-Dateien auf das Panel */
+  .panel { position: relative; }
+  .drop-overlay {
+    position: absolute;
+    inset: 0;
+    z-index: 50;
+    background: color-mix(in oklab, var(--accent) 22%, rgba(0,0,0,0.55));
+    border: 3px dashed var(--accent);
+    border-radius: 8px;
+    display: flex; flex-direction: column;
+    align-items: center; justify-content: center;
+    color: var(--fg-primary);
+    pointer-events: none;
+    backdrop-filter: blur(2px);
+    gap: 12px;
+    padding: 20px;
+    text-align: center;
+  }
+  .drop-overlay i {
+    font-size: 56px;
+    color: var(--accent);
+  }
+  .drop-overlay .drop-title {
+    font-size: 20px; font-weight: 700;
+  }
+  .drop-overlay .drop-sub {
+    font-size: 13px; color: var(--fg-muted);
+  }
+  .drop-overlay b { color: var(--accent); }
+
+  /* Drop-Ziel-Hervorhebung */
+  .folder.drop-target {
+    outline: 2px dashed var(--accent);
+    outline-offset: -2px;
+    background: var(--accent-soft);
+    transform: scale(1.02);
+    transition: transform 120ms;
+  }
+  .up.drop-target,
+  .crumb.drop-target {
+    background: var(--accent-soft);
+    border-color: var(--accent);
+    color: var(--accent);
+    outline: 1px dashed var(--accent);
+    outline-offset: 2px;
+  }
+
+  /* Cursor-Hinweis auf draggable Items */
+  .file[draggable="true"] { cursor: grab; }
+  .file[draggable="true"]:active { cursor: grabbing; }
+  .compact-row[draggable="true"] { cursor: grab; }
+  .file-table tbody tr[draggable="true"] { cursor: grab; }
 </style>
