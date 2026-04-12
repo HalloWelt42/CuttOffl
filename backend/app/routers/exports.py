@@ -6,19 +6,40 @@ und liefert die Dateien per HTTP-Download aus.
 
 Dateiname auf Platte bleibt die Job-UUID (kollisionsfrei); der Download-Header
 liefert einen lesbaren Namen aus Projekt + Zeitstempel.
+
+Zusaetzlich: "In Bibliothek uebernehmen" kopiert das fertige Video als neue
+Quelle in data/originals/, legt einen files-Eintrag an und startet Thumbnail-
+und Proxy-Job -- damit ist das Resultat sofort wieder schnittbar.
 """
 
 from __future__ import annotations
 
+import json
+import logging
 import re
+import shutil
+import uuid
 from pathlib import Path
 
 from fastapi import APIRouter, HTTPException
 from fastapi.responses import FileResponse
+from pydantic import BaseModel
 
+from app.config import ORIGINALS_DIR
 from app.db import db
+from app.routers.ws import broadcaster as ws_broadcaster
+from app.services.folder_service import FolderError, normalize as normalize_folder
+from app.services.job_service import job_service
+from app.services.probe_service import probe_file, summarize
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/exports", tags=["exports"])
+
+
+class ImportToLibraryRequest(BaseModel):
+    folder_path: str = ""
+    rename: str | None = None
 
 
 _BAD_CHARS = re.compile(r'[<>:"/\\|?*\x00-\x1f]+')
@@ -136,6 +157,121 @@ async def download_export(job_id: str):
         clip_id=clip_id,
     )
     return FileResponse(path, media_type=media, filename=display)
+
+
+@router.post("/{job_id}/import-to-library")
+async def import_export_to_library(job_id: str, body: ImportToLibraryRequest) -> dict:
+    """Uebernimmt ein fertiges Render-Ergebnis als neue Quelle in die
+    Bibliothek. Datei wird nach data/originals/<new-id>.<ext> kopiert,
+    ein files-Eintrag angelegt und Thumbnail + Proxy angestossen."""
+    row = await db.fetch_one(
+        """SELECT j.result_path, j.updated_at, p.name AS project_name,
+                  f.original_name AS source_name
+           FROM jobs j
+           LEFT JOIN projects p ON p.id = j.project_id
+           LEFT JOIN files    f ON f.id = j.file_id
+           WHERE j.id = ? AND j.kind = 'render'""",
+        (job_id,),
+    )
+    if row is None:
+        raise HTTPException(status_code=404, detail="Render-Job nicht gefunden")
+    src = row["result_path"]
+    if not src or not Path(src).exists():
+        raise HTTPException(status_code=410, detail="Datei nicht mehr vorhanden")
+
+    src_path = Path(src)
+    suffix = src_path.suffix or ".mp4"
+
+    try:
+        folder_path = normalize_folder(body.folder_path or "")
+    except FolderError as e:
+        raise HTTPException(status_code=400, detail=f"Ungueltiger Ordner: {e}")
+
+    # Lesbarer Name: Nutzer-Override, sonst aus Projekt + Zeitstempel,
+    # sonst das Standard-Schema fuer den Download.
+    clip_id = None
+    m = re.match(r"^[0-9a-f]{32}-clip-(.+)$", src_path.stem)
+    if m:
+        clip_id = m.group(1)
+    if body.rename and body.rename.strip():
+        original_name = _slug(body.rename) or _display_name_for(
+            row["project_name"], row["source_name"], row["updated_at"], suffix,
+            clip_id=clip_id,
+        )
+        if not original_name.lower().endswith(suffix.lower()):
+            original_name = f"{original_name}{suffix}"
+    else:
+        original_name = _display_name_for(
+            row["project_name"], row["source_name"], row["updated_at"], suffix,
+            clip_id=clip_id,
+        )
+
+    # Kopieren (kein Hardlink -- der Export soll unabhaengig loeschbar bleiben)
+    new_id = uuid.uuid4().hex
+    stored_name = f"{new_id}{suffix}"
+    dest = ORIGINALS_DIR / stored_name
+    try:
+        shutil.copy2(src_path, dest)
+    except OSError as e:
+        raise HTTPException(status_code=500, detail=f"Kopieren fehlgeschlagen: {e}")
+
+    size_bytes = dest.stat().st_size
+    probe_summary: dict = {}
+    probe_raw: dict = {}
+    try:
+        probe_raw = await probe_file(dest)
+        probe_summary = summarize(probe_raw)
+    except Exception as e:
+        logger.warning(f"ffprobe nach Import fehlgeschlagen: {e}")
+
+    await db.execute(
+        """
+        INSERT INTO files (
+            id, original_name, stored_name, path, size_bytes,
+            mime_type, duration_s, width, height, fps,
+            video_codec, audio_codec, folder_path, probe_json
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        """,
+        (
+            new_id,
+            original_name,
+            stored_name,
+            str(dest),
+            size_bytes,
+            "video/mp4" if suffix.lower() == ".mp4" else None,
+            probe_summary.get("duration_s"),
+            probe_summary.get("width"),
+            probe_summary.get("height"),
+            probe_summary.get("fps"),
+            probe_summary.get("video_codec"),
+            probe_summary.get("audio_codec"),
+            folder_path,
+            json.dumps(probe_raw) if probe_raw else None,
+        ),
+    )
+
+    thumb_job_id = await job_service.enqueue("thumbnail", file_id=new_id)
+    proxy_job_id = await job_service.enqueue("proxy", file_id=new_id)
+
+    # Bibliothek aktualisiert sich per file_event automatisch
+    await ws_broadcaster.broadcast({
+        "type": "file_event",
+        "event": "imported",
+        "file_id": new_id,
+    })
+
+    logger.info(
+        f"Export {job_id} in Bibliothek uebernommen als {new_id} "
+        f"(Ordner={folder_path or '-'}, Name={original_name})"
+    )
+    return {
+        "file_id": new_id,
+        "original_name": original_name,
+        "folder_path": folder_path,
+        "size_bytes": size_bytes,
+        "thumb_job_id": thumb_job_id,
+        "proxy_job_id": proxy_job_id,
+    }
 
 
 @router.delete("/{job_id}")

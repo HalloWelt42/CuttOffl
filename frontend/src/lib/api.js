@@ -155,4 +155,10 @@ export const api = {
   listExports: () => request('/exports'),
   exportDownloadUrl: (jobId) => `${BASE}/exports/${jobId}/download`,
   deleteExport: (jobId) => request(`/exports/${jobId}`, { method: 'DELETE' }),
+  importExportToLibrary: (jobId, folder_path = '', rename = null) =>
+    request(`/exports/${jobId}/import-to-library`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ folder_path, rename }),
+    }),
 };

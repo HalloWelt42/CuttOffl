@@ -5,6 +5,7 @@
   import { toast } from '../lib/toast.svelte.js';
   import { confirmDialog } from '../lib/dialog.svelte.js';
   import { go, openProjectInEditor } from '../lib/nav.svelte.js';
+  import { openFolderPicker } from '../lib/folderPicker.svelte.js';
   import PanelHeader from '../components/PanelHeader.svelte';
   import VideoPreviewOverlay from '../components/VideoPreviewOverlay.svelte';
 
@@ -38,6 +39,19 @@
       if (m.type === 'file_event') refresh();
     });
   });
+
+  async function onImportToLibrary(ex) {
+    if (!ex.exists) return;
+    const target = await openFolderPicker({
+      title: 'In Bibliothek uebernehmen: Zielordner waehlen',
+      current: '',
+    });
+    if (target === null) return;
+    try {
+      const res = await api.importExportToLibrary(ex.job_id, target);
+      toast.info(`"${res.original_name}" in Bibliothek uebernommen`);
+    } catch (e) { toast.error(e.message); }
+  }
 
   async function onDelete(ex) {
     const ok = await confirmDialog(
@@ -118,6 +132,11 @@
                   <i class="fa-solid fa-scissors"></i>
                 </button>
               {/if}
+              <button class="btn" onclick={() => onImportToLibrary(ex)}
+                      disabled={!ex.exists}
+                      title="Dieses Video als neue Quelle in die Bibliothek aufnehmen (kopiert die Datei)">
+                <i class="fa-solid fa-right-to-bracket"></i>
+              </button>
               <a class="btn btn-primary" href={api.exportDownloadUrl(ex.job_id)} download
                  class:disabled={!ex.exists}
                  title="Dieses Video herunterladen">
