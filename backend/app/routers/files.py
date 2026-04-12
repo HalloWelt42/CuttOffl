@@ -6,6 +6,8 @@ Liste, Detail, Download, Löschen der hochgeladenen Originale.
 
 from __future__ import annotations
 
+import json
+import re
 from pathlib import Path
 
 from fastapi import APIRouter, HTTPException
@@ -13,9 +15,50 @@ from fastapi.responses import FileResponse
 
 from app.db import db
 from app.models.schemas import (
-    FileBulkDeleteBody, FileBulkMoveBody, FileMoveBody, FileOut, FileRenameBody,
+    FileBulkDeleteBody, FileBulkMoveBody, FileMoveBody, FileOut,
+    FileRenameBody, FileTagsBody,
 )
 from app.services.folder_service import FolderError, normalize
+
+
+TAG_MAX_LEN = 24
+TAG_ALLOWED = re.compile(r"^[\w äöüÄÖÜß\-]{1,24}$")
+
+
+def _normalize_tags(raw: list[str]) -> list[str]:
+    """Trimmt, dedupliziert und validiert Tags. Reihenfolge bleibt erhalten.
+    Leere und zu lange Tags werden verworfen."""
+    out: list[str] = []
+    seen: set[str] = set()
+    for t in raw or []:
+        if not isinstance(t, str):
+            continue
+        s = " ".join(t.strip().split())
+        if not s or len(s) > TAG_MAX_LEN:
+            continue
+        if not TAG_ALLOWED.match(s):
+            continue
+        key = s.casefold()
+        if key in seen:
+            continue
+        seen.add(key)
+        out.append(s)
+        if len(out) >= 32:
+            break
+    return out
+
+
+def _tags_from_row(row) -> list[str]:
+    if "tags_json" not in row.keys():
+        return []
+    raw = row["tags_json"] or "[]"
+    try:
+        data = json.loads(raw)
+        if isinstance(data, list):
+            return [str(t) for t in data if isinstance(t, str)]
+    except Exception:
+        pass
+    return []
 
 router = APIRouter(prefix="/api/files", tags=["files"])
 
@@ -40,6 +83,7 @@ def _row_to_fileout(row) -> FileOut:
         has_waveform=bool(row["waveform_path"]) if "waveform_path" in row.keys() else False,
         keyframe_count=row["keyframe_count"] if "keyframe_count" in row.keys() else None,
         folder_path=row["folder_path"] if "folder_path" in row.keys() else "",
+        tags=_tags_from_row(row),
         created_at=row["created_at"],
     )
 
@@ -161,6 +205,21 @@ async def move_file(file_id: str, body: FileMoveBody) -> FileOut:
     await db.execute(
         "UPDATE files SET folder_path = ?, updated_at=datetime('now') WHERE id = ?",
         (target, file_id),
+    )
+    row = await db.fetch_one("SELECT * FROM files WHERE id = ?", (file_id,))
+    return _row_to_fileout(row)
+
+
+@router.put("/{file_id}/tags", response_model=FileOut)
+async def set_tags(file_id: str, body: FileTagsBody) -> FileOut:
+    """Setzt die Tag-Liste einer Datei (ersetzt vollstaendig)."""
+    row = await db.fetch_one("SELECT id FROM files WHERE id = ?", (file_id,))
+    if row is None:
+        raise HTTPException(status_code=404, detail="Datei nicht gefunden")
+    tags = _normalize_tags(body.tags)
+    await db.execute(
+        "UPDATE files SET tags_json = ?, updated_at=datetime('now') WHERE id = ?",
+        (json.dumps(tags, ensure_ascii=False), file_id),
     )
     row = await db.fetch_one("SELECT * FROM files WHERE id = ?", (file_id,))
     return _row_to_fileout(row)

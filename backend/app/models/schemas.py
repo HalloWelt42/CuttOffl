@@ -38,6 +38,7 @@ class FileOut(BaseModel):
     has_waveform: bool = False
     keyframe_count: Optional[int] = None
     folder_path: str = ""
+    tags: list[str] = Field(default_factory=list)
     created_at: str
 
 
@@ -62,6 +63,10 @@ class FileBulkMoveBody(BaseModel):
 
 class FileBulkDeleteBody(BaseModel):
     file_ids: list[str] = Field(min_length=1, max_length=500)
+
+
+class FileTagsBody(BaseModel):
+    tags: list[str] = Field(default_factory=list, max_length=32)
 
 
 class UploadResponse(BaseModel):

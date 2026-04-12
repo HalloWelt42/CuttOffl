@@ -7,13 +7,15 @@
   import {
     library, setCurrentFolder, parentOf, breadcrumbs,
     setView, setSort, toggleSortDir, sortFiles,
-    setFilter, setSearch, resetFilters, filterFiles, codecOptions,
+    setFilter, setSearch, resetFilters, filterFiles, codecOptions, tagOptions,
     isSelected, toggleSelect, selectAll, selectOnly, clearSelection,
   } from '../lib/library.svelte.js';
+  import { parseTags, joinTags } from '../lib/tags.js';
   import { confirmDialog, promptDialog } from '../lib/dialog.svelte.js';
   import { openFolderPicker } from '../lib/folderPicker.svelte.js';
   import PanelHeader from '../components/PanelHeader.svelte';
   import HoverScrubThumb from '../components/HoverScrubThumb.svelte';
+  import TagChips from '../components/TagChips.svelte';
 
   let files = $state([]);
   let folderChildren = $state([]);
@@ -32,10 +34,12 @@
   const crumbs = $derived(breadcrumbs(library.currentFolder));
   const visibleFiles = $derived(sortFiles(filterFiles(files)));
   const availableCodecs = $derived(codecOptions(files));
+  const availableTags = $derived(tagOptions(files));
   const filtersActive = $derived(
     library.filterStatus !== 'all' ||
     library.filterFormat !== 'all' ||
     library.filterRes    !== 'all' ||
+    library.filterTag    !== ''    ||
     (library.search || '').trim() !== ''
   );
   const hiddenByFilter = $derived(files.length - visibleFiles.length);
@@ -164,6 +168,26 @@
       toast.success('Datei umbenannt');
       refresh();
     } catch (e) { toast.error(e.message); }
+  }
+
+  async function onEditTags(f) {
+    const current = joinTags(f.tags);
+    const next = await promptDialog(
+      'Tags komma-getrennt eingeben (leer = alle entfernen). Erlaubt sind Buchstaben, Zahlen, Leerzeichen und Bindestriche.',
+      current,
+      { title: `Tags für "${f.original_name}"`, placeholder: 'z. B. urlaub, 2026, rohmaterial' },
+    );
+    if (next == null) return;
+    const tags = parseTags(next);
+    try {
+      await api.setFileTags(f.id, tags);
+      toast.success(tags.length ? `${tags.length} Tag(s) gespeichert` : 'Tags entfernt');
+      refresh();
+    } catch (e) { toast.error(e.message); }
+  }
+
+  function onTagClick(tag) {
+    setFilter('tag', tag);
   }
 
   async function onCreateFolder() {
@@ -557,6 +581,17 @@
           <option value={o.v}>{o.label}</option>
         {/each}
       </select>
+      {#if availableTags.length > 0}
+        <select class="sort-select"
+                value={library.filterTag}
+                onchange={(e) => setFilter('tag', e.currentTarget.value)}
+                title="Nach Tag filtern">
+          <option value="">Alle Tags</option>
+          {#each availableTags as t (t)}
+            <option value={t}>{t}</option>
+          {/each}
+        </select>
+      {/if}
       {#if filtersActive}
         <button class="btn btn-sm" onclick={resetFilters}
                 title="Alle Filter und die Suche zuruecksetzen">
@@ -735,6 +770,9 @@
                   </button>
                   <div class="meta">
                     <div class="name" title={f.original_name}>{f.original_name}</div>
+                    {#if f.tags && f.tags.length > 0}
+                      <TagChips tags={f.tags} maxShown={4} onClick={onTagClick} />
+                    {/if}
                     <div class="row mono">
                       <span>{fmtDur(f.duration_s)}</span>
                       <span>{f.width}x{f.height}</span>
@@ -756,6 +794,10 @@
                       <button class="btn" onclick={() => onRename(f)}
                               title="Angezeigten Dateinamen ändern">
                         <i class="fa-solid fa-pen"></i>
+                      </button>
+                      <button class="btn" onclick={() => onEditTags(f)}
+                              title="Tags dieser Datei bearbeiten">
+                        <i class="fa-solid fa-tag"></i>
                       </button>
                       <button class="btn" onclick={() => onMoveTo(f)}
                               title="In einen anderen Ordner verschieben">
@@ -827,6 +869,11 @@
                       </td>
                       <td class="c-name">
                         <div class="name-cell" title={f.original_name}>{f.original_name}</div>
+                        {#if f.tags && f.tags.length > 0}
+                          <div class="name-tags">
+                            <TagChips tags={f.tags} maxShown={5} onClick={onTagClick} />
+                          </div>
+                        {/if}
                       </td>
                       <td class="c-dur mono">{fmtDur(f.duration_s)}</td>
                       <td class="c-res mono">{f.width}x{f.height}</td>
@@ -841,6 +888,10 @@
                         <button class="btn btn-sm" onclick={() => onRename(f)}
                                 title="Umbenennen">
                           <i class="fa-solid fa-pen"></i>
+                        </button>
+                        <button class="btn btn-sm" onclick={() => onEditTags(f)}
+                                title="Tags bearbeiten">
+                          <i class="fa-solid fa-tag"></i>
                         </button>
                         <button class="btn btn-sm" onclick={() => onMoveTo(f)}
                                 title="Verschieben">
@@ -885,9 +936,15 @@
                     </span>
                     <span class="badge {s.c}">{s.t}</span>
                   </button>
+                  {#if f.tags && f.tags.length > 0}
+                    <TagChips tags={f.tags} maxShown={3} onClick={onTagClick} />
+                  {/if}
                   <div class="compact-actions">
                     <button class="btn btn-sm" onclick={() => onRename(f)} title="Umbenennen">
                       <i class="fa-solid fa-pen"></i>
+                    </button>
+                    <button class="btn btn-sm" onclick={() => onEditTags(f)} title="Tags bearbeiten">
+                      <i class="fa-solid fa-tag"></i>
                     </button>
                     <button class="btn btn-sm" onclick={() => onMoveTo(f)} title="Verschieben">
                       <i class="fa-solid fa-folder-tree"></i>
@@ -1230,6 +1287,7 @@
     text-overflow: ellipsis;
     max-width: 360px;
   }
+  .name-tags { margin-top: 4px; }
 
   /* Kompakt-Ansicht */
   .compact-list {

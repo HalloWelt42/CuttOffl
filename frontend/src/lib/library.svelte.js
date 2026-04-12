@@ -28,6 +28,7 @@ export const library = $state({
   filterStatus: 'all',
   filterFormat: 'all',  // 'all' oder Codec-Name ('h264', 'hevc', ...)
   filterRes:    'all',
+  filterTag:    '',     // '' = alle, sonst exakter Tag-Name
   search: '',
   // Mehrfachauswahl (nicht persistent) -- Array von file_ids
   selection: [],
@@ -64,6 +65,7 @@ export function setFilter(key, value) {
   if (key === 'status' && STATUS_VALUES.includes(value)) library.filterStatus = value;
   if (key === 'format') library.filterFormat = value || 'all';
   if (key === 'res'    && RES_BUCKETS.includes(value))    library.filterRes = value;
+  if (key === 'tag')    library.filterTag = value || '';
 }
 
 export function setSearch(q) {
@@ -74,6 +76,7 @@ export function resetFilters() {
   library.filterStatus = 'all';
   library.filterFormat = 'all';
   library.filterRes    = 'all';
+  library.filterTag    = '';
   library.search       = '';
 }
 
@@ -127,11 +130,17 @@ export function filterFiles(files) {
   const status = library.filterStatus;
   const format = library.filterFormat;
   const res    = library.filterRes;
+  const tag    = library.filterTag;
   const q      = (library.search || '').trim().toLowerCase();
   return files.filter((f) => {
     if (!matchesStatus(f, status)) return false;
     if (format !== 'all' && (f.video_codec || '').toLowerCase() !== format) return false;
     if (!matchesRes(f, res)) return false;
+    if (tag) {
+      const tags = Array.isArray(f.tags) ? f.tags : [];
+      const tagKey = tag.toLocaleLowerCase('de');
+      if (!tags.some((t) => (t || '').toLocaleLowerCase('de') === tagKey)) return false;
+    }
     if (q && !(f.original_name || '').toLowerCase().includes(q)) return false;
     return true;
   });
@@ -142,6 +151,15 @@ export function codecOptions(files) {
   const set = new Set();
   for (const f of files) if (f.video_codec) set.add(f.video_codec);
   return [...set].sort((a, b) => a.localeCompare(b));
+}
+
+/** Extrahiert alle Tags fuer das Tag-Filter-Dropdown. */
+export function tagOptions(files) {
+  const set = new Set();
+  for (const f of files) {
+    for (const t of (f.tags || [])) if (t) set.add(t);
+  }
+  return [...set].sort((a, b) => a.localeCompare(b, 'de'));
 }
 
 export function sortFiles(files) {

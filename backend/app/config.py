@@ -9,7 +9,7 @@ from pathlib import Path
 
 
 APP_NAME = "CuttOffl"
-VERSION = "0.8.0"
+VERSION = "0.9.0"
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 DATA_DIR = Path(os.getenv("CUTTOFFL_DATA_DIR", str(BASE_DIR.parent / "data"))).resolve()

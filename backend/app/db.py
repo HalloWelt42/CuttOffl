@@ -49,6 +49,7 @@ SCHEMA: tuple[str, ...] = (
         waveform_samples INTEGER,
         waveform_rate    REAL,
         folder_path     TEXT NOT NULL DEFAULT '',
+        tags_json       TEXT NOT NULL DEFAULT '[]',
         probe_json      TEXT,
         created_at      TEXT NOT NULL DEFAULT (datetime('now')),
         updated_at      TEXT NOT NULL DEFAULT (datetime('now'))
@@ -70,6 +71,8 @@ SCHEMA: tuple[str, ...] = (
     # Virtueller Ordnerpfad (leer = Wurzel, sonst 'A/B/C')
     "ALTER TABLE files ADD COLUMN folder_path TEXT NOT NULL DEFAULT ''",
     "CREATE INDEX IF NOT EXISTS idx_files_folder_path ON files(folder_path)",
+    # Tags: JSON-Array normierter Tag-Strings. Leerer Array = '[]'.
+    "ALTER TABLE files ADD COLUMN tags_json TEXT NOT NULL DEFAULT '[]'",
     """
     CREATE TABLE IF NOT EXISTS projects (
         id              TEXT PRIMARY KEY,

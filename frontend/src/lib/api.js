@@ -38,6 +38,12 @@ export const api = {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ original_name }),
     }),
+  setFileTags: (id, tags) =>
+    request(`/files/${id}/tags`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ tags }),
+    }),
   moveFile: (id, folder_path) =>
     request(`/files/${id}/move`, {
       method: 'PATCH',
