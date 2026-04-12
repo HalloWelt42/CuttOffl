@@ -1,209 +1,143 @@
 # CuttOffl
 
-Offline-first Video-Cutter/Editor mit Edit Decision List (EDL) und
-Hybrid-Render (keyframe-genau + frame-genau). Teil der Vault-Familie.
-Fokus auf große Dateien, lokal, ohne Cloud, ohne Konto.
+Video schneiden -- lokal, ohne Cloud, ohne Konto.
 
-## Status
+<p align="center">
+  <img src="docs/screenshots/hero-editor-dark.png" alt="CuttOffl Editor" width="880">
+</p>
 
-**Backend v0.7.0**
+CuttOffl ist ein Web-Interface fuer FFmpeg, das auf dem eigenen Rechner laeuft.
+Du laedst ein Video hoch, schneidest es in einer Timeline mit Keyframes,
+Thumbnails und Wellenform, und exportierst das Ergebnis. Die Originaldateien
+verlassen den Rechner nicht.
 
-- FastAPI, läuft nativ auf Mac und Linux/Raspberry Pi
-- SQLite via `aiosqlite`, natives SQL (kein ORM)
-- Multipart-Upload mit sofortiger `ffprobe`-Metadatenextraktion
-- Auto-Proxy nach Upload (480p H.264, GOP = 1 s, schnelles Scrubbing)
-- Keyframe-Liste + Snap-Endpunkt (nächster/vorheriger/nearest)
-- Thumbnail, Frame-Sprite (Tile-JPEG) und Audio-Wellenform aus dem Proxy
-- In-Process async Job-Queue mit Persistenz und WebSocket-Progress
-- EDL-CRUD: Projekte, Timeline, Output-Profil mit Input-Validierung
-- Hybrid-Render: `copy` (keyframe-genau, verlustfrei) + `reencode`
-  (frame-genau, neu kodiert); Segmente per `concat`-Demuxer verbunden
-- HW-Encoder-Erkennung: VideoToolbox (Mac), V4L2 (Pi), libx264-Fallback
-- Codec-Empfehlungen je nach Umgebung (Apple Silicon, Pi, Software)
-- Proxy-Streaming mit HTTP-Range (206 Partial Content)
-- Export-Liste und -Download, Original-Download
-- System-Endpunkte für Disk-Usage und Dashboard-Overview
-- Error-Sanitizer: absolute Pfade werden nicht nach außen gereicht
+## Das Konzept in einem Absatz
 
-**Frontend v0.4.0**
+Beim Upload wird ein kleiner **Proxy** (480p) erzeugt -- den laesst sich fluessig
+scrubben, auch bei grossen Quellen. Schnitte werden als **EDL** (Edit Decision
+List) gespeichert, nicht als neue Datei. Beim Export entscheidet CuttOffl
+segmentweise, ob **keyframe-genau ohne Neu-Kodierung** kopiert werden kann
+(schnell, verlustfrei) oder ob ein Segment **frame-genau neu kodiert** werden
+muss. Hardware-Encoder werden erkannt: VideoToolbox auf dem Mac, V4L2 auf dem
+Pi, Software-Fallback sonst.
 
-- Svelte 5 (Runes) + Vite 8 + Tailwind 4, kein SvelteKit
-- Studio-Layout: Sidebar (kollabierbar, resizable) + Content + JobsBar
-- Views: **Dashboard**, **Bibliothek**, **Editor**, **Einstellungen**, **Über**
-- Fonts lokal via `@fontsource`: **Chakra Petch** (UI), **JetBrains Mono** (Zahlen)
-- FontAwesome-Icons lokal (kein CDN)
-- Akzentfarbe GitHub-Blau, semantische Farben für Timeline-Elemente
-- **Dashboard** mit KPIs, Speicher-Übersicht je Datenbereich,
-  Codec-Empfehlung und Liste der neuesten Videos
-- **Editor** mit HTML5-Proxy-Player und Canvas-Timeline
-  (Keyframe-Marker, Thumbnail-Streifen, Audio-Wellenform, Clip-Modi)
-- Schneiden: In/Out, Split, Trim per Drag, Undo/Redo, Auto-Save der EDL
-- Keyframe-Magnet (Snap) mit sichtbarem Modus-Wechsel copy/reencode
-- Smoothes Mitlaufen der Timeline ab dem letzten Drittel (toggle-bar)
-- Vorschau für Auswahl, einen Clip oder die ganze Timeline
-- Export-Dialog mit Codec-Empfehlung für das aktuelle Gerät
-- **Danke-Overlay** (zentriertes Modal) mit Ko-fi-Link und QR-Codes für
-  Bitcoin, Dogecoin, Ethereum
-- **Über-Seite** mit Lizenz, Haftungsausschluss und GitHub-Link
-- Alle UI-Präferenzen persistiert im localStorage
+## Impressionen
 
-Erweiterungsideen: Sub-Ordner und Multi-Ansichten in der Bibliothek,
-Bulk-Aktionen, ZIP-Download, optionale Token-Auth, Rate-Limiting,
-tus.io-Chunked-Upload für sehr große Dateien.
+<table>
+  <tr>
+    <td><img src="docs/screenshots/editor-timeline.png" alt="Editor mit Timeline" width="420"></td>
+    <td><img src="docs/screenshots/dashboard.png" alt="Dashboard" width="420"></td>
+  </tr>
+  <tr>
+    <td align="center"><sub>Editor: Timeline mit Keyframes, Thumbnail-Streifen und Wellenform</sub></td>
+    <td align="center"><sub>Dashboard: Speicher-Uebersicht und neueste Videos</sub></td>
+  </tr>
+  <tr>
+    <td><img src="docs/screenshots/library.png" alt="Bibliothek" width="420"></td>
+    <td><img src="docs/screenshots/editor-light.png" alt="Editor im Hellmodus" width="420"></td>
+  </tr>
+  <tr>
+    <td align="center"><sub>Bibliothek mit Ordnern und Bulk-Aktionen</sub></td>
+    <td align="center"><sub>Hellmodus -- alles an UI-Praeferenzen bleibt lokal</sub></td>
+  </tr>
+</table>
 
-## Ports
+## Was es kann
 
-| Port  | Dienst                  |
-|-------|-------------------------|
-| 10036 | Backend (FastAPI)       |
-| 10037 | Frontend (Vite Dev)     |
-| 10038 | Reserve                 |
+- Timeline mit Keyframe-Magnet (copy/reencode wird live angezeigt)
+- Schneiden per In/Out, Split, Trim-Drag -- Undo/Redo, Auto-Save
+- Vorschau fuer Auswahl, einzelne Clips oder die ganze EDL
+- Virtuelle Ordner in der Bibliothek, Verschieben per Ordner-Picker
+- Hybrid-Render: so viel wie moeglich kopieren, nur noetige Schnitte neu kodieren
+- Fertige Videos wieder in die Bibliothek uebernehmen fuer weiteren Schnitt
+- Export mit Codec-Empfehlung fuer die erkannte Hardware
+- Live-Fortschritt aller Jobs per WebSocket
+
+## Stack
+
+- **Backend:** FastAPI, SQLite via `aiosqlite`, natives SQL
+- **Frontend:** Svelte 5 (Runes) + Vite 8 + Tailwind 4, kein SvelteKit
+- **Rendering:** FFmpeg mit Concat-Demuxer
+- **Hardware:** VideoToolbox (Mac), V4L2 (Pi), libx264-Fallback
 
 ## Voraussetzungen
 
-- macOS (Apple Silicon empfohlen) oder Linux (inkl. Raspberry Pi 5)
-- Python 3.11+
-- FFmpeg 6+ im PATH (`brew install ffmpeg` bzw. `apt install ffmpeg`)
-- Node.js 20+ und npm
+- macOS (Apple Silicon empfohlen) oder Linux inkl. Raspberry Pi 5
+- Python 3.11+, Node.js 20+
+- FFmpeg 6+ im `PATH` (`brew install ffmpeg` bzw. `apt install ffmpeg`)
 
-## Installation
+## Installation & Start
 
-**Backend:**
 ```bash
-./setup.sh
-```
-Legt `backend/.venv` an, installiert alle Python-Pakete und prüft `ffmpeg`.
-
-**Frontend:**
-```bash
-cd frontend && npm install
+./setup.sh                  # backend venv + pip install + ffmpeg-Check
+cd frontend && npm install  # frontend deps
+cd ..
+./start.sh                  # startet beide Prozesse
 ```
 
-## Start
+Weitere Befehle: `status`, `logs`, `stop`, `restart`, `backend`, `frontend`.
 
-**Ein-Befehl-Start (empfohlen):**
-```bash
-./start.sh           # beide Prozesse starten
-./start.sh status    # zeigt, was läuft
-./start.sh logs      # Logs live tailen
-./start.sh stop      # beide beenden
-./start.sh restart   # stop + start
-./start.sh backend   # nur Backend
-./start.sh frontend  # nur Frontend
-```
+- Frontend: <http://127.0.0.1:10037>
+- Backend: <http://127.0.0.1:10036/docs>
 
-Logs landen in `logs/backend.log` und `logs/frontend.log`, PIDs in
-`logs/*.pid`.
+Logs unter `logs/backend.log` und `logs/frontend.log`, PIDs in `logs/*.pid`.
 
-- Frontend:  http://127.0.0.1:10037
-- Backend:   http://127.0.0.1:10036/docs
-- Health:    http://127.0.0.1:10036/api/ping
-- WebSocket: ws://127.0.0.1:10036/ws/jobs
+## Ports
 
-Das Frontend proxyt `/api` und `/ws` automatisch auf Port 10036.
+| Port  | Dienst           |
+|-------|------------------|
+| 10036 | Backend (FastAPI) |
+| 10037 | Frontend (Vite)   |
+| 10038 | Reserve           |
 
-## Verzeichnisstruktur
+## API-Uebersicht
+
+Vollstaendig interaktiv in Swagger unter `/docs`. Die wichtigsten Pfade:
+
+| Methode | Endpunkt                                  | Zweck                          |
+|---------|-------------------------------------------|--------------------------------|
+| POST    | `/api/upload`                             | Video hochladen                |
+| GET     | `/api/files`                              | Originale listen               |
+| GET     | `/api/proxy/{id}`                         | Proxy-Stream (Range-Support)   |
+| GET     | `/api/proxy/{id}/keyframes`               | Keyframe-Zeitstempel           |
+| GET     | `/api/sprite/{id}` / `/meta`              | Timeline-Tile-JPEG             |
+| GET     | `/api/waveform/{id}`                      | Audio-Peaks                    |
+| GET/POST/PUT/DELETE | `/api/projects`                 | EDL-Projekte                   |
+| POST    | `/api/projects/{id}/render`               | Render-Job starten             |
+| GET     | `/api/exports`                            | Fertige Renderings             |
+| POST    | `/api/exports/{id}/import-to-library`     | Export als neue Quelle         |
+| WS      | `/ws/jobs`                                | Live-Fortschritt aller Jobs    |
+
+## Verzeichnisse
 
 ```
 CuttOffl/
-├── backend/
-│   ├── app/
-│   │   ├── main.py             FastAPI-App, Lifespan, Router-Registrierung
-│   │   ├── config.py           Pfade, Port, Version, Umgebungsvariablen
-│   │   ├── db.py               aiosqlite-Wrapper + Migrations
-│   │   ├── routers/            system, upload, files, probe, proxy,
-│   │   │                        thumbnail, sprite, projects, exports,
-│   │   │                        jobs, ws
-│   │   ├── services/           ffmpeg, probe, hwaccel, codec,
-│   │   │                        proxy, thumbnail, sprite, waveform,
-│   │   │                        keyframe, render, job, error_helper
-│   │   └── models/             Pydantic-Schemas (schemas.py, edl.py)
-│   ├── requirements.txt
-│   └── .env.dev
-├── frontend/
-│   ├── src/
-│   │   ├── App.svelte          Shell: Sidebar + Content + JobsBar + Overlays
-│   │   ├── components/         Player, Timeline, Resizer, JobsBar,
-│   │   │                        Sidebar, ExportDialog, ThanksOverlay,
-│   │   │                        ToastHost, ErrorBoundary, PanelHeader
-│   │   ├── views/              Dashboard, Library, Editor, Settings, About
-│   │   └── lib/                api, editor, nav, persist, theme,
-│   │                            toast, ws, ui, meta
-│   ├── public/images/          QR-Codes für Krypto-Spenden
-│   ├── package.json
-│   └── vite.config.js
-├── data/
-│   ├── originals/              Hochgeladene Videos
-│   ├── proxies/                Proxy-Vorschau (480p H.264)
-│   ├── thumbs/                 Einzel-Thumbnails
-│   ├── sprites/                Tile-JPEGs für Timeline-Streifen
-│   ├── waveforms/              Audio-Peak-JSON je Datei
-│   ├── exports/                Fertige Schnitte
-│   ├── tmp/                    Render-Zwischenschritte
-│   └── db/                     SQLite-Datei
-├── logs/                       start.sh-Logs und PID-Dateien
-├── LICENSE
-├── README.md
+├── backend/app/          FastAPI, Services, Router, Schemas
+├── frontend/src/         Svelte-App (Views, Components, lib)
+├── data/                 originals, proxies, exports, thumbs, sprites,
+│                         waveforms, tmp, db
+├── docs/screenshots/     Screenshots fuer diese README
+├── logs/                 Laufzeit-Logs + PIDs
 ├── setup.sh
 └── start.sh
 ```
 
-## API
-
-Vollständige interaktive Dokumentation in Swagger UI: `/docs`.
-Übersicht der wichtigsten Endpunkte:
-
-| Methode | Endpunkt                                  | Zweck                                  |
-|---------|-------------------------------------------|----------------------------------------|
-| GET     | `/api/ping`                               | Health, Version, HW-Encoder            |
-| GET     | `/api/system/overview`                    | Dashboard-Statistik                    |
-| GET     | `/api/system/storage`                     | Disk-Nutzung je Datenbereich           |
-| GET     | `/api/system/codecs`                      | Codec-Empfehlungen für diese Umgebung  |
-| POST    | `/api/upload`                             | Video hochladen (Multipart)            |
-| GET     | `/api/files`                              | Liste aller Originale                  |
-| GET     | `/api/files/{id}`                         | Metadaten einer Datei                  |
-| GET     | `/api/files/{id}/download`                | Original-Datei herunterladen           |
-| DELETE  | `/api/files/{id}`                         | Original + Ableitungen löschen         |
-| GET     | `/api/probe/{id}`                         | Rohe ffprobe-Ausgabe                   |
-| GET     | `/api/proxy/{id}`                         | Proxy-Stream mit Range-Support         |
-| GET     | `/api/proxy/{id}/keyframes`               | Keyframe-Zeitstempel                   |
-| GET     | `/api/proxy/{id}/snap?t=…&mode=…`         | Keyframe-Snap                          |
-| POST    | `/api/proxy/{id}/generate`                | Proxy-Job manuell                      |
-| GET     | `/api/thumbnail/{id}`                     | Thumbnail-JPEG                         |
-| GET     | `/api/sprite/{id}` / `/meta`              | Tile-Sprite + Raster-Metadaten         |
-| GET     | `/api/waveform/{id}`                      | Peak-JSON für Timeline                 |
-| GET/POST/PUT/DELETE | `/api/projects`                 | Projekte / EDL                         |
-| POST    | `/api/projects/{id}/render`               | Render-Job starten                     |
-| GET     | `/api/exports`                            | Fertige Renderings                     |
-| GET     | `/api/exports/{id}/download`              | Fertiges Video mit lesbarem Namen      |
-| DELETE  | `/api/exports/{id}`                       | Fertiges Video löschen                 |
-| GET     | `/api/jobs` / `/active` / `/{id}`         | Job-Status                             |
-| WS      | `/ws/jobs`                                | Live-Progress aller Jobs               |
-
 ## Lizenz
 
-Nicht-kommerzielle Lizenz v2.0 (`LicenseRef-CuttOffl-NC-2.0`)
-Basierend auf [CC BY-NC-ND 4.0](https://creativecommons.org/licenses/by-nc-nd/4.0/legalcode.de)
-mit Ergänzungen.
+Nicht-kommerzielle Lizenz v2.0 (`LicenseRef-CuttOffl-NC-2.0`), basierend auf
+[CC BY-NC-ND 4.0](https://creativecommons.org/licenses/by-nc-nd/4.0/legalcode.de)
+mit Ergaenzungen. Copyright 2026 HalloWelt42. Private Nutzung erlaubt,
+kommerzielle Nutzung und Veroeffentlichung modifizierter Versionen nicht.
+Vollstaendig in [`LICENSE`](LICENSE) und in der App unter **Ueber**.
 
-Copyright 2026 HalloWelt42
+## Unterstuetzung
 
-Private Nutzung und private Modifikation erlaubt.
-Kommerzielle Nutzung und Veröffentlichung modifizierter Versionen untersagt.
-Vollständige Lizenzbedingungen und Haftungshinweise siehe [`LICENSE`](LICENSE)
-bzw. in der App auf der Seite **Über**.
-
-## Danke & Unterstützung
-
-Wenn CuttOffl dir hilft und du die Weiterentwicklung unterstützen möchtest --
-rein freiwillig:
+Wenn es nuetzlich ist und du die Weiterentwicklung unterstuetzen moechtest:
 
 - **Ko-fi:** <https://ko-fi.com/HalloWelt42>
 - **Bitcoin:** `bc1qnd599khdkv3v3npmj9ufxzf6h4fzanny2acwqr`
 - **Dogecoin:** `DL7tuiYCqm3xQjMDXChdxeQxqUGMACn1ZV`
 - **Ethereum:** `0x8A28fc47bFFFA03C8f685fa0836E2dBe1CA14F27`
 
-In der App findest du den Spenden-Dialog als zentriertes Overlay
-(Button **Danke** unten in der Seitenleiste) mit QR-Codes zum Scannen.
-Projekt-Infos, Lizenz und Haftungsausschluss stehen auf der Seite
-**Über**.
+Der Spenden-Dialog in der App (Button **Danke** in der Seitenleiste) zeigt
+QR-Codes. Projekt-Infos stehen auf der Seite **Ueber**.
