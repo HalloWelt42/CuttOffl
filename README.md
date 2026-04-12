@@ -182,48 +182,16 @@ Vollständige interaktive Dokumentation in Swagger UI: `/docs`.
 
 ## Lizenz
 
-CuttOffl steht unter der **Nicht-kommerziellen Lizenz v2.0**, basierend auf
-Creative Commons CC BY-NC-ND 4.0 mit Zusatzbestimmungen des Rechteinhabers
-(private Modifikation erlaubt, keine öffentliche Weiterverteilung).
+Nicht-kommerzielle Lizenz v2.0 (`LicenseRef-CuttOffl-NC-2.0`)
+Basierend auf [CC BY-NC-ND 4.0](https://creativecommons.org/licenses/by-nc-nd/4.0/legalcode.de)
+mit Ergänzungen.
 
-- Volltext: siehe [`LICENSE`](LICENSE)
-- SPDX-Identifier: `LicenseRef-CuttOffl-NC-2.0`
-- Rechteinhaber: HalloWelt42
+Copyright 2026 HalloWelt42
 
-## Haftungsausschluss
-
-**Privates, nicht-kommerzielles Projekt.**
-CuttOffl ist ein privat entwickeltes Werkzeug und wird ohne jede Gewährleistung
-bereitgestellt. Es besteht kein Anspruch auf Support, Fehlerbehebung, Updates
-oder Weiterentwicklung. Die Nutzung erfolgt ausschließlich auf eigenes Risiko.
-
-**Keine Gewährleistung.**
-Die Software wird "wie sie ist" ohne Mängelgewähr zur Verfügung gestellt.
-Es wird keine Garantie für Funktionsfähigkeit, Fehlerfreiheit, ununterbrochene
-Verfügbarkeit, Sicherheit oder Eignung für einen bestimmten Zweck übernommen.
-
-**Keine Haftung für Schäden.**
-Der Rechteinhaber haftet in keinem Fall für direkte oder indirekte Schäden,
-entgangene Gewinne, Datenverluste, Ausfallzeiten oder sonstige mittelbare
-Schäden, die aus der Nutzung oder Nichtnutzbarkeit der Software entstehen,
-soweit dies gesetzlich zulässig ist. Bitte regelmäßig eigene Sicherungskopien
-der Originale und Projekte anlegen.
-
-**Inhalte liegen in deiner Verantwortung.**
-Du bist für alle Videos, Bilder, Tonspuren und sonstigen Inhalte, die du mit
-CuttOffl verarbeitest, selbst verantwortlich. Das betrifft insbesondere
-Urheberrechte, Persönlichkeitsrechte, Markenrechte und die Rechte der
-dargestellten Personen. CuttOffl stellt nur ein Werkzeug bereit und prüft
-keine Inhalte.
-
-**Nicht für kommerziellen Einsatz.**
-Die Lizenz gestattet ausschließlich private, nicht-kommerzielle Nutzung
-(siehe Abschnitt Lizenz). Für den Einsatz in Unternehmen, Behörden oder im
-Rahmen einer Erwerbstätigkeit ist eine gesonderte Vereinbarung erforderlich.
-
-**Drittkomponenten.**
-CuttOffl greift auf externe Programme zurück (insbesondere FFmpeg/FFprobe).
-Für diese gelten die Lizenzen und Haftungsregelungen der jeweiligen Hersteller.
+Private Nutzung und private Modifikation erlaubt.
+Kommerzielle Nutzung und Veröffentlichung modifizierter Versionen untersagt.
+Vollständige Lizenzbedingungen und Haftungshinweise siehe [`LICENSE`](LICENSE)
+bzw. in der App auf der Seite **Über**.
 
 ## Danke & Unterstützung
 
