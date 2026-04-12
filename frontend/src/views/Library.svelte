@@ -7,6 +7,7 @@
   import {
     library, setCurrentFolder, parentOf, breadcrumbs,
     setView, setSort, toggleSortDir, sortFiles,
+    setFilter, setSearch, resetFilters, filterFiles, codecOptions,
   } from '../lib/library.svelte.js';
   import { confirmDialog, promptDialog } from '../lib/dialog.svelte.js';
   import { openFolderPicker } from '../lib/folderPicker.svelte.js';
@@ -19,7 +20,15 @@
   let fileInput;
 
   const crumbs = $derived(breadcrumbs(library.currentFolder));
-  const sortedFiles = $derived(sortFiles(files));
+  const visibleFiles = $derived(sortFiles(filterFiles(files)));
+  const availableCodecs = $derived(codecOptions(files));
+  const filtersActive = $derived(
+    library.filterStatus !== 'all' ||
+    library.filterFormat !== 'all' ||
+    library.filterRes    !== 'all' ||
+    (library.search || '').trim() !== ''
+  );
+  const hiddenByFilter = $derived(files.length - visibleFiles.length);
 
   // Sortieroptionen fuer das Dropdown (Label passt zur Ansicht)
   const SORT_OPTIONS = [
@@ -27,6 +36,20 @@
     { k: 'name',     label: 'Name'   },
     { k: 'size',     label: 'Groesse' },
     { k: 'duration', label: 'Dauer'  },
+  ];
+  const STATUS_OPTIONS = [
+    { v: 'all',        label: 'Alle Status' },
+    { v: 'ready',      label: 'Bereit' },
+    { v: 'processing', label: 'Verarbeitung' },
+    { v: 'failed',     label: 'Fehlgeschlagen' },
+  ];
+  const RES_OPTIONS = [
+    { v: 'all',   label: 'Alle Aufloesungen' },
+    { v: 'sd',    label: 'SD (<=576p)' },
+    { v: 'hd',    label: 'HD (720p)' },
+    { v: 'fhd',   label: 'Full-HD (1080p)' },
+    { v: 'uhd',   label: '4K UHD (2160p)' },
+    { v: 'above', label: '> 4K' },
   ];
 
   async function refresh() {
@@ -274,6 +297,55 @@
           : 'fa-arrow-down-wide-short'}"></i>
       </button>
     </div>
+
+    <div class="group search-group">
+      <i class="fa-solid fa-magnifying-glass search-icon"></i>
+      <input type="search" class="search-input"
+             placeholder="Nach Name suchen..."
+             value={library.search}
+             oninput={(e) => setSearch(e.currentTarget.value)}
+             title="Dateinamen durchsuchen (Teilstring, Gross-/Kleinschreibung egal)" />
+      {#if library.search}
+        <button class="search-clear" onclick={() => setSearch('')}
+                title="Suche zuruecksetzen">
+          <i class="fa-solid fa-xmark"></i>
+        </button>
+      {/if}
+    </div>
+
+    <div class="group filter-group">
+      <select class="sort-select"
+              value={library.filterStatus}
+              onchange={(e) => setFilter('status', e.currentTarget.value)}
+              title="Nach Proxy-Status filtern">
+        {#each STATUS_OPTIONS as o (o.v)}
+          <option value={o.v}>{o.label}</option>
+        {/each}
+      </select>
+      <select class="sort-select"
+              value={library.filterFormat}
+              onchange={(e) => setFilter('format', e.currentTarget.value)}
+              title="Nach Video-Codec filtern">
+        <option value="all">Alle Codecs</option>
+        {#each availableCodecs as c (c)}
+          <option value={c}>{c}</option>
+        {/each}
+      </select>
+      <select class="sort-select"
+              value={library.filterRes}
+              onchange={(e) => setFilter('res', e.currentTarget.value)}
+              title="Nach Aufloesung filtern">
+        {#each RES_OPTIONS as o (o.v)}
+          <option value={o.v}>{o.label}</option>
+        {/each}
+      </select>
+      {#if filtersActive}
+        <button class="btn btn-sm" onclick={resetFilters}
+                title="Alle Filter und die Suche zuruecksetzen">
+          <i class="fa-solid fa-rotate-left"></i> Zuruecksetzen
+        </button>
+      {/if}
+    </div>
   </div>
 
   <!-- Breadcrumb -->
@@ -355,11 +427,28 @@
 
       {#if files.length > 0}
         <section class:with-gap={folderChildren.length > 0}>
-          <h3 class="sec-title">Videos</h3>
+          <div class="sec-head">
+            <h3 class="sec-title">Videos</h3>
+            {#if filtersActive && hiddenByFilter > 0}
+              <span class="filter-info">
+                {visibleFiles.length} von {files.length} sichtbar
+                ({hiddenByFilter} durch Filter ausgeblendet)
+              </span>
+            {/if}
+          </div>
+          {#if visibleFiles.length === 0}
+            <div class="empty-small soft">
+              <i class="fa-solid fa-filter-circle-xmark"></i>
+              <p>Keine Datei passt zu Suche und Filtern.</p>
+              <button class="btn btn-sm" onclick={resetFilters}>
+                <i class="fa-solid fa-rotate-left"></i> Zuruecksetzen
+              </button>
+            </div>
+          {/if}
 
           {#if library.view === 'grid'}
             <div class="grid">
-              {#each sortedFiles as f (f.id)}
+              {#each visibleFiles as f (f.id)}
                 {@const s = statusBadge(f)}
                 <article class="card file">
                   <button class="thumb-btn" onclick={() => f.has_proxy && openInEditor(f.id)}
@@ -437,7 +526,7 @@
                   </tr>
                 </thead>
                 <tbody>
-                  {#each sortedFiles as f (f.id)}
+                  {#each visibleFiles as f (f.id)}
                     {@const s = statusBadge(f)}
                     <tr>
                       <td class="c-thumb">
@@ -489,7 +578,7 @@
 
           {:else}
             <ul class="compact-list">
-              {#each sortedFiles as f (f.id)}
+              {#each visibleFiles as f (f.id)}
                 {@const s = statusBadge(f)}
                 <li class="compact-row">
                   <button class="compact-main" onclick={() => f.has_proxy && openInEditor(f.id)}
@@ -711,6 +800,81 @@
     outline: none;
     border-color: var(--accent);
   }
+
+  /* Such-Feld */
+  .search-group {
+    position: relative;
+    flex: 1 1 220px;
+    min-width: 180px;
+    max-width: 360px;
+  }
+  .search-icon {
+    position: absolute;
+    left: 10px; top: 50%;
+    transform: translateY(-50%);
+    color: var(--fg-faint);
+    font-size: 12px;
+    pointer-events: none;
+  }
+  .search-input {
+    width: 100%;
+    background: var(--bg-elev);
+    color: var(--fg-primary);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 6px 28px 6px 30px;
+    font: inherit;
+    font-size: 13px;
+  }
+  .search-input:focus {
+    outline: none;
+    border-color: var(--accent);
+    box-shadow: 0 0 0 2px var(--accent-soft);
+  }
+  .search-clear {
+    position: absolute;
+    right: 6px; top: 50%;
+    transform: translateY(-50%);
+    background: transparent;
+    border: none;
+    color: var(--fg-muted);
+    cursor: pointer;
+    padding: 4px 6px;
+    border-radius: 4px;
+    font: inherit;
+  }
+  .search-clear:hover { color: var(--fg-primary); background: var(--bg-panel); }
+
+  .filter-group { flex-wrap: wrap; }
+
+  /* Sektion-Kopf mit Filterinfo */
+  .sec-head {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 12px;
+    margin: 0 0 10px;
+  }
+  .sec-head .sec-title { margin: 0; }
+  .filter-info {
+    font-size: 11px;
+    color: var(--fg-faint);
+    letter-spacing: 0.2px;
+  }
+
+  .empty-small {
+    padding: 40px 20px;
+    text-align: center;
+    color: var(--fg-faint);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 10px;
+    background: var(--bg-panel);
+    border: 1px dashed var(--border);
+    border-radius: 8px;
+  }
+  .empty-small i { font-size: 28px; }
 
   /* Liste-Ansicht: Tabelle */
   .table-wrap {

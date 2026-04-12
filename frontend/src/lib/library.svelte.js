@@ -13,11 +13,22 @@ function coerce(val, allowed, fallback) {
   return allowed.includes(val) ? val : fallback;
 }
 
+// Filterwerte
+export const STATUS_VALUES = ['all', 'ready', 'processing', 'failed'];
+// Aufloesung: Buckets -- 'all' oder '<=480' (SD), '<=720' (HD), '<=1080' (FHD),
+// '<=2160' (4K UHD), '>2160' (mehr als 4K). Buckets by height.
+export const RES_BUCKETS = ['all', 'sd', 'hd', 'fhd', 'uhd', 'above'];
+
 export const library = $state({
   currentFolder: persisted('library.currentFolder', ''),
   view:    coerce(persisted('library.view', 'grid'), VIEWS, 'grid'),
   sortBy:  coerce(persisted('library.sortBy', 'date'), SORT_KEYS, 'date'),
   sortDir: coerce(persisted('library.sortDir', 'desc'), SORT_DIRS, 'desc'),
+  // Filter + Suche -- NICHT persistent (Suche haelt sich nicht ueber Reload)
+  filterStatus: 'all',
+  filterFormat: 'all',  // 'all' oder Codec-Name ('h264', 'hevc', ...)
+  filterRes:    'all',
+  search: '',
 });
 
 export function setCurrentFolder(path) {
@@ -45,6 +56,64 @@ export function setSort(by, dir) {
 
 export function toggleSortDir() {
   setSort(null, library.sortDir === 'asc' ? 'desc' : 'asc');
+}
+
+export function setFilter(key, value) {
+  if (key === 'status' && STATUS_VALUES.includes(value)) library.filterStatus = value;
+  if (key === 'format') library.filterFormat = value || 'all';
+  if (key === 'res'    && RES_BUCKETS.includes(value))    library.filterRes = value;
+}
+
+export function setSearch(q) {
+  library.search = q ?? '';
+}
+
+export function resetFilters() {
+  library.filterStatus = 'all';
+  library.filterFormat = 'all';
+  library.filterRes    = 'all';
+  library.search       = '';
+}
+
+function matchesStatus(f, status) {
+  if (status === 'all') return true;
+  const s = f.proxy_status || 'none';
+  if (status === 'ready')      return s === 'ready';
+  if (status === 'processing') return s === 'running' || s === 'pending' || s === 'none';
+  if (status === 'failed')     return s === 'failed';
+  return true;
+}
+
+function matchesRes(f, bucket) {
+  if (bucket === 'all') return true;
+  const h = f.height || 0;
+  if (bucket === 'sd')    return h > 0 && h <= 576;
+  if (bucket === 'hd')    return h > 576 && h <= 720;
+  if (bucket === 'fhd')   return h > 720 && h <= 1080;
+  if (bucket === 'uhd')   return h > 1080 && h <= 2160;
+  if (bucket === 'above') return h > 2160;
+  return true;
+}
+
+export function filterFiles(files) {
+  const status = library.filterStatus;
+  const format = library.filterFormat;
+  const res    = library.filterRes;
+  const q      = (library.search || '').trim().toLowerCase();
+  return files.filter((f) => {
+    if (!matchesStatus(f, status)) return false;
+    if (format !== 'all' && (f.video_codec || '').toLowerCase() !== format) return false;
+    if (!matchesRes(f, res)) return false;
+    if (q && !(f.original_name || '').toLowerCase().includes(q)) return false;
+    return true;
+  });
+}
+
+/** Extrahiert alle Codec-Namen aus den Dateien fuer das Format-Dropdown. */
+export function codecOptions(files) {
+  const set = new Set();
+  for (const f of files) if (f.video_codec) set.add(f.video_codec);
+  return [...set].sort((a, b) => a.localeCompare(b));
 }
 
 export function sortFiles(files) {
