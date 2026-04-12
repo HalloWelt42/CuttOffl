@@ -8,6 +8,7 @@
     library, setCurrentFolder, parentOf, breadcrumbs,
     setView, setSort, toggleSortDir, sortFiles,
     setFilter, setSearch, resetFilters, filterFiles, codecOptions,
+    isSelected, toggleSelect, selectAll, selectOnly, clearSelection,
   } from '../lib/library.svelte.js';
   import { confirmDialog, promptDialog } from '../lib/dialog.svelte.js';
   import { openFolderPicker } from '../lib/folderPicker.svelte.js';
@@ -29,6 +30,11 @@
     (library.search || '').trim() !== ''
   );
   const hiddenByFilter = $derived(files.length - visibleFiles.length);
+  const selectedCount = $derived(library.selection.length);
+  const allVisibleIds = $derived(visibleFiles.map((f) => f.id));
+  const allVisibleSelected = $derived(
+    allVisibleIds.length > 0 && allVisibleIds.every((id) => library.selection.includes(id))
+  );
 
   // Sortieroptionen fuer das Dropdown (Label passt zur Ansicht)
   const SORT_OPTIONS = [
@@ -72,7 +78,7 @@
   });
 
   // Reagiere auf Wechsel des aktuellen Ordners
-  $effect(() => { library.currentFolder; refresh(); });
+  $effect(() => { library.currentFolder; clearSelection(); refresh(); });
 
   async function onUpload(ev) {
     const file = ev.target.files?.[0];
@@ -213,6 +219,44 @@
     doMove(f, target);
   }
 
+  // ---- Bulk-Aktionen -------------------------------------------------------
+  function onToggleSelectAll() {
+    if (allVisibleSelected) clearSelection();
+    else selectAll(allVisibleIds);
+  }
+
+  async function onBulkMove() {
+    const ids = [...library.selection];
+    if (ids.length === 0) return;
+    const target = await openFolderPicker({
+      title: `${ids.length} Datei(en) verschieben nach …`,
+      current: library.currentFolder,
+    });
+    if (target == null) return;
+    try {
+      const res = await api.bulkMoveFiles(ids, target);
+      toast.success(`${res.moved} Datei(en) verschoben`);
+      clearSelection();
+      refresh();
+    } catch (e) { toast.error(e.message); }
+  }
+
+  async function onBulkDelete() {
+    const ids = [...library.selection];
+    if (ids.length === 0) return;
+    const ok = await confirmDialog(
+      `${ids.length} Datei(en) endgültig löschen? Alle Ableitungen (Proxy, Thumbnail, Sprite, Wellenform) werden ebenfalls entfernt.`,
+      { title: 'Mehrfach-Löschung', okLabel: 'Löschen', okVariant: 'danger' },
+    );
+    if (!ok) return;
+    try {
+      const res = await api.bulkDeleteFiles(ids);
+      toast.info(`${res.deleted} Datei(en) entfernt`);
+      clearSelection();
+      refresh();
+    } catch (e) { toast.error(e.message); }
+  }
+
   function fmtSize(n) {
     if (!n) return '-';
     const u = ['B','KB','MB','GB','TB'];
@@ -348,6 +392,36 @@
     </div>
   </div>
 
+  {#if selectedCount > 0}
+    <div class="bulk-bar" role="toolbar" aria-label="Mehrfachauswahl">
+      <div class="bulk-info">
+        <i class="fa-solid fa-square-check"></i>
+        <strong>{selectedCount}</strong> Datei(en) ausgewählt
+      </div>
+      <div class="bulk-actions">
+        <button class="btn btn-sm" onclick={onToggleSelectAll}
+                title={allVisibleSelected
+                  ? 'Auswahl der sichtbaren Dateien entfernen'
+                  : 'Alle sichtbaren Dateien auswählen'}>
+          <i class="fa-solid {allVisibleSelected ? 'fa-square' : 'fa-square-check'}"></i>
+          {allVisibleSelected ? 'Keine sichtbaren' : 'Alle sichtbaren'}
+        </button>
+        <button class="btn btn-sm" onclick={clearSelection}
+                title="Auswahl komplett aufheben">
+          <i class="fa-solid fa-xmark"></i> Auswahl aufheben
+        </button>
+        <button class="btn btn-sm" onclick={onBulkMove}
+                title="Ausgewählte Dateien in einen anderen Ordner verschieben">
+          <i class="fa-solid fa-folder-tree"></i> Verschieben
+        </button>
+        <button class="btn btn-sm btn-danger" onclick={onBulkDelete}
+                title="Ausgewählte Dateien löschen (inkl. Proxy, Thumbnail usw.)">
+          <i class="fa-solid fa-trash"></i> Löschen
+        </button>
+      </div>
+    </div>
+  {/if}
+
   <!-- Breadcrumb -->
   <nav class="breadcrumb" aria-label="Ordner-Navigation">
     {#if library.currentFolder}
@@ -450,7 +524,13 @@
             <div class="grid">
               {#each visibleFiles as f (f.id)}
                 {@const s = statusBadge(f)}
-                <article class="card file">
+                <article class="card file" class:selected={isSelected(f.id)}>
+                  <label class="sel-corner" title="Für Mehrfachaktionen auswählen">
+                    <input type="checkbox"
+                           checked={isSelected(f.id)}
+                           onchange={() => toggleSelect(f.id)}
+                           aria-label="Datei auswählen" />
+                  </label>
                   <button class="thumb-btn" onclick={() => f.has_proxy && openInEditor(f.id)}
                           disabled={!f.has_proxy}
                           title={f.has_proxy ? 'Im Editor öffnen' : 'Proxy noch nicht fertig'}>
@@ -515,6 +595,12 @@
               <table class="file-table">
                 <thead>
                   <tr>
+                    <th class="c-sel">
+                      <input type="checkbox"
+                             checked={allVisibleSelected}
+                             onchange={onToggleSelectAll}
+                             aria-label="Alle sichtbaren auswählen" />
+                    </th>
                     <th class="c-thumb"></th>
                     <th class="c-name">Name</th>
                     <th class="c-dur mono">Dauer</th>
@@ -528,7 +614,13 @@
                 <tbody>
                   {#each visibleFiles as f (f.id)}
                     {@const s = statusBadge(f)}
-                    <tr>
+                    <tr class:selected={isSelected(f.id)}>
+                      <td class="c-sel">
+                        <input type="checkbox"
+                               checked={isSelected(f.id)}
+                               onchange={() => toggleSelect(f.id)}
+                               aria-label="Datei auswählen" />
+                      </td>
                       <td class="c-thumb">
                         <button class="thumb-mini" onclick={() => f.has_proxy && openInEditor(f.id)}
                                 disabled={!f.has_proxy}
@@ -580,7 +672,13 @@
             <ul class="compact-list">
               {#each visibleFiles as f (f.id)}
                 {@const s = statusBadge(f)}
-                <li class="compact-row">
+                <li class="compact-row" class:selected={isSelected(f.id)}>
+                  <label class="compact-sel" title="Für Mehrfachaktionen auswählen">
+                    <input type="checkbox"
+                           checked={isSelected(f.id)}
+                           onchange={() => toggleSelect(f.id)}
+                           aria-label="Datei auswählen" />
+                  </label>
                   <button class="compact-main" onclick={() => f.has_proxy && openInEditor(f.id)}
                           disabled={!f.has_proxy}
                           title={f.has_proxy ? 'Im Editor öffnen' : 'Proxy noch nicht fertig'}>
@@ -1002,4 +1100,60 @@
     padding: 4px 8px;
     flex: 0 0 auto;
   }
+
+  /* Bulk-Aktionsleiste */
+  .bulk-bar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 14px;
+    padding: 8px 16px;
+    background: color-mix(in oklab, var(--accent) 18%, var(--bg-panel));
+    border-bottom: 1px solid var(--accent);
+    flex-wrap: wrap;
+  }
+  .bulk-info {
+    display: inline-flex; align-items: center; gap: 8px;
+    color: var(--fg-primary);
+    font-size: 13px;
+  }
+  .bulk-info i { color: var(--accent); }
+  .bulk-info strong { font-weight: 700; color: var(--accent); }
+  .bulk-actions { display: flex; gap: 6px; flex-wrap: wrap; }
+
+  /* Auswahl-Checkbox auf der Grid-Kachel */
+  .file { position: relative; }
+  .file.selected { outline: 2px solid var(--accent); outline-offset: -1px; }
+  .sel-corner {
+    position: absolute;
+    top: 6px; left: 6px;
+    z-index: 2;
+    background: rgba(0,0,0,0.55);
+    padding: 4px 6px;
+    border-radius: 4px;
+    line-height: 0;
+    cursor: pointer;
+    backdrop-filter: blur(2px);
+  }
+  .sel-corner input {
+    width: 16px; height: 16px;
+    cursor: pointer;
+    accent-color: var(--accent);
+    margin: 0;
+  }
+
+  /* Auswahl-Spalte in der Tabelle */
+  .c-sel { width: 36px; text-align: center; }
+  .c-sel input { accent-color: var(--accent); cursor: pointer; }
+  .file-table tbody tr.selected { background: var(--accent-soft); }
+
+  /* Auswahl in der kompakten Liste */
+  .compact-sel {
+    flex: 0 0 auto;
+    padding: 0 8px 0 12px;
+    display: grid; place-items: center;
+    cursor: pointer;
+  }
+  .compact-sel input { accent-color: var(--accent); cursor: pointer; margin: 0; }
+  .compact-row.selected { background: var(--accent-soft); }
 </style>

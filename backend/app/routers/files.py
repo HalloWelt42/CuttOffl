@@ -12,7 +12,9 @@ from fastapi import APIRouter, HTTPException
 from fastapi.responses import FileResponse
 
 from app.db import db
-from app.models.schemas import FileBulkMoveBody, FileMoveBody, FileOut, FileRenameBody
+from app.models.schemas import (
+    FileBulkDeleteBody, FileBulkMoveBody, FileMoveBody, FileOut, FileRenameBody,
+)
 from app.services.folder_service import FolderError, normalize
 
 router = APIRouter(prefix="/api/files", tags=["files"])
@@ -85,6 +87,46 @@ async def get_file(file_id: str) -> FileOut:
     if row is None:
         raise HTTPException(status_code=404, detail="Datei nicht gefunden")
     return _row_to_fileout(row)
+
+
+@router.post("/bulk-delete", response_model=dict)
+async def bulk_delete(body: FileBulkDeleteBody) -> dict:
+    """Loescht mehrere Dateien samt aller Ableitungen. Gibt die Anzahl der
+    erfolgreich entfernten Eintraege zurueck (und Liste der fehlgeschlagenen
+    IDs). Nicht gefundene IDs werden ignoriert."""
+    ids = list({fid for fid in body.file_ids if fid})
+    if not ids:
+        return {"deleted": 0, "missing": [], "errors": []}
+    placeholders = ",".join("?" * len(ids))
+    rows = await db.fetch_all(
+        f"""SELECT id, path, proxy_path, thumb_path, sprite_path, waveform_path
+            FROM files WHERE id IN ({placeholders})""",
+        tuple(ids),
+    )
+    found_ids = {r["id"] for r in rows}
+    missing = [i for i in ids if i not in found_ids]
+
+    errors: list[str] = []
+    for r in rows:
+        for key in ("path", "proxy_path", "thumb_path", "sprite_path", "waveform_path"):
+            p = r[key]
+            if p:
+                try:
+                    Path(p).unlink(missing_ok=True)
+                except OSError as e:
+                    errors.append(f"{r['id']}:{key}:{e}")
+
+    if found_ids:
+        found_list = list(found_ids)
+        ph = ",".join("?" * len(found_list))
+        await db.execute(
+            f"DELETE FROM files WHERE id IN ({ph})", tuple(found_list)
+        )
+    return {
+        "deleted": len(found_ids),
+        "missing": missing,
+        "errors": errors,
+    }
 
 
 @router.post("/move", response_model=dict)

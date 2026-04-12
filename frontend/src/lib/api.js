@@ -50,6 +50,12 @@ export const api = {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ file_ids, folder_path }),
     }),
+  bulkDeleteFiles: (file_ids) =>
+    request('/files/bulk-delete', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ file_ids }),
+    }),
   deleteFile: (id) => request(`/files/${id}`, { method: 'DELETE' }),
 
   // Folders

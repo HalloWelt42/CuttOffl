@@ -29,6 +29,8 @@ export const library = $state({
   filterFormat: 'all',  // 'all' oder Codec-Name ('h264', 'hevc', ...)
   filterRes:    'all',
   search: '',
+  // Mehrfachauswahl (nicht persistent) -- Array von file_ids
+  selection: [],
 });
 
 export function setCurrentFolder(path) {
@@ -73,6 +75,32 @@ export function resetFilters() {
   library.filterFormat = 'all';
   library.filterRes    = 'all';
   library.search       = '';
+}
+
+// ---- Auswahl-Helpers -------------------------------------------------------
+export function isSelected(id) {
+  return library.selection.includes(id);
+}
+
+export function toggleSelect(id) {
+  if (!id) return;
+  const i = library.selection.indexOf(id);
+  if (i >= 0) library.selection = library.selection.filter((x) => x !== id);
+  else library.selection = [...library.selection, id];
+}
+
+export function selectAll(ids) {
+  const next = new Set(library.selection);
+  for (const id of ids) if (id) next.add(id);
+  library.selection = [...next];
+}
+
+export function selectOnly(ids) {
+  library.selection = [...new Set(ids.filter(Boolean))];
+}
+
+export function clearSelection() {
+  library.selection = [];
 }
 
 function matchesStatus(f, status) {

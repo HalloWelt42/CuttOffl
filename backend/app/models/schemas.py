@@ -60,6 +60,10 @@ class FileBulkMoveBody(BaseModel):
     folder_path: str = Field(default="", max_length=512)
 
 
+class FileBulkDeleteBody(BaseModel):
+    file_ids: list[str] = Field(min_length=1, max_length=500)
+
+
 class UploadResponse(BaseModel):
     file: FileOut
 
