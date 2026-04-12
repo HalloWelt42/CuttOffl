@@ -13,6 +13,7 @@
   import { confirmDialog, promptDialog } from '../lib/dialog.svelte.js';
   import { openFolderPicker } from '../lib/folderPicker.svelte.js';
   import PanelHeader from '../components/PanelHeader.svelte';
+  import HoverScrubThumb from '../components/HoverScrubThumb.svelte';
 
   let files = $state([]);
   let folderChildren = $state([]);
@@ -535,11 +536,12 @@
                           disabled={!f.has_proxy}
                           title={f.has_proxy ? 'Im Editor öffnen' : 'Proxy noch nicht fertig'}>
                     <div class="thumb">
-                      {#if f.has_thumb}
-                        <img src={api.thumbUrl(f.id)} alt="" />
-                      {:else}
-                        <i class="fa-solid fa-image"></i>
-                      {/if}
+                      <HoverScrubThumb
+                        fileId={f.id}
+                        alt={f.original_name}
+                        hasThumb={f.has_thumb}
+                        hasSprite={f.has_sprite}
+                      />
                       <span class="badge {s.c}">{s.t}</span>
                     </div>
                   </button>
@@ -813,7 +815,6 @@
     display: grid; place-items: center;
     color: var(--fg-faint);
   }
-  .thumb img { width: 100%; height: 100%; object-fit: cover; }
   .thumb-btn:not(:disabled):hover .thumb { outline: 2px solid var(--accent); outline-offset: -2px; }
   .badge {
     position: absolute; top: 8px; right: 8px;
