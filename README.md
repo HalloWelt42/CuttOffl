@@ -136,7 +136,3 @@ rein freiwillig:
   <img src="https://img.shields.io/badge/Ethereum-3C3C3D?style=for-the-badge&logo=ethereum&logoColor=white" alt="Ethereum">
   <code>0x8A28fc47bFFFA03C8f685fa0836E2dBe1CA14F27</code>
 </p>
-
-Der Spenden-Dialog in der App (Button **Danke** in der Seitenleiste) zeigt
-die gleichen Adressen mit QR-Codes. Projekt-Infos und Lizenz stehen auf der
-Seite **Ueber**.
