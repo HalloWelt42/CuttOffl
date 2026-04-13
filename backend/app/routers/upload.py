@@ -1,21 +1,26 @@
 """
 CuttOffl Backend - Upload-Router.
 
-Standard-Multipart-Upload. Nach erfolgreichem Upload wird sofort ffprobe auf
-die Datei angewendet, die Metadaten in der files-Tabelle persistiert und die
-Folgearbeiten angestossen: Thumbnail-Job (schnell) und Proxy-Job (laenger,
-triggert seinerseits Sprite- und Waveform-Extraktion).
+Standard-Multipart-Upload. Waehrend des Schreibens wird ein SHA-256 ueber
+die Datei gebildet -- Duplikate werden vor der DB-Aufnahme erkannt und
+(falls ?force=false, Default) als 409 abgelehnt.
+
+Nach erfolgreichem Upload wird ffprobe auf die Datei angewendet, die
+Metadaten in der files-Tabelle persistiert und die Folgearbeiten angestossen:
+Thumbnail-Job (schnell) und Proxy-Job (laenger, triggert seinerseits
+Sprite- und Waveform-Extraktion).
 """
 
 from __future__ import annotations
 
+import hashlib
 import json
 import logging
 import uuid
 from pathlib import Path
 
 import aiofiles
-from fastapi import APIRouter, File, Form, HTTPException, UploadFile
+from fastapi import APIRouter, File, Form, HTTPException, Query, UploadFile
 
 from app.config import ALLOWED_EXTENSIONS, MAX_UPLOAD_MB, ORIGINALS_DIR
 from app.db import db
@@ -33,6 +38,10 @@ router = APIRouter(prefix="/api/upload", tags=["upload"])
 async def upload(
     file: UploadFile = File(...),
     folder: str = Form(default=""),
+    force: bool = Query(
+        default=False,
+        description="true = trotz Hash-Duplikat erneut aufnehmen",
+    ),
 ) -> UploadStartResponse:
     filename = file.filename or "upload.bin"
     suffix = Path(filename).suffix.lower()
@@ -52,6 +61,7 @@ async def upload(
 
     max_bytes = MAX_UPLOAD_MB * 1024 * 1024
     written = 0
+    hasher = hashlib.sha256()
     async with aiofiles.open(dest, "wb") as out:
         while True:
             chunk = await file.read(1024 * 1024)
@@ -65,7 +75,36 @@ async def upload(
                     status_code=413,
                     detail=f"Datei zu groß (> {MAX_UPLOAD_MB} MB).",
                 )
+            hasher.update(chunk)
             await out.write(chunk)
+
+    sha256 = hasher.hexdigest()
+
+    # Duplikat-Pruefung. Bei bereits bekanntem Hash lehnen wir die Aufnahme
+    # ab (und loeschen die eben geschriebene Datei). Mit force=true kann
+    # der Nutzer bewusst trotzdem eine zweite Kopie in der Bibliothek
+    # haben -- dann wird der Eintrag ganz normal angelegt.
+    if not force:
+        dup = await db.fetch_one(
+            """SELECT id, original_name, folder_path
+               FROM files WHERE sha256 = ? LIMIT 1""",
+            (sha256,),
+        )
+        if dup is not None:
+            try:
+                dest.unlink(missing_ok=True)
+            except OSError:
+                pass
+            raise HTTPException(
+                status_code=409,
+                detail={
+                    "message": "Identische Datei existiert bereits",
+                    "existing_id": dup["id"],
+                    "existing_name": dup["original_name"],
+                    "existing_folder": dup["folder_path"] or "",
+                    "sha256": sha256,
+                },
+            )
 
     probe_summary: dict = {}
     probe_raw: dict = {}
@@ -80,8 +119,8 @@ async def upload(
         INSERT INTO files (
             id, original_name, stored_name, path, size_bytes,
             mime_type, duration_s, width, height, fps,
-            video_codec, audio_codec, folder_path, probe_json
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            video_codec, audio_codec, folder_path, sha256, probe_json
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         """,
         (
             file_id,
@@ -97,6 +136,7 @@ async def upload(
             probe_summary.get("video_codec"),
             probe_summary.get("audio_codec"),
             folder_path,
+            sha256,
             json.dumps(probe_raw) if probe_raw else None,
         ),
     )

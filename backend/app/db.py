@@ -50,6 +50,7 @@ SCHEMA: tuple[str, ...] = (
         waveform_rate    REAL,
         folder_path     TEXT NOT NULL DEFAULT '',
         tags_json       TEXT NOT NULL DEFAULT '[]',
+        sha256          TEXT,
         probe_json      TEXT,
         created_at      TEXT NOT NULL DEFAULT (datetime('now')),
         updated_at      TEXT NOT NULL DEFAULT (datetime('now'))
@@ -73,6 +74,9 @@ SCHEMA: tuple[str, ...] = (
     "CREATE INDEX IF NOT EXISTS idx_files_folder_path ON files(folder_path)",
     # Tags: JSON-Array normierter Tag-Strings. Leerer Array = '[]'.
     "ALTER TABLE files ADD COLUMN tags_json TEXT NOT NULL DEFAULT '[]'",
+    # SHA-256 der Originaldatei (Hex, 64 Zeichen). Fuer Duplikat-Erkennung.
+    "ALTER TABLE files ADD COLUMN sha256 TEXT",
+    "CREATE INDEX IF NOT EXISTS idx_files_sha256 ON files(sha256)",
     """
     CREATE TABLE IF NOT EXISTS projects (
         id              TEXT PRIMARY KEY,

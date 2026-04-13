@@ -101,24 +101,58 @@
   }
 
   // Sequenzieller Upload -- zeigt Gesamtfortschritt, ein toast am Ende.
+  // Bei SHA-256-Konflikt fragt der Benutzer, ob trotzdem hochgeladen werden
+  // soll. Die Antwort wird als "alle gleich behandeln" merkbar (applyAll),
+  // damit Mehrfach-Uploads nicht nerven.
   async function uploadFiles(list) {
     if (!list.length) return;
     uploading = true;
     uploadPct = 0;
-    let ok = 0, fail = 0;
+    let ok = 0, fail = 0, skipped = 0;
+    let forceAll = null;  // null = immer fragen, true/false = fuer alle weiteren
     for (let i = 0; i < list.length; i++) {
       const file = list[i];
+      const onProg = (p) => { uploadPct = (i + p) / list.length; };
       try {
-        await api.upload(
-          file,
-          (p) => {
-            // Gesamtfortschritt ueber alle Dateien, Anteil pro Datei gleich
-            uploadPct = (i + p) / list.length;
-          },
-          library.currentFolder,
-        );
+        await api.upload(file, onProg, library.currentFolder);
         ok++;
       } catch (e) {
+        if (e?.status === 409 && e.conflict) {
+          let useForce = forceAll;
+          if (useForce === null) {
+            const c = e.conflict;
+            const hash6 = (c.sha256 || '').slice(0, 12);
+            const folderLabel = c.existing_folder
+              ? `Ordner "${c.existing_folder}"` : 'Basis';
+            useForce = await confirmDialog(
+              `"${file.name}" ist inhaltlich identisch mit "${c.existing_name}" `
+              + `im ${folderLabel} (SHA-256 ${hash6}...). `
+              + `Trotzdem als zweite Kopie hochladen?`
+              + (list.length > 1 ? '\nDiese Entscheidung gilt fuer alle weiteren Duplikate in diesem Durchgang.' : ''),
+              {
+                title: 'Identische Datei bereits vorhanden',
+                okLabel: 'Trotzdem hochladen',
+                cancelLabel: 'Überspringen',
+                okVariant: 'primary',
+              },
+            );
+            if (list.length > 1) forceAll = useForce;
+          }
+          if (useForce) {
+            try {
+              await api.upload(file, onProg, library.currentFolder, { force: true });
+              ok++;
+              continue;
+            } catch (e2) {
+              fail++;
+              toast.error(`${file.name}: ${e2.message}`);
+              continue;
+            }
+          } else {
+            skipped++;
+            continue;
+          }
+        }
         fail++;
         toast.error(`${file.name}: ${e.message}`);
       }
@@ -128,8 +162,9 @@
     if (ok > 0) toast.success(
       list.length === 1
         ? `${list[0].name} hochgeladen -- Proxy wird erzeugt`
-        : `${ok} Datei(en) hochgeladen`
+        : `${ok} Datei(en) hochgeladen`,
     );
+    if (skipped > 0) toast.info(`${skipped} Duplikat(e) übersprungen`);
     if (fail > 0 && ok === 0) toast.error(`${fail} Datei(en) fehlgeschlagen`);
     refresh();
   }

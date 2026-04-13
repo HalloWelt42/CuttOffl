@@ -92,10 +92,12 @@ export const api = {
     }),
 
   // Upload
-  upload: async (file, onProgress, folder = '') => {
+  upload: async (file, onProgress, folder = '', opts = {}) => {
+    const force = opts.force === true;
     return new Promise((resolve, reject) => {
       const xhr = new XMLHttpRequest();
-      xhr.open('POST', `${BASE}/upload`);
+      const qs = force ? '?force=true' : '';
+      xhr.open('POST', `${BASE}/upload${qs}`);
       xhr.responseType = 'json';
       if (onProgress) {
         xhr.upload.onprogress = (e) => {
@@ -103,8 +105,18 @@ export const api = {
         };
       }
       xhr.onload = () => {
-        if (xhr.status >= 200 && xhr.status < 300) resolve(xhr.response);
-        else reject(new Error(`Upload ${xhr.status}: ${xhr.response?.detail || xhr.statusText}`));
+        if (xhr.status >= 200 && xhr.status < 300) { resolve(xhr.response); return; }
+        // Konflikt-Fehler mit Detail-Objekt durchreichen -- der Caller kann
+        // nachfragen und ggf. mit force=true erneut versuchen.
+        const detail = xhr.response?.detail;
+        if (xhr.status === 409 && detail && typeof detail === 'object') {
+          const err = new Error(detail.message || 'Datei existiert bereits');
+          err.status = 409;
+          err.conflict = detail;
+          reject(err);
+          return;
+        }
+        reject(new Error(`Upload ${xhr.status}: ${detail || xhr.statusText}`));
       };
       xhr.onerror = () => reject(new Error('Netzwerkfehler beim Upload'));
       const fd = new FormData();
