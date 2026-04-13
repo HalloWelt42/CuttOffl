@@ -58,7 +58,7 @@ SCHEMA: tuple[str, ...] = (
     """,
     "CREATE INDEX IF NOT EXISTS idx_files_created_at ON files(created_at DESC)",
     "CREATE INDEX IF NOT EXISTS idx_files_proxy_status ON files(proxy_status)",
-    # Schema-Migrations (idempotent) fuer bestehende DBs
+    # Schema-Migrations (idempotent) für bestehende DBs
     "ALTER TABLE files ADD COLUMN sprite_path TEXT",
     "ALTER TABLE files ADD COLUMN sprite_interval REAL",
     "ALTER TABLE files ADD COLUMN sprite_tile_w INTEGER",

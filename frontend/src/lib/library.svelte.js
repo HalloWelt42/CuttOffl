@@ -1,10 +1,10 @@
 // Library-State: aktueller Ordner, Ansichts-Variante, Sortierung
-// (alles persistent im localStorage), plus Pfad-Hilfen fuer die Basis-
+// (alles persistent im localStorage), plus Pfad-Hilfen für die Basis-
 // Navigation.
 
 import { persisted, persist } from './persist.svelte.js';
 
-// Erlaubte Werte fuer Ansicht und Sortierung
+// Erlaubte Werte für Ansicht und Sortierung
 export const VIEWS = ['grid', 'list', 'compact'];
 export const SORT_KEYS = ['name', 'date', 'size', 'duration'];
 export const SORT_DIRS = ['asc', 'desc'];
@@ -24,7 +24,7 @@ export const library = $state({
   view:    coerce(persisted('library.view', 'grid'), VIEWS, 'grid'),
   sortBy:  coerce(persisted('library.sortBy', 'date'), SORT_KEYS, 'date'),
   sortDir: coerce(persisted('library.sortDir', 'desc'), SORT_DIRS, 'desc'),
-  // Filter + Suche -- NICHT persistent (Suche haelt sich nicht ueber Reload)
+  // Filter + Suche -- NICHT persistent (Suche hält sich nicht über Reload)
   filterStatus: 'all',
   filterFormat: 'all',  // 'all' oder Codec-Name ('h264', 'hevc', ...)
   filterRes:    'all',
@@ -146,14 +146,14 @@ export function filterFiles(files) {
   });
 }
 
-/** Extrahiert alle Codec-Namen aus den Dateien fuer das Format-Dropdown. */
+/** Extrahiert alle Codec-Namen aus den Dateien für das Format-Dropdown. */
 export function codecOptions(files) {
   const set = new Set();
   for (const f of files) if (f.video_codec) set.add(f.video_codec);
   return [...set].sort((a, b) => a.localeCompare(b));
 }
 
-/** Extrahiert alle Tags fuer das Tag-Filter-Dropdown. */
+/** Extrahiert alle Tags für das Tag-Filter-Dropdown. */
 export function tagOptions(files) {
   const set = new Set();
   for (const f of files) {

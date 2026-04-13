@@ -2,15 +2,15 @@
 CuttOffl Backend - Ordner-Router.
 
 Ordner sind rein virtuell (Spalte files.folder_path). Dieser Router
-liefert Navigationshilfen fuer die UI:
+liefert Navigationshilfen für die UI:
 
-  GET    /api/folders            flache Uebersicht aller belegten Pfade
-  GET    /api/folders/tree       rekursiver Ordnerbaum mit Dateizaehlern
+  GET    /api/folders            flache Übersicht aller belegten Pfade
+  GET    /api/folders/tree       rekursiver Ordnerbaum mit Dateizählern
   GET    /api/folders/children   direkte Unterordner + Dateizahl einer Ebene
   GET    /api/folders/download   alle Original-Dateien als ZIP (Stream)
   POST   /api/folders/rename     Ordner (und alle darunter) umbenennen
   DELETE /api/folders            nur leere Ordner -- per Design
-                                 (Verschieben vor dem Loeschen noetig)
+                                 (Verschieben vor dem Löschen nötig)
 """
 
 from __future__ import annotations
@@ -75,7 +75,7 @@ async def list_folders() -> list[dict]:
     result: list[dict] = []
     for p in all_paths:
         if p == "":
-            # Wurzel nur zurueckgeben, wenn es Dateien direkt drin gibt
+            # Wurzel nur zurückgeben, wenn es Dateien direkt drin gibt
             direct = await db.fetch_one(
                 "SELECT COUNT(*) c FROM files WHERE folder_path = ''"
             )
@@ -276,7 +276,7 @@ async def download_folder_zip(
     if not rows:
         raise HTTPException(status_code=404, detail="Keine Dateien im Ordner")
 
-    # Auf existierende Dateien reduzieren und Groesse bestimmen
+    # Auf existierende Dateien reduzieren und Größe bestimmen
     items: list[tuple[str, Path]] = []
     missing: list[str] = []
     for r in rows:
@@ -287,16 +287,16 @@ async def download_folder_zip(
         member = _safe_zip_member(base, r["folder_path"] or "", r["original_name"])
         items.append((member, p))
     if missing:
-        logger.info(f"ZIP-Download: {len(missing)} fehlende Datei(en) uebersprungen")
+        logger.info(f"ZIP-Download: {len(missing)} fehlende Datei(en) übersprungen")
     if not items:
         raise HTTPException(status_code=410, detail="Alle Dateien im Ordner fehlen auf der Platte")
 
     def _generate() -> Iterable[bytes]:
         # Streaming: wir schreiben das ZIP in einen einfachen In-Memory-
-        # Puffer und yieldern chunk-weise. Durch ZIP_STORED und fester
+        # Puffer und yielden chunk-weise. Durch ZIP_STORED und fester
         # Reihenfolge bleibt der Speicherbedarf klein (Header + ein
-        # Chunk), auch bei grossen Dateien -- Central Directory wird am
-        # Ende angehaengt.
+        # Chunk), auch bei großen Dateien -- Central Directory wird am
+        # Ende angehängt.
         class _Buffer:
             def __init__(self):
                 self.data = bytearray()
@@ -388,8 +388,8 @@ async def rename_folder(body: FolderRenameBody) -> dict:
 
 @router.delete("")
 async def delete_folder(folder: str) -> dict:
-    """Loescht einen leeren Ordner (faktisch: entfernt die Ebene aus der
-    Baum-Anzeige -- da Ordner rein virtuell sind, genuegt es zu pruefen,
+    """Löscht einen leeren Ordner (faktisch: entfernt die Ebene aus der
+    Baum-Anzeige -- da Ordner rein virtuell sind, genügt es zu prüfen,
     dass keine Dateien mehr darunter liegen).
     """
     try:

@@ -7,7 +7,7 @@ und liefert die Dateien per HTTP-Download aus.
 Dateiname auf Platte bleibt die Job-UUID (kollisionsfrei); der Download-Header
 liefert einen lesbaren Namen aus Projekt + Zeitstempel.
 
-Zusaetzlich: "In Bibliothek uebernehmen" kopiert das fertige Video als neue
+Zusätzlich: "In Bibliothek übernehmen" kopiert das fertige Video als neue
 Quelle in data/originals/, legt einen files-Eintrag an und startet Thumbnail-
 und Proxy-Job -- damit ist das Resultat sofort wieder schnittbar.
 """
@@ -161,9 +161,9 @@ async def download_export(job_id: str):
 
 @router.post("/{job_id}/import-to-library")
 async def import_export_to_library(job_id: str, body: ImportToLibraryRequest) -> dict:
-    """Uebernimmt ein fertiges Render-Ergebnis als neue Quelle in die
+    """Übernimmt ein fertiges Render-Ergebnis als neue Quelle in die
     Bibliothek. Datei wird nach data/originals/<new-id>.<ext> kopiert,
-    ein files-Eintrag angelegt und Thumbnail + Proxy angestossen."""
+    ein files-Eintrag angelegt und Thumbnail + Proxy angestoßen."""
     row = await db.fetch_one(
         """SELECT j.result_path, j.updated_at, p.name AS project_name,
                   f.original_name AS source_name
@@ -185,10 +185,10 @@ async def import_export_to_library(job_id: str, body: ImportToLibraryRequest) ->
     try:
         folder_path = normalize_folder(body.folder_path or "")
     except FolderError as e:
-        raise HTTPException(status_code=400, detail=f"Ungueltiger Ordner: {e}")
+        raise HTTPException(status_code=400, detail=f"Ungültiger Ordner: {e}")
 
     # Lesbarer Name: Nutzer-Override, sonst aus Projekt + Zeitstempel,
-    # sonst das Standard-Schema fuer den Download.
+    # sonst das Standard-Schema für den Download.
     clip_id = None
     m = re.match(r"^[0-9a-f]{32}-clip-(.+)$", src_path.stem)
     if m:
@@ -206,7 +206,7 @@ async def import_export_to_library(job_id: str, body: ImportToLibraryRequest) ->
             clip_id=clip_id,
         )
 
-    # Kopieren (kein Hardlink -- der Export soll unabhaengig loeschbar bleiben)
+    # Kopieren (kein Hardlink -- der Export soll unabhängig löschbar bleiben)
     new_id = uuid.uuid4().hex
     stored_name = f"{new_id}{suffix}"
     dest = ORIGINALS_DIR / stored_name
@@ -261,7 +261,7 @@ async def import_export_to_library(job_id: str, body: ImportToLibraryRequest) ->
     })
 
     logger.info(
-        f"Export {job_id} in Bibliothek uebernommen als {new_id} "
+        f"Export {job_id} in Bibliothek übernommen als {new_id} "
         f"(Ordner={folder_path or '-'}, Name={original_name})"
     )
     return {

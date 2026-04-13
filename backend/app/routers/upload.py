@@ -1,13 +1,13 @@
 """
 CuttOffl Backend - Upload-Router.
 
-Standard-Multipart-Upload. Waehrend des Schreibens wird ein SHA-256 ueber
+Standard-Multipart-Upload. Während des Schreibens wird ein SHA-256 über
 die Datei gebildet -- Duplikate werden vor der DB-Aufnahme erkannt und
 (falls ?force=false, Default) als 409 abgelehnt.
 
 Nach erfolgreichem Upload wird ffprobe auf die Datei angewendet, die
-Metadaten in der files-Tabelle persistiert und die Folgearbeiten angestossen:
-Thumbnail-Job (schnell) und Proxy-Job (laenger, triggert seinerseits
+Metadaten in der files-Tabelle persistiert und die Folgearbeiten angestoßen:
+Thumbnail-Job (schnell) und Proxy-Job (länger, triggert seinerseits
 Sprite- und Waveform-Extraktion).
 """
 
@@ -53,7 +53,7 @@ async def upload(
     try:
         folder_path = normalize_folder(folder)
     except FolderError as e:
-        raise HTTPException(status_code=400, detail=f"Ungueltiger Ordner: {e}")
+        raise HTTPException(status_code=400, detail=f"Ungültiger Ordner: {e}")
 
     file_id = uuid.uuid4().hex
     stored_name = f"{file_id}{suffix}"
@@ -80,8 +80,8 @@ async def upload(
 
     sha256 = hasher.hexdigest()
 
-    # Duplikat-Pruefung. Bei bereits bekanntem Hash lehnen wir die Aufnahme
-    # ab (und loeschen die eben geschriebene Datei). Mit force=true kann
+    # Duplikat-Prüfung. Bei bereits bekanntem Hash lehnen wir die Aufnahme
+    # ab (und löschen die eben geschriebene Datei). Mit force=true kann
     # der Nutzer bewusst trotzdem eine zweite Kopie in der Bibliothek
     # haben -- dann wird der Eintrag ganz normal angelegt.
     if not force:

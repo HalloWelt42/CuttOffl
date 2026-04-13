@@ -135,8 +135,8 @@ async def get_file(file_id: str) -> FileOut:
 
 @router.post("/bulk-delete", response_model=dict)
 async def bulk_delete(body: FileBulkDeleteBody) -> dict:
-    """Loescht mehrere Dateien samt aller Ableitungen. Gibt die Anzahl der
-    erfolgreich entfernten Eintraege zurueck (und Liste der fehlgeschlagenen
+    """Löscht mehrere Dateien samt aller Ableitungen. Gibt die Anzahl der
+    erfolgreich entfernten Einträge zurück (und Liste der fehlgeschlagenen
     IDs). Nicht gefundene IDs werden ignoriert."""
     ids = list({fid for fid in body.file_ids if fid})
     if not ids:
@@ -227,8 +227,8 @@ async def set_tags(file_id: str, body: FileTagsBody) -> FileOut:
 
 @router.patch("/{file_id}", response_model=FileOut)
 async def rename_file(file_id: str, body: FileRenameBody) -> FileOut:
-    """Aendert nur den angezeigten Dateinamen (original_name).
-    Der physische Pfad auf der Platte bleibt unveraendert (UUID-basiert).
+    """Ändert nur den angezeigten Dateinamen (original_name).
+    Der physische Pfad auf der Platte bleibt unverändert (UUID-basiert).
     """
     row = await db.fetch_one("SELECT id FROM files WHERE id = ?", (file_id,))
     if row is None:
@@ -236,7 +236,7 @@ async def rename_file(file_id: str, body: FileRenameBody) -> FileOut:
     new_name = body.original_name.strip()
     if not new_name:
         raise HTTPException(status_code=400, detail="Name darf nicht leer sein")
-    # Zeichen die im Download-Content-Disposition kaputtgehen koennten, filtern
+    # Zeichen die im Download-Content-Disposition kaputtgehen könnten, filtern
     if any(ch in new_name for ch in ("\x00", "\r", "\n")):
         raise HTTPException(status_code=400, detail="Unerlaubte Zeichen im Namen")
     await db.execute(

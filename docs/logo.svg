@@ -1,0 +1,74 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 520 140" width="520" height="140">
+  <!-- CuttOffl-Logo: Kartoffel mit Dampf + Schriftzug "CuttOffl" und
+       Untertitel "Video Studio". Transparenter Hintergrund, keine
+       abgerundete Box -- wie in der Sidebar-Brand-Section. -->
+  <defs>
+    <linearGradient id="logoBody" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%"  stop-color="#d9a36a"/>
+      <stop offset="55%" stop-color="#a7683a"/>
+      <stop offset="100%" stop-color="#6e3f1e"/>
+    </linearGradient>
+    <radialGradient id="logoHL" cx="0.38" cy="0.32" r="0.55">
+      <stop offset="0%"  stop-color="#ffe7c2" stop-opacity="0.85"/>
+      <stop offset="60%" stop-color="#ffe7c2" stop-opacity="0"/>
+    </radialGradient>
+    <filter id="logoSoft" x="-10%" y="-10%" width="120%" height="120%">
+      <feGaussianBlur stdDeviation="0.8"/>
+    </filter>
+    <linearGradient id="logoSteam" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%"  stop-color="#9fb4c7" stop-opacity="0"/>
+      <stop offset="30%" stop-color="#9fb4c7" stop-opacity="0.85"/>
+      <stop offset="100%" stop-color="#9fb4c7" stop-opacity="0.55"/>
+    </linearGradient>
+  </defs>
+
+  <!-- Kartoffel + Dampf, in einem 140x140-Viewport links platziert -->
+  <g transform="translate(6 6)">
+    <!-- Dampfschwaden -->
+    <g fill="none" stroke="url(#logoSteam)" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M 48 32 C 44 26, 52 22, 48 16 C 44 10, 52 8, 50 2" stroke-width="4"/>
+      <path d="M 64 34 C 68 28, 60 24, 66 18 C 70 12, 62 10, 66 2" stroke-width="4.5"/>
+      <path d="M 82 32 C 78 26, 86 22, 82 16 C 78 10, 86 8, 84 2" stroke-width="4"/>
+    </g>
+    <!-- Kartoffel -->
+    <g transform="translate(2 22) scale(0.88)">
+      <path d="M 28 56 C 20 34, 46 14, 68 18 C 92 22, 108 40, 108 60
+               C 108 86, 92 110, 66 112 C 38 114, 20 90, 22 72
+               C 22 68, 24 62, 28 56 Z"
+            fill="url(#logoBody)"
+            stroke="#2b1708"
+            stroke-width="5.5"
+            stroke-linejoin="round"
+            paint-order="stroke fill"/>
+      <path d="M 28 56 C 20 34, 46 14, 68 18 C 92 22, 108 40, 108 60
+               C 108 86, 92 110, 66 112 C 38 114, 20 90, 22 72
+               C 22 68, 24 62, 28 56 Z"
+            fill="url(#logoHL)"/>
+      <g filter="url(#logoSoft)">
+        <ellipse cx="52" cy="46" rx="3.6" ry="2.3" fill="#3b1e0b" opacity="0.8"/>
+        <ellipse cx="80" cy="58" rx="3.0" ry="1.9" fill="#3b1e0b" opacity="0.75"/>
+        <ellipse cx="62" cy="82" rx="3.6" ry="2.2" fill="#3b1e0b" opacity="0.8"/>
+        <ellipse cx="42" cy="76" rx="2.6" ry="1.7" fill="#3b1e0b" opacity="0.65"/>
+        <ellipse cx="92" cy="84" rx="2.9" ry="1.8" fill="#3b1e0b" opacity="0.7"/>
+      </g>
+    </g>
+  </g>
+
+  <!-- Schriftzug. Chakra Petch ist die UI-Schrift der App; GitHub rendert
+       mit Fallback auf System-Sans. Das ist ok, weil der Hauptakzent die
+       Kartoffel bleibt und die Typo trotzdem aufgeraeumt wirkt. -->
+  <g transform="translate(150 0)">
+    <text x="0" y="76"
+          font-family="'Chakra Petch','Helvetica Neue','Segoe UI','Arial',sans-serif"
+          font-weight="700"
+          font-size="60"
+          letter-spacing="1"
+          fill="#e6edf3">CuttOffl</text>
+    <text x="2" y="108"
+          font-family="'Chakra Petch','Helvetica Neue','Segoe UI','Arial',sans-serif"
+          font-weight="500"
+          font-size="22"
+          letter-spacing="2"
+          fill="#8b949e">Video Studio</text>
+  </g>
+</svg>

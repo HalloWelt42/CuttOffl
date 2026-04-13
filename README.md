@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="docs/logo.svg" alt="CuttOffl - Video Studio" width="420">
+</p>
+
 # CuttOffl
 
 Video schneiden -- lokal, ohne Cloud, ohne Konto.
@@ -11,15 +15,15 @@ Video schneiden -- lokal, ohne Cloud, ohne Konto.
   <img src="https://img.shields.io/badge/platform-macOS%20%7C%20Linux%20%7C%20RPi%205-lightgrey" alt="Plattformen">
 </p>
 
-CuttOffl ist ein Web-Interface fuer FFmpeg, das auf dem eigenen Rechner laeuft.
-Du laedst ein Video hoch, schneidest es in einer Timeline mit Keyframes,
+CuttOffl ist ein Web-Interface für FFmpeg, das auf dem eigenen Rechner läuft.
+Du lädst ein Video hoch, schneidest es in einer Timeline mit Keyframes,
 Thumbnails und Wellenform, und exportierst das Ergebnis. Die Originaldateien
 verlassen den Rechner nicht.
 
 ## Das Konzept in einem Absatz
 
-Beim Upload wird ein kleiner **Proxy** (480p) erzeugt -- den laesst sich fluessig
-scrubben, auch bei grossen Quellen. Schnitte werden als **EDL** (Edit Decision
+Beim Upload wird ein kleiner **Proxy** (480p) erzeugt -- den lässt sich flüssig
+scrubben, auch bei großen Quellen. Schnitte werden als **EDL** (Edit Decision
 List) gespeichert, nicht als neue Datei. Beim Export entscheidet CuttOffl
 segmentweise, ob **keyframe-genau ohne Neu-Kodierung** kopiert werden kann
 (schnell, verlustfrei) oder ob ein Segment **frame-genau neu kodiert** werden
@@ -30,11 +34,11 @@ Pi, Software-Fallback sonst.
 
 - Timeline mit Keyframe-Magnet (copy/reencode wird live angezeigt)
 - Schneiden per In/Out, Split, Trim-Drag -- Undo/Redo, Auto-Save
-- Vorschau fuer Auswahl, einzelne Clips oder die ganze EDL
+- Vorschau für Auswahl, einzelne Clips oder die ganze EDL
 - Virtuelle Ordner in der Bibliothek, Verschieben per Ordner-Picker
-- Hybrid-Render: so viel wie moeglich kopieren, nur noetige Schnitte neu kodieren
-- Fertige Videos wieder in die Bibliothek uebernehmen fuer weiteren Schnitt
-- Export mit Codec-Empfehlung fuer die erkannte Hardware
+- Hybrid-Render: so viel wie möglich kopieren, nur nötige Schnitte neu kodieren
+- Fertige Videos wieder in die Bibliothek übernehmen für weiteren Schnitt
+- Export mit Codec-Empfehlung für die erkannte Hardware
 - Live-Fortschritt aller Jobs per WebSocket
 
 ## Stack
@@ -74,9 +78,9 @@ Logs unter `logs/backend.log` und `logs/frontend.log`, PIDs in `logs/*.pid`.
 | 10037 | Frontend (Vite)   |
 | 10038 | Reserve           |
 
-## API-Uebersicht
+## API-Übersicht
 
-Vollstaendig interaktiv in Swagger unter `/docs`. Die wichtigsten Pfade:
+Vollständig interaktiv in Swagger unter `/docs`. Die wichtigsten Pfade:
 
 | Methode | Endpunkt                                  | Zweck                          |
 |---------|-------------------------------------------|--------------------------------|
@@ -109,9 +113,9 @@ CuttOffl/
 
 Nicht-kommerzielle Lizenz v2.0 (`LicenseRef-CuttOffl-NC-2.0`), basierend auf
 [CC BY-NC-ND 4.0](https://creativecommons.org/licenses/by-nc-nd/4.0/legalcode.de)
-mit Ergaenzungen. Copyright 2026 HalloWelt42. Private Nutzung erlaubt,
-kommerzielle Nutzung und Veroeffentlichung modifizierter Versionen nicht.
-Vollstaendig in [`LICENSE`](LICENSE) und in der App unter **Ueber**.
+mit Ergänzungen. Copyright 2026 HalloWelt42. Private Nutzung erlaubt,
+kommerzielle Nutzung und Veröffentlichung modifizierter Versionen nicht.
+Vollständig in [`LICENSE`](LICENSE) und in der App unter **Über**.
 
 ## Unterstuetzung
 

@@ -24,8 +24,8 @@
   let fileInput;
 
   // Drag & Drop
-  let dropActive = $state(false);         // Fuer das Panel-Overlay (OS-Dateien)
-  let dropDepth = 0;                      // Counter fuer nested dragenter/leave
+  let dropActive = $state(false);         // Für das Panel-Overlay (OS-Dateien)
+  let dropDepth = 0;                      // Counter für nested dragenter/leave
   let dragOverFolder = $state(null);      // Pfad des hover-Ziel-Ordners
   let dragOverUp = $state(false);         // Breadcrumb / Up-Button als Ziel
   let osDragging = $state(false);         // true, wenn OS-Datei gezogen wird
@@ -49,11 +49,11 @@
     allVisibleIds.length > 0 && allVisibleIds.every((id) => library.selection.includes(id))
   );
 
-  // Sortieroptionen fuer das Dropdown (Label passt zur Ansicht)
+  // Sortieroptionen für das Dropdown (Label passt zur Ansicht)
   const SORT_OPTIONS = [
     { k: 'date',     label: 'Datum'  },
     { k: 'name',     label: 'Name'   },
-    { k: 'size',     label: 'Groesse' },
+    { k: 'size',     label: 'Größe'  },
     { k: 'duration', label: 'Dauer'  },
   ];
   const STATUS_OPTIONS = [
@@ -63,8 +63,8 @@
     { v: 'failed',     label: 'Fehlgeschlagen' },
   ];
   const RES_OPTIONS = [
-    { v: 'all',   label: 'Alle Aufloesungen' },
-    { v: 'sd',    label: 'SD (<=576p)' },
+    { v: 'all',   label: 'Alle Auflösungen' },
+    { v: 'sd',    label: 'SD (≤576p)' },
     { v: 'hd',    label: 'HD (720p)' },
     { v: 'fhd',   label: 'Full-HD (1080p)' },
     { v: 'uhd',   label: '4K UHD (2160p)' },
@@ -100,7 +100,7 @@
     if (fileInput) fileInput.value = '';
   }
 
-  // Sequenzieller Upload -- zeigt Gesamtfortschritt, ein toast am Ende.
+  // Sequenzieller Upload -- zeigt Gesamtfortschritt, ein Toast am Ende.
   // Bei SHA-256-Konflikt fragt der Benutzer, ob trotzdem hochgeladen werden
   // soll. Die Antwort wird als "alle gleich behandeln" merkbar (applyAll),
   // damit Mehrfach-Uploads nicht nerven.
@@ -109,7 +109,7 @@
     uploading = true;
     uploadPct = 0;
     let ok = 0, fail = 0, skipped = 0;
-    let forceAll = null;  // null = immer fragen, true/false = fuer alle weiteren
+    let forceAll = null;  // null = immer fragen, true/false = für alle weiteren
     for (let i = 0; i < list.length; i++) {
       const file = list[i];
       const onProg = (p) => { uploadPct = (i + p) / list.length; };
@@ -128,7 +128,7 @@
               `"${file.name}" ist inhaltlich identisch mit "${c.existing_name}" `
               + `im ${folderLabel} (SHA-256 ${hash6}...). `
               + `Trotzdem als zweite Kopie hochladen?`
-              + (list.length > 1 ? '\nDiese Entscheidung gilt fuer alle weiteren Duplikate in diesem Durchgang.' : ''),
+              + (list.length > 1 ? '\nDiese Entscheidung gilt für alle weiteren Duplikate in diesem Durchgang.' : ''),
               {
                 title: 'Identische Datei bereits vorhanden',
                 okLabel: 'Trotzdem hochladen',
@@ -239,7 +239,7 @@
       return;
     }
     // Wir legen keinen leeren Ordner an (Ordner sind virtuell); wir wechseln
-    // einfach in den gewuenschten Pfad, dort koennen dann Dateien hochgeladen
+    // einfach in den gewünschten Pfad, dort können dann Dateien hochgeladen
     // oder verschoben werden. Der Ordner wird sichtbar, sobald eine Datei
     // darin liegt. Zur Klarheit meldet ein Toast das.
     const target = library.currentFolder
@@ -337,7 +337,7 @@
   function hasOSFiles(e) {
     const dt = e.dataTransfer;
     if (!dt) return false;
-    // Firefox: types ist DOMStringList, enthaelt 'Files' beim OS-Drag
+    // Firefox: types ist DOMStringList, enthält 'Files' beim OS-Drag
     const types = dt.types ? Array.from(dt.types) : [];
     return types.includes('Files');
   }
@@ -384,7 +384,7 @@
     const accept = /\.(mp4|mov|mkv|webm|avi|m4v|mts|ts|mpg|mpeg|flv|wmv)$/i;
     const good = osFiles.filter((f) => accept.test(f.name));
     const bad = osFiles.length - good.length;
-    if (bad > 0) toast.warn(`${bad} Datei(en) uebersprungen (kein Video-Format)`);
+    if (bad > 0) toast.warn(`${bad} Datei(en) übersprungen (kein Video-Format)`);
     if (good.length === 0) return;
     await uploadFiles(good);
   }
@@ -399,7 +399,7 @@
       : [f.id];
     e.dataTransfer.effectAllowed = 'move';
     e.dataTransfer.setData(DT_FILE_IDS, JSON.stringify(ids));
-    // Fallback-Text fuer externe Ziele
+    // Fallback-Text für externe Ziele
     e.dataTransfer.setData('text/plain', f.original_name);
   }
 
@@ -542,10 +542,10 @@
 
   <!-- Toolbar: Ansicht + Sortierung -->
   <div class="toolbar">
-    <div class="group view-switch" role="group" aria-label="Ansicht waehlen">
+    <div class="group view-switch" role="group" aria-label="Ansicht wählen">
       <button class="seg" class:active={library.view === 'grid'}
               onclick={() => setView('grid')}
-              title="Kachelansicht mit grossen Vorschaubildern">
+              title="Kachelansicht mit großen Vorschaubildern">
         <i class="fa-solid fa-grip"></i>
         <span class="lbl">Kacheln</span>
       </button>
@@ -557,7 +557,7 @@
       </button>
       <button class="seg" class:active={library.view === 'compact'}
               onclick={() => setView('compact')}
-              title="Dichte Ansicht fuer viele Dateien auf einen Blick">
+              title="Dichte Ansicht für viele Dateien auf einen Blick">
         <i class="fa-solid fa-bars-staggered"></i>
         <span class="lbl">Kompakt</span>
       </button>
@@ -575,8 +575,8 @@
       </select>
       <button class="btn btn-sm" onclick={toggleSortDir}
               title={library.sortDir === 'asc'
-                ? 'Aufsteigend -- klicken fuer absteigend'
-                : 'Absteigend -- klicken fuer aufsteigend'}>
+                ? 'Aufsteigend -- klicken für absteigend'
+                : 'Absteigend -- klicken für aufsteigend'}>
         <i class="fa-solid {library.sortDir === 'asc'
           ? 'fa-arrow-up-short-wide'
           : 'fa-arrow-down-wide-short'}"></i>
@@ -589,10 +589,10 @@
              placeholder="Nach Name suchen..."
              value={library.search}
              oninput={(e) => setSearch(e.currentTarget.value)}
-             title="Dateinamen durchsuchen (Teilstring, Gross-/Kleinschreibung egal)" />
+             title="Dateinamen durchsuchen (Teilstring, Groß-/Kleinschreibung egal)" />
       {#if library.search}
         <button class="search-clear" onclick={() => setSearch('')}
-                title="Suche zuruecksetzen">
+                title="Suche zurücksetzen">
           <i class="fa-solid fa-xmark"></i>
         </button>
       {/if}
@@ -619,7 +619,7 @@
       <select class="sort-select"
               value={library.filterRes}
               onchange={(e) => setFilter('res', e.currentTarget.value)}
-              title="Nach Aufloesung filtern">
+              title="Nach Auflösung filtern">
         {#each RES_OPTIONS as o (o.v)}
           <option value={o.v}>{o.label}</option>
         {/each}
@@ -637,8 +637,8 @@
       {/if}
       {#if filtersActive}
         <button class="btn btn-sm" onclick={resetFilters}
-                title="Alle Filter und die Suche zuruecksetzen">
-          <i class="fa-solid fa-rotate-left"></i> Zuruecksetzen
+                title="Alle Filter und die Suche zurücksetzen">
+          <i class="fa-solid fa-rotate-left"></i> Zurücksetzen
         </button>
       {/if}
     </div>
@@ -786,7 +786,7 @@
               <i class="fa-solid fa-filter-circle-xmark"></i>
               <p>Keine Datei passt zu Suche und Filtern.</p>
               <button class="btn btn-sm" onclick={resetFilters}>
-                <i class="fa-solid fa-rotate-left"></i> Zuruecksetzen
+                <i class="fa-solid fa-rotate-left"></i> Zurücksetzen
               </button>
             </div>
           {/if}
@@ -886,9 +886,9 @@
                     <th class="c-thumb"></th>
                     <th class="c-name">Name</th>
                     <th class="c-dur mono">Dauer</th>
-                    <th class="c-res mono">Aufloesung</th>
+                    <th class="c-res mono">Auflösung</th>
                     <th class="c-codec mono">Codec</th>
-                    <th class="c-size mono">Groesse</th>
+                    <th class="c-size mono">Größe</th>
                     <th class="c-status">Proxy</th>
                     <th class="c-actions"></th>
                   </tr>
