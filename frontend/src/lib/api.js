@@ -77,6 +77,8 @@ export const api = {
     }),
   deleteFolder: (folder) =>
     request(`/folders?folder=${encodeURIComponent(folder)}`, { method: 'DELETE' }),
+  folderZipUrl: (folder = '', recursive = true) =>
+    `${BASE}/folders/download?folder=${encodeURIComponent(folder)}&recursive=${recursive ? 'true' : 'false'}`,
   fileDownloadUrl: (id) => `${BASE}/files/${id}/download`,
 
   // System

@@ -7,6 +7,7 @@ liefert Navigationshilfen fuer die UI:
   GET    /api/folders            flache Uebersicht aller belegten Pfade
   GET    /api/folders/tree       rekursiver Ordnerbaum mit Dateizaehlern
   GET    /api/folders/children   direkte Unterordner + Dateizahl einer Ebene
+  GET    /api/folders/download   alle Original-Dateien als ZIP (Stream)
   POST   /api/folders/rename     Ordner (und alle darunter) umbenennen
   DELETE /api/folders            nur leere Ordner -- per Design
                                  (Verschieben vor dem Loeschen noetig)
@@ -14,15 +15,22 @@ liefert Navigationshilfen fuer die UI:
 
 from __future__ import annotations
 
-from typing import Optional
+import logging
+import re
+import zipfile
+from pathlib import Path
+from typing import Iterable, Optional
 
 from fastapi import APIRouter, HTTPException
+from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field
 
 from app.db import db
 from app.services.folder_service import (
     FolderError, is_descendant, normalize, parent_of, rename_prefix,
 )
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/folders", tags=["folders"])
 
@@ -197,6 +205,148 @@ async def tree() -> dict:
         "path": "", "name": "", "children": [],
         "direct_count": 0, "total_count": 0,
     })
+
+
+_BAD_ZIP_CHARS = re.compile(r'[<>:"/\\|?*\x00-\x1f]+')
+
+
+def _slug_filename(s: str, maxlen: int = 80) -> str:
+    s = (s or "").strip()
+    s = _BAD_ZIP_CHARS.sub("_", s)
+    s = re.sub(r"\s+", " ", s)
+    return (s[:maxlen].strip(" ._")) or "Ordner"
+
+
+def _safe_zip_member(folder_base: str, folder_path: str, original_name: str) -> str:
+    """Baut den Pfad innerhalb des ZIPs.
+    - folder_base ist der Wurzel-Ordner des Downloads (wird weggeschnitten)
+    - folder_path ist der aktuelle Ordner der Datei
+    - original_name ist der Anzeigename
+    """
+    rel = folder_path or ""
+    if folder_base:
+        if rel == folder_base:
+            rel = ""
+        elif rel.startswith(folder_base + "/"):
+            rel = rel[len(folder_base) + 1:]
+    # Sichere einzelne Namen
+    rel_parts = [re.sub(r'[<>:"/\\|?*\x00-\x1f]+', "_", p) for p in rel.split("/") if p]
+    name = re.sub(r'[<>:"/\\|?*\x00-\x1f]+', "_", original_name or "datei")
+    return "/".join([*rel_parts, name]) if rel_parts else name
+
+
+@router.get("/download")
+async def download_folder_zip(
+    folder: str = "",
+    recursive: bool = True,
+):
+    """Liefert alle Originaldateien des Ordners (optional rekursiv) als
+    ZIP-Stream aus. Bei `folder='' & recursive=False` wird die Wurzel
+    ausgeliefert (nur direkte Dateien). Bei `folder='' & recursive=True`
+    werden alle Dateien der Bibliothek verpackt.
+
+    Hinweis: Videos sind in der Regel bereits komprimiert -- das ZIP
+    nutzt daher `ZIP_STORED` (keine erneute Kompression) und streamt
+    mit konstanter Speicherlast.
+    """
+    try:
+        base = normalize(folder)
+    except FolderError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+    if recursive and base:
+        rows = await db.fetch_all(
+            """SELECT original_name, path, folder_path, size_bytes
+               FROM files WHERE folder_path = ? OR folder_path LIKE ?
+               ORDER BY folder_path, original_name""",
+            (base, base + "/%"),
+        )
+    elif recursive:
+        rows = await db.fetch_all(
+            """SELECT original_name, path, folder_path, size_bytes
+               FROM files ORDER BY folder_path, original_name"""
+        )
+    else:
+        rows = await db.fetch_all(
+            """SELECT original_name, path, folder_path, size_bytes
+               FROM files WHERE folder_path = ?
+               ORDER BY original_name""",
+            (base,),
+        )
+    if not rows:
+        raise HTTPException(status_code=404, detail="Keine Dateien im Ordner")
+
+    # Auf existierende Dateien reduzieren und Groesse bestimmen
+    items: list[tuple[str, Path]] = []
+    missing: list[str] = []
+    for r in rows:
+        p = Path(r["path"])
+        if not p.exists():
+            missing.append(r["original_name"])
+            continue
+        member = _safe_zip_member(base, r["folder_path"] or "", r["original_name"])
+        items.append((member, p))
+    if missing:
+        logger.info(f"ZIP-Download: {len(missing)} fehlende Datei(en) uebersprungen")
+    if not items:
+        raise HTTPException(status_code=410, detail="Alle Dateien im Ordner fehlen auf der Platte")
+
+    def _generate() -> Iterable[bytes]:
+        # Streaming: wir schreiben das ZIP in einen einfachen In-Memory-
+        # Puffer und yieldern chunk-weise. Durch ZIP_STORED und fester
+        # Reihenfolge bleibt der Speicherbedarf klein (Header + ein
+        # Chunk), auch bei grossen Dateien -- Central Directory wird am
+        # Ende angehaengt.
+        class _Buffer:
+            def __init__(self):
+                self.data = bytearray()
+                self.pos = 0
+
+            def write(self, b):
+                self.data.extend(b)
+                self.pos += len(b)
+                return len(b)
+
+            def tell(self):
+                return self.pos
+
+            def flush(self):
+                pass
+
+            def take(self):
+                out = bytes(self.data)
+                self.data = bytearray()
+                return out
+
+        buf = _Buffer()
+        # allowZip64 ist ab Py 3.4 Default True, aber explizit zur Klarheit
+        with zipfile.ZipFile(buf, mode="w", compression=zipfile.ZIP_STORED,
+                             allowZip64=True) as zf:
+            for member, path in items:
+                # Einzelne Datei chunked in den ZIP-Eintrag schreiben
+                zinfo = zipfile.ZipInfo(member)
+                zinfo.compress_type = zipfile.ZIP_STORED
+                with path.open("rb") as src, zf.open(zinfo, mode="w", force_zip64=True) as dst:
+                    while True:
+                        chunk = src.read(1024 * 1024)
+                        if not chunk:
+                            break
+                        dst.write(chunk)
+                        if len(buf.data) >= 512 * 1024:
+                            yield buf.take()
+                if len(buf.data) > 0:
+                    yield buf.take()
+        # Central directory wurde beim Close geschrieben -- letzten Puffer leeren
+        if len(buf.data) > 0:
+            yield buf.take()
+
+    name = _slug_filename(base or "Bibliothek")
+    filename = f"CuttOffl - {name}.zip"
+    headers = {
+        "Content-Disposition": f'attachment; filename="{filename}"',
+        "X-Accel-Buffering": "no",
+    }
+    return StreamingResponse(_generate(), media_type="application/zip", headers=headers)
 
 
 @router.post("/rename")

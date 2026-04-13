@@ -527,6 +527,14 @@
       <input bind:this={fileInput} type="file" accept="video/*"
              multiple onchange={onUpload} disabled={uploading} />
     </label>
+    <a class="btn" href={api.folderZipUrl(library.currentFolder, true)} download
+       class:disabled={files.length === 0 && folderChildren.length === 0}
+       title={library.currentFolder
+         ? `Alle Dateien des Ordners "${library.currentFolder}" (und Unterordner) als ZIP herunterladen`
+         : 'Gesamte Bibliothek als ZIP herunterladen'}>
+      <i class="fa-solid fa-file-zipper"></i>
+      <span class="sm-hide">ZIP</span>
+    </a>
     <button class="btn" onclick={refresh} title="Liste neu vom Server laden">
       <i class="fa-solid fa-rotate"></i>
     </button>
@@ -737,6 +745,13 @@
                   <i class="fa-solid fa-chevron-right chev"></i>
                 </button>
                 <div class="actions">
+                  <a class="btn btn-sm" href={api.folderZipUrl(child.path, true)} download
+                     class:disabled={child.total_count === 0}
+                     title={child.total_count > 0
+                       ? `Inhalt als ZIP herunterladen (${child.total_count} Datei(en))`
+                       : 'Ordner ist leer'}>
+                    <i class="fa-solid fa-file-zipper"></i>
+                  </a>
                   <button class="btn btn-sm" onclick={() => onRenameFolder(child)}
                           title="Ordner umbenennen">
                     <i class="fa-solid fa-pen"></i>
