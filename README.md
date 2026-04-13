@@ -11,10 +11,6 @@ Video schneiden -- lokal, ohne Cloud, ohne Konto.
   <img src="https://img.shields.io/badge/platform-macOS%20%7C%20Linux%20%7C%20RPi%205-lightgrey" alt="Plattformen">
 </p>
 
-<p align="center">
-  <img src="docs/screenshots/hero-editor-dark.png" alt="CuttOffl Editor" width="880">
-</p>
-
 CuttOffl ist ein Web-Interface fuer FFmpeg, das auf dem eigenen Rechner laeuft.
 Du laedst ein Video hoch, schneidest es in einer Timeline mit Keyframes,
 Thumbnails und Wellenform, und exportierst das Ergebnis. Die Originaldateien
@@ -29,27 +25,6 @@ segmentweise, ob **keyframe-genau ohne Neu-Kodierung** kopiert werden kann
 (schnell, verlustfrei) oder ob ein Segment **frame-genau neu kodiert** werden
 muss. Hardware-Encoder werden erkannt: VideoToolbox auf dem Mac, V4L2 auf dem
 Pi, Software-Fallback sonst.
-
-## Impressionen
-
-<table>
-  <tr>
-    <td><img src="docs/screenshots/editor-timeline.png" alt="Editor mit Timeline" width="420"></td>
-    <td><img src="docs/screenshots/dashboard.png" alt="Dashboard" width="420"></td>
-  </tr>
-  <tr>
-    <td align="center"><sub>Editor: Timeline mit Keyframes, Thumbnail-Streifen und Wellenform</sub></td>
-    <td align="center"><sub>Dashboard: Speicher-Uebersicht und neueste Videos</sub></td>
-  </tr>
-  <tr>
-    <td><img src="docs/screenshots/library.png" alt="Bibliothek" width="420"></td>
-    <td><img src="docs/screenshots/editor-light.png" alt="Editor im Hellmodus" width="420"></td>
-  </tr>
-  <tr>
-    <td align="center"><sub>Bibliothek mit Ordnern und Bulk-Aktionen</sub></td>
-    <td align="center"><sub>Hellmodus -- alles an UI-Praeferenzen bleibt lokal</sub></td>
-  </tr>
-</table>
 
 ## Was es kann
 
@@ -125,7 +100,6 @@ CuttOffl/
 ├── frontend/src/         Svelte-App (Views, Components, lib)
 ├── data/                 originals, proxies, exports, thumbs, sprites,
 │                         waveforms, tmp, db
-├── docs/screenshots/     Screenshots fuer diese README
 ├── logs/                 Laufzeit-Logs + PIDs
 ├── setup.sh
 └── start.sh
