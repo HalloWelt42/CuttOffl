@@ -36,8 +36,15 @@ export const library = $state({
 
 export function setCurrentFolder(path) {
   const p = normalizePath(path);
+  const changed = p !== library.currentFolder;
   library.currentFolder = p;
   persist('library.currentFolder', p);
+  // URL mitziehen, wenn wir gerade in der Bibliothek sind. Dynamischer
+  // Import, um eine zirkulaere Abhaengigkeit mit nav.svelte.js zu
+  // vermeiden (library wird aus nav beim popstate ebenfalls gesetzt).
+  if (changed) {
+    import('./nav.svelte.js').then((m) => m.syncLibraryFolderUrl?.(p));
+  }
 }
 
 export function setView(v) {
