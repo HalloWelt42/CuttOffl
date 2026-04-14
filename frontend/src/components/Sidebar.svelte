@@ -2,6 +2,9 @@
   import { nav, go } from '../lib/nav.svelte.js';
   import { toggleTheme, theme } from '../lib/theme.svelte.js';
   import { openThanks } from '../lib/ui.svelte.js';
+  import {
+    infoPanel, aboutPanel, toggleInfo, toggleAbout,
+  } from '../lib/panels.svelte.js';
 
   let {
     collapsed = $bindable(),
@@ -10,6 +13,7 @@
     REPO_URL = '',
   } = $props();
 
+  // Einträge für reguläre Views (werden über go() aufgerufen)
   const GROUPS = [
     { label: null, items: [
       { id: 'dashboard', icon: 'fa-gauge-high',  label: 'Dashboard' },
@@ -21,8 +25,15 @@
     ]},
     { label: 'System', items: [
       { id: 'settings',  icon: 'fa-gear',         label: 'Einstellungen' },
-      { id: 'about',     icon: 'fa-circle-info',  label: 'Über' },
     ]},
+  ];
+
+  // Panel-Einträge: keine View-Navigation, sondern Toggle eines
+  // verschiebbaren Fensters. Akzent-eingefärbt, damit sie sich visuell
+  // von den Views abheben.
+  const PANELS = [
+    { id: 'info',  icon: 'fa-circle-info',      label: 'Info',  toggle: toggleInfo,  state: infoPanel },
+    { id: 'about', icon: 'fa-circle-question',  label: 'Über',  toggle: toggleAbout, state: aboutPanel },
   ];
 </script>
 
@@ -53,6 +64,23 @@
           {#if !collapsed}<span>{it.label}</span>{/if}
         </button>
       {/each}
+    {/each}
+
+    <!-- Hilfe-Panels: akzentfarbige Einträge, die ein verschiebbares
+         Fenster öffnen statt eine View zu wechseln. -->
+    {#if !collapsed}
+      <div class="group-label soft">Hilfe</div>
+    {/if}
+    {#each PANELS as p (p.id)}
+      <button
+        class="item item-panel"
+        class:active={p.state.open}
+        onclick={p.toggle}
+        title={collapsed ? p.label : ''}
+      >
+        <i class="fa-solid {p.icon}"></i>
+        {#if !collapsed}<span>{p.label}</span>{/if}
+      </button>
     {/each}
   </nav>
 
@@ -160,6 +188,14 @@
   .item:hover { background: var(--bg-elev); color: var(--fg-primary); }
   .item.active { background: var(--bg-elev); color: var(--accent); }
   .item i { width: 18px; text-align: center; font-size: 14px; }
+
+  /* Hilfe-Panel-Eintraege: Icon dauerhaft in Akzent-Blau, damit sie
+     klar als "Info-Ebene" erkennbar sind. Beim Hover wird auch der Text
+     blau. Aktiver Zustand (Fenster offen) zusaetzlich mit Akzent-Soft
+     Hintergrund. */
+  .item-panel i { color: var(--accent); }
+  .item-panel:hover { color: var(--accent); }
+  .item-panel.active { background: var(--accent-soft); color: var(--accent); }
   .foot {
     border-top: 1px solid var(--border);
     padding: 8px;

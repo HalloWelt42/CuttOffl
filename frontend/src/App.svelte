@@ -10,10 +10,11 @@
   import Editor from './views/Editor.svelte';
   import Exports from './views/Exports.svelte';
   import Settings from './views/Settings.svelte';
-  import About from './views/About.svelte';
   import ThanksOverlay from './components/ThanksOverlay.svelte';
   import DialogHost from './components/DialogHost.svelte';
   import FolderPickerOverlay from './components/FolderPickerOverlay.svelte';
+  import InfoPanel from './components/InfoPanel.svelte';
+  import AboutPanel from './components/AboutPanel.svelte';
   import { nav } from './lib/nav.svelte.js';
   import { applyTheme } from './lib/theme.svelte.js';
   import { persisted, persist } from './lib/persist.svelte.js';
@@ -63,7 +64,6 @@
         {:else if nav.view === 'editor'}<Editor />
         {:else if nav.view === 'exports'}<Exports />
         {:else if nav.view === 'settings'}<Settings />
-        {:else if nav.view === 'about'}<About />
         {/if}
       </main>
     </div>
@@ -73,6 +73,8 @@
     <ThanksOverlay />
     <DialogHost />
     <FolderPickerOverlay />
+    <InfoPanel />
+    <AboutPanel />
   </div>
 </ErrorBoundary>
 

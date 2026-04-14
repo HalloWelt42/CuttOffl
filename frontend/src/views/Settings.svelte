@@ -108,62 +108,68 @@
 
     <div class="card block">
       <h3><i class="fa-solid fa-circle-info"></i> System</h3>
-      <dl class="kv mono">
-        <dt>Backend</dt><dd>{ping?.app ?? '-'} v{ping?.version ?? '-'}</dd>
-        <dt>Host</dt><dd>{ping?.host ?? '-'}:{ping?.port ?? '-'}</dd>
-        <dt>HW-Encoder</dt><dd>{ping?.hw_encoder ?? '-'}</dd>
-        <dt>FFmpeg</dt><dd>{ping?.ffmpeg_version?.split(' ').slice(0,3).join(' ') ?? '-'}</dd>
-        <dt>Dateien</dt><dd>{counts.files}</dd>
-        <dt>Projekte</dt><dd>{counts.projects}</dd>
-        <dt>Fertige Videos</dt><dd>{counts.exports}</dd>
+      <!-- Zwei Spalten fuer die kurzen Info-Paare; bricht auf schmalen
+           Fenstern auf eine Spalte um. -->
+      <dl class="kv kv-two">
+        <div><dt>Backend</dt><dd class="mono">{ping?.app ?? '-'} v{ping?.version ?? '-'}</dd></div>
+        <div><dt>Host</dt><dd class="mono">{ping?.host ?? '-'}:{ping?.port ?? '-'}</dd></div>
+        <div><dt>HW-Encoder</dt><dd class="mono">{ping?.hw_encoder ?? '-'}</dd></div>
+        <div><dt>FFmpeg</dt><dd class="mono">{ping?.ffmpeg_version?.split(' ').slice(0,3).join(' ') ?? '-'}</dd></div>
+        <div><dt>Dateien</dt><dd class="mono">{counts.files}</dd></div>
+        <div><dt>Projekte</dt><dd class="mono">{counts.projects}</dd></div>
+        <div><dt>Fertige Videos</dt><dd class="mono">{counts.exports}</dd></div>
       </dl>
     </div>
 
-    <div class="card block hint-block soft">
-      <i class="fa-solid fa-keyboard"></i>
-      <div>
-        <h3>Tastaturkürzel im Editor</h3>
-        <dl class="kv">
-          <dt>Leertaste</dt><dd>Play / Pause</dd>
-          <dt>Shift + Leertaste</dt><dd>Timeline abspielen (alle Clips)</dd>
-          <dt>J / L</dt><dd>5 s zurück / vor</dd>
-          <dt>← / →</dt><dd>1 Frame zurück / vor (+ Shift = 10 Frames)</dd>
-          <dt>, / .</dt><dd>vorheriger / nächster Keyframe</dd>
-          <dt>I / O</dt><dd>In- / Out-Punkt setzen</dd>
-          <dt>P</dt><dd>Auswahl oder Clip vorspielen</dd>
-          <dt>Enter</dt><dd>Clip aus In/Out erzeugen</dd>
-          <dt>S</dt><dd>Clip am Playhead teilen</dd>
-          <dt>Esc</dt><dd>Vorschau / Dialog stoppen</dd>
-          <dt>Entf / ⌫</dt><dd>ausgewählten Clip löschen</dd>
-          <dt>⌘/Ctrl + Z</dt><dd>Undo · + Shift = Redo</dd>
-          <dt>⌘/Ctrl + Mausrad</dt><dd>Timeline zoomen</dd>
-        </dl>
-      </div>
-    </div>
+    <p class="hint-to-panel soft">
+      <i class="fa-solid fa-circle-info"></i>
+      Tastaturkürzel und kontextbezogene Hinweise findest du jetzt im
+      <b>Info</b>-Fenster (linke Seitenleiste, Hilfe-Bereich). Der Inhalt
+      passt sich automatisch an die aktive Ansicht an.
+    </p>
   </div>
 </section>
 
 <style>
   .wrap { display: flex; flex-direction: column; height: 100%; }
   .body {
-    padding: 20px; display: flex; flex-direction: column; gap: 16px;
-    max-width: 820px;
+    padding: 24px; display: flex; flex-direction: column; gap: 18px;
+    max-width: 900px;
     overflow: auto;
   }
-  .block { padding: 18px; }
+  .block { padding: 20px; }
   h3 {
     display: flex; align-items: center; gap: 8px;
-    margin: 0 0 8px; font-size: 15px; color: var(--fg-primary);
+    margin: 0 0 10px; font-size: 17px; color: var(--fg-primary);
+    font-weight: 600;
   }
   h3 i { color: var(--accent); }
-  .hint { font-size: 13px; margin: 0 0 10px; color: var(--fg-muted); line-height: 1.6; }
-  .warn { color: var(--warning); font-size: 13px; line-height: 1.6; display: flex; gap: 8px; align-items: flex-start; }
+
+  /* Lesetexte bewusst groesser als die dichte Cutter-UI */
+  .hint {
+    font-size: 15px;
+    margin: 0 0 12px;
+    color: var(--fg-primary);
+    line-height: 1.7;
+  }
+  .warn {
+    color: var(--warning);
+    font-size: 14px;
+    line-height: 1.7;
+    display: flex;
+    gap: 10px;
+    align-items: flex-start;
+  }
   .warn i { padding-top: 3px; flex: 0 0 auto; }
 
-  .field { margin-top: 14px; }
+  .field { margin-top: 16px; }
   .field label {
-    display: block; font-size: 12px; color: var(--fg-muted);
-    letter-spacing: 0.5px; margin-bottom: 6px;
+    display: block;
+    font-size: 14px;
+    color: var(--fg-primary);
+    letter-spacing: 0.2px;
+    margin-bottom: 6px;
+    font-weight: 500;
   }
   .field .row { display: flex; gap: 8px; }
   .field input {
@@ -172,37 +178,75 @@
     color: var(--fg-primary);
     border: 1px solid var(--border-strong);
     border-radius: 6px;
-    padding: 8px 10px;
-    font: inherit;
-    font-family: 'JetBrains Mono', monospace;
-    font-size: 13px;
+    padding: 10px 12px;
+    /* Pfade profitieren trotzdem von Monospace, aber etwas groesser */
+    font-family: 'JetBrains Mono', ui-monospace, monospace;
+    font-size: 14px;
   }
   .field input:focus {
     outline: none;
     border-color: var(--accent);
     box-shadow: 0 0 0 2px var(--accent-soft);
   }
-  .meta { margin-top: 4px; font-size: 11px; color: var(--fg-faint); }
+  .meta { margin-top: 6px; font-size: 12px; color: var(--fg-faint); }
+  .meta.mono { font-family: 'JetBrains Mono', ui-monospace, monospace; }
 
-  .actions { margin-top: 14px; display: flex; justify-content: flex-end; }
+  .actions { margin-top: 16px; display: flex; justify-content: flex-end; }
 
+  /* System-Info als Key-Value-Raster, standardmaessig zweispaltig. Label
+     in Basis-Schrift, Werte in Mono (damit Versionen und IPs sauber
+     ausgerichtet aussehen). */
   .kv {
     display: grid;
     grid-template-columns: max-content 1fr;
-    gap: 6px 16px;
+    gap: 8px 16px;
     margin: 0;
-    font-size: 13px;
+    font-size: 14.5px;
   }
-  .kv dt { color: var(--fg-muted); }
+  .kv dt {
+    color: var(--fg-muted);
+    font-weight: 500;
+  }
   .kv dd { margin: 0; color: var(--fg-primary); }
-  .hint-block { display: flex; gap: 14px; }
-  .hint-block > i { color: var(--accent); font-size: 22px; padding-top: 2px; }
+  .kv dd.mono {
+    font-family: 'JetBrains Mono', ui-monospace, monospace;
+    font-size: 13.5px;
+  }
+
+  .kv-two {
+    grid-template-columns: 1fr 1fr;
+    gap: 10px 24px;
+  }
+  .kv-two > div {
+    display: grid;
+    grid-template-columns: max-content 1fr;
+    gap: 4px 12px;
+    align-items: baseline;
+  }
+  @media (max-width: 640px) {
+    .kv-two { grid-template-columns: 1fr; }
+  }
+
+  .hint-to-panel {
+    display: flex;
+    gap: 10px;
+    align-items: flex-start;
+    padding: 14px 18px;
+    background: var(--accent-soft);
+    border: 1px solid color-mix(in oklab, var(--accent) 40%, var(--border));
+    border-radius: 8px;
+    font-size: 15px;
+    line-height: 1.7;
+    color: var(--fg-primary);
+  }
+  .hint-to-panel i { color: var(--accent); padding-top: 4px; }
+  .hint-to-panel b { color: var(--accent); }
 
   code {
     background: var(--bg-elev);
-    padding: 1px 5px;
+    padding: 1px 6px;
     border-radius: 3px;
-    font-family: 'JetBrains Mono', monospace;
-    font-size: 12px;
+    font-family: 'JetBrains Mono', ui-monospace, monospace;
+    font-size: 13px;
   }
 </style>
