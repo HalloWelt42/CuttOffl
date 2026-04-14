@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="docs/logo.png" alt="CuttOffl - Video Studio" width="260">
+</p>
+
 # CuttOffl
 
 Video schneiden -- lokal, ohne Cloud, ohne Konto.
