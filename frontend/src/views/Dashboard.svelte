@@ -137,7 +137,7 @@
               {failedJobs}
               {failedJobs === 1 ? 'fehlgeschlagener Job' : 'fehlgeschlagene Jobs'}
             </div>
-            <div class="fail-sub soft">
+            <div class="fail-sub">
               Details stehen im Server-Log unter <code>logs/backend.log</code>.
               Wenn es nicht mehr relevant ist, kannst du die Fehler-Historie aufräumen.
             </div>
@@ -199,7 +199,7 @@
           <h3><i class="fa-solid fa-microchip"></i> Codec-Empfehlung für dieses Gerät</h3>
           <span class="soft head-info">{overview.codecs.platform.env_label}</span>
         </div>
-        <p class="soft hint">
+        <p class="hint">
           Die optimale Codec-Wahl hängt von der Umgebung ab. Beim Export kannst du
           aus allen verfügbaren Optionen wählen -- der Vorschlag hier ist jeweils
           die beste Mischung aus Geschwindigkeit, Qualität und Dateigröße.
@@ -210,7 +210,7 @@
             <div class="codec-badge"><i class="fa-solid fa-bolt"></i> Empfohlen</div>
             <div class="codec-title mono">{defaultCodec().label}</div>
             <div class="codec-tag">{defaultCodec().tag}</div>
-            <p class="codec-note soft">{defaultCodec().note}</p>
+            <p class="codec-note">{defaultCodec().note}</p>
           </div>
         {/if}
 
@@ -224,7 +224,7 @@
                     <span class="mono">{r.label}</span>
                     <span class="r-tag">{r.tag}</span>
                   </div>
-                  <p class="soft">{r.note}</p>
+                  <p>{r.note}</p>
                 </li>
               {/each}
             </ul>

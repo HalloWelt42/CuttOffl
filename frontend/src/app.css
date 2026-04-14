@@ -61,12 +61,17 @@ html[data-theme='light'] {
   --bg-elev:    #eef2f7;
   --bg-sink:    #e4e9ef;
 
+  /* Text -- Kontrast >= 4.5:1 auf Panel-Hintergrund, auch fuer fg-faint.
+     Die fruehere Slate-400 (#94a3b8) war auf weiss grenzwertig; Slate-600
+     fuer muted und Slate-500 fuer faint machen Sub-Texte klar lesbar. */
   --fg-primary: #0f172a;
-  --fg-muted:   #475569;
-  --fg-faint:   #94a3b8;
+  --fg-muted:   #334155;
+  --fg-faint:   #64748b;
 
   --accent:       #0284c7;
   --accent-hover: #0369a1;
+  --accent-soft:  rgba(2, 132, 199, 0.14);
+  --accent-on:    #ffffff;
 
   --border:        #d9e0e9;
   --border-strong: #b7c2d0;

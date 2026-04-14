@@ -53,14 +53,14 @@
   <div class="body">
     <div class="card block">
       <h3><i class="fa-solid fa-folder-tree"></i> Arbeits-Verzeichnisse</h3>
-      <p class="soft hint">
+      <p class="hint">
         Videos liegen standardmäßig im Projekt-Unterordner <code>data/</code>.
         Du kannst die Basis für <b>Originale</b> und <b>fertige Videos</b>
         auf einen beliebigen Ordner auf deinem Rechner legen -- zum Beispiel
         ein Verzeichnis auf einer größeren Festplatte oder einem Netzlaufwerk.
         Schreibrechte sind Pflicht. Der Pfad wird beim Speichern geprüft.
       </p>
-      <p class="soft warn">
+      <p class="warn">
         <i class="fa-solid fa-triangle-exclamation"></i>
         Änderungen werden erst nach einem Neustart des Backends wirksam.
         Bereits vorhandene Dateien bleiben am alten Ort -- bei Bedarf
@@ -121,7 +121,7 @@
       </dl>
     </div>
 
-    <p class="hint-to-panel soft">
+    <p class="hint-to-panel">
       <i class="fa-solid fa-circle-info"></i>
       Tastaturkürzel und kontextbezogene Hinweise findest du jetzt im
       <b>Info</b>-Fenster (linke Seitenleiste, Hilfe-Bereich). Der Inhalt
@@ -169,7 +169,7 @@
     color: var(--fg-primary);
     letter-spacing: 0.2px;
     margin-bottom: 6px;
-    font-weight: 500;
+    font-weight: 600;
   }
   .field .row { display: flex; gap: 8px; }
   .field input {
