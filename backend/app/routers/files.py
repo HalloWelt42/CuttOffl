@@ -163,6 +163,13 @@ async def bulk_delete(body: FileBulkDeleteBody) -> dict:
     if found_ids:
         found_list = list(found_ids)
         ph = ",".join("?" * len(found_list))
+        # Auch die Projekte wegraeumen, die auf diese Quellen zeigen --
+        # sonst bleiben sie als Waisen in der DB und verfaelschen die
+        # Dashboard-Statistik.
+        await db.execute(
+            f"DELETE FROM projects WHERE source_file_id IN ({ph})",
+            tuple(found_list),
+        )
         await db.execute(
             f"DELETE FROM files WHERE id IN ({ph})", tuple(found_list)
         )
@@ -293,5 +300,10 @@ async def delete_file(file_id: str) -> dict:
             except OSError:
                 pass
 
+    # Waisen-Projekte (Verweis auf diese Datei) mit entfernen, damit der
+    # Dashboard-Zaehler realistisch bleibt.
+    await db.execute(
+        "DELETE FROM projects WHERE source_file_id = ?", (file_id,),
+    )
     await db.execute("DELETE FROM files WHERE id = ?", (file_id,))
     return {"deleted": file_id}
