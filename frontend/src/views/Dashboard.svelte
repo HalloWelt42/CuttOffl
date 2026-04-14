@@ -323,21 +323,23 @@
   }
   .fail-left { display: flex; align-items: flex-start; gap: 12px; flex: 1 1 auto; }
   .fail-left > i { color: var(--danger); font-size: 20px; padding-top: 1px; }
-  .fail-title { font-weight: 600; font-size: 14px; color: var(--fg-primary); }
-  .fail-sub { font-size: 12px; color: var(--fg-muted); margin-top: 2px; line-height: 1.5; }
-  .fail-sub code { background: var(--bg-sink); padding: 1px 5px; border-radius: 3px; font-size: 11px; }
+  .fail-title { font-weight: 600; font-size: 15px; color: var(--fg-primary); }
+  .fail-sub { font-size: 14px; color: var(--fg-primary); margin-top: 3px; line-height: 1.65; }
+  .fail-sub code { background: var(--bg-sink); padding: 1px 5px; border-radius: 3px; font-size: 12px; }
   .block-head {
     display: flex; align-items: center; justify-content: space-between;
     gap: 10px;
-    margin-bottom: 10px;
+    margin-bottom: 12px;
   }
   .block h3 {
     display: flex; align-items: center; gap: 8px;
-    margin: 0; font-size: 14px;
+    margin: 0; font-size: 16px; font-weight: 600;
   }
   .block h3 i { color: var(--accent); }
-  .head-info { font-size: 11px; color: var(--fg-muted); }
-  .hint { font-size: 12px; color: var(--fg-muted); margin: 4px 0 12px; line-height: 1.5; }
+  .head-info { font-size: 12px; color: var(--fg-muted); }
+  /* Lesetexte unter den Block-Ueberschriften bewusst groesser als die
+     dichten UI-Elemente. */
+  .hint { font-size: 14px; color: var(--fg-primary); margin: 4px 0 14px; line-height: 1.65; }
 
   /* Disk-Bar */
   .disk-bar {
@@ -392,12 +394,12 @@
     color: var(--accent);
     text-transform: uppercase;
   }
-  .codec-title { font-size: 15px; font-weight: 700; }
-  .codec-tag { font-size: 11px; color: var(--fg-muted); text-transform: lowercase; }
-  .codec-note { font-size: 12px; line-height: 1.5; margin: 2px 0 0; }
+  .codec-title { font-size: 17px; font-weight: 700; }
+  .codec-tag { font-size: 12px; color: var(--fg-muted); text-transform: lowercase; }
+  .codec-note { font-size: 14px; line-height: 1.65; margin: 4px 0 0; color: var(--fg-primary); }
 
-  .more { margin-top: 10px; font-size: 12px; }
-  .more summary { cursor: pointer; padding: 4px 0; color: var(--fg-muted); }
+  .more { margin-top: 12px; font-size: 13px; }
+  .more summary { cursor: pointer; padding: 4px 0; color: var(--fg-muted); font-size: 14px; }
   .more ul { list-style: none; padding: 0; margin: 8px 0 0; display: flex; flex-direction: column; gap: 10px; }
   .more li {
     background: var(--bg-elev);
@@ -406,9 +408,9 @@
     padding: 10px 12px;
   }
   .r-head { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
-  .r-head span:first-child { font-size: 13px; color: var(--fg-primary); }
-  .r-tag { font-size: 10px; color: var(--fg-muted); text-transform: lowercase; }
-  .more p { margin: 6px 0 0; font-size: 11px; line-height: 1.5; color: var(--fg-muted); }
+  .r-head span:first-child { font-size: 14px; color: var(--fg-primary); font-weight: 600; }
+  .r-tag { font-size: 11px; color: var(--fg-muted); text-transform: lowercase; }
+  .more p { margin: 6px 0 0; font-size: 13px; line-height: 1.6; color: var(--fg-primary); }
 
   /* Files */
   .files { list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 6px; }
