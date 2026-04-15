@@ -7,6 +7,9 @@
   let ping = $state(null);
   let counts = $state({ files: 0, projects: 0, exports: 0 });
   let paths = $state(null);
+  let txStatus = $state(null);
+  let txScanning = $state(false);
+  let txExtraPath = $state('');
 
   // Formular
   let originalsInput = $state('');
@@ -15,16 +18,39 @@
 
   async function loadAll() {
     try {
-      const [p, files, projects, exports, pp] = await Promise.all([
+      const [p, files, projects, exports, pp, tx] = await Promise.all([
         api.ping(), api.listFiles(), api.listProjects(),
         api.listExports(), api.systemPaths(),
+        api.transcriptionStatus().catch(() => null),
       ]);
       ping = p;
       counts = { files: files.length, projects: projects.length, exports: exports.length };
       paths = pp;
       originalsInput = pp.saved?.originals_dir ?? '';
       exportsInput   = pp.saved?.exports_dir   ?? '';
+      txStatus = tx;
     } catch (e) { toast.error(e.message); }
+  }
+
+  async function scanModels() {
+    txScanning = true;
+    try {
+      const res = await api.transcriptionScan(
+        txExtraPath ? [txExtraPath.trim()] : [],
+      );
+      // Kompletten Status neu laden, damit suggested_* aktualisiert wird
+      txStatus = await api.transcriptionStatus();
+      const n = res.models_found?.length || 0;
+      toast.success(n ? `${n} Modelle gefunden` : 'Kein Whisper-Modell gefunden');
+    } catch (e) { toast.error(e.message); }
+    finally { txScanning = false; }
+  }
+
+  function fmtSizeB(n) {
+    if (!n) return '-';
+    const u = ['B','KB','MB','GB','TB'];
+    let i = 0; while (n >= 1024 && i < u.length - 1) { n /= 1024; i++; }
+    return `${n.toFixed(n >= 10 || i === 0 ? 0 : 1)} ${u[i]}`;
   }
 
   onMount(loadAll);
@@ -119,6 +145,98 @@
         <div><dt>Projekte</dt><dd class="mono">{counts.projects}</dd></div>
         <div><dt>Fertige Videos</dt><dd class="mono">{counts.exports}</dd></div>
       </dl>
+    </div>
+
+    <div class="card block">
+      <h3><i class="fa-solid fa-closed-captioning"></i> Transkription (KI-Untertitel)</h3>
+      <p class="hint">
+        CuttOffl kann Videos mit Whisper transkribieren und daraus SRT-
+        Untertitel erzeugen. Die Transkription läuft komplett lokal. Die
+        Whisper-Pakete und -Modelle musst du einmal selbst installieren --
+        die App entdeckt Modelle, die schon auf deinem Rechner liegen
+        (HuggingFace-Cache, openai-whisper-Cache, Voice2Text-Cache).
+      </p>
+
+      {#if !txStatus}
+        <p class="meta">Lade Status …</p>
+      {:else if !txStatus.available}
+        <div class="tx-offline">
+          <div class="tx-row">
+            <span class="tx-dot off"></span>
+            <b>Nicht einsatzbereit</b>
+          </div>
+          {#each txStatus.notes as n}
+            <p class="note">{n}</p>
+          {/each}
+          <details class="install">
+            <summary>Installationshinweise anzeigen</summary>
+            <pre>{@html `# In der Backend-venv:
+cd backend && source .venv/bin/activate
+
+# Empfehlung auf Apple Silicon:
+pip install mlx-whisper
+
+# Empfehlung auf Pi/Linux/Intel:
+pip install faster-whisper
+
+# Alternative (Referenz, langsam):
+pip install openai-whisper
+
+# Danach Backend einmal neu starten.`}</pre>
+          </details>
+        </div>
+      {:else}
+        <div class="tx-ready">
+          <div class="tx-row">
+            <span class="tx-dot on"></span>
+            <b>Einsatzbereit</b>
+          </div>
+          <dl class="kv kv-two">
+            <div><dt>Engine</dt><dd class="mono">{txStatus.suggested_engine}</dd></div>
+            <div><dt>Modell</dt><dd class="mono">{txStatus.suggested_model}</dd></div>
+          </dl>
+        </div>
+      {/if}
+
+      <h4 class="sub">Installierte Pakete</h4>
+      <ul class="engines">
+        {#each (txStatus?.engines || []) as e (e.name)}
+          <li>
+            <span class="tx-dot {e.installed ? 'on' : 'off'}"></span>
+            <span class="name mono">{e.name}</span>
+            {#if e.preferred}<span class="tag preferred">empfohlen</span>{/if}
+            {#if !e.installed}<span class="reason">{e.reason}</span>{/if}
+          </li>
+        {/each}
+      </ul>
+
+      <h4 class="sub">Gefundene Modelle auf der Platte</h4>
+      {#if (txStatus?.models_found?.length || 0) === 0}
+        <p class="meta">Bisher keine Modelle gefunden. Scanne weiter unten.</p>
+      {:else}
+        <ul class="models">
+          {#each txStatus.models_found as m (m.engine + m.path)}
+            <li>
+              <div class="m-head">
+                <span class="name mono">{m.engine} / {m.model}</span>
+                <span class="size mono">{fmtSizeB(m.size_bytes)}</span>
+              </div>
+              <div class="path mono" title={m.path}>{m.path}</div>
+            </li>
+          {/each}
+        </ul>
+      {/if}
+
+      <div class="scan-row">
+        <input type="text" class="scan-input"
+               placeholder="Optional: zusätzlichen Ordner zum Scannen …"
+               bind:value={txExtraPath} />
+        <button class="btn" onclick={scanModels} disabled={txScanning}
+                title="Bekannte Cache-Ordner und den angegebenen Pfad nach Whisper-Modellen absuchen">
+          <i class="fa-solid fa-magnifying-glass"></i>
+          {txScanning ? 'Scanne …' : 'Festplatte scannen'}
+        </button>
+      </div>
     </div>
 
     <p class="hint-to-panel">
@@ -225,6 +343,106 @@
   }
   @media (max-width: 640px) {
     .kv-two { grid-template-columns: 1fr; }
+  }
+
+  /* Transkriptions-Block */
+  .sub {
+    margin: 16px 0 8px;
+    font-size: 12px;
+    letter-spacing: 0.8px;
+    text-transform: uppercase;
+    color: var(--fg-muted);
+  }
+  .note { margin: 4px 0; font-size: 14px; color: var(--fg-primary); line-height: 1.6; }
+  .tx-row { display: flex; align-items: center; gap: 8px; font-size: 14px; }
+  .tx-dot {
+    width: 10px; height: 10px; border-radius: 50%;
+    display: inline-block;
+    background: var(--fg-faint);
+  }
+  .tx-dot.on  { background: var(--success); }
+  .tx-dot.off { background: var(--danger); }
+  .tx-ready, .tx-offline { padding: 4px 0 2px; }
+
+  .engines {
+    list-style: none; padding: 0; margin: 0;
+    display: flex; flex-direction: column; gap: 6px;
+    font-size: 13px;
+  }
+  .engines li {
+    display: flex; align-items: center; gap: 8px;
+    flex-wrap: wrap;
+  }
+  .engines .reason { color: var(--fg-muted); font-size: 12px; }
+  .tag.preferred {
+    background: var(--accent-soft);
+    color: var(--accent);
+    font-size: 10px; font-weight: 700;
+    padding: 1px 6px; border-radius: 4px;
+    text-transform: uppercase; letter-spacing: 0.5px;
+  }
+
+  .models {
+    list-style: none; padding: 0; margin: 0;
+    display: flex; flex-direction: column; gap: 6px;
+  }
+  .models li {
+    background: var(--bg-elev);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 8px 10px;
+  }
+  .m-head {
+    display: flex; justify-content: space-between; align-items: baseline;
+    gap: 10px;
+    font-size: 13px;
+  }
+  .m-head .name { font-weight: 600; }
+  .m-head .size { color: var(--fg-muted); font-size: 12px; }
+  .models .path {
+    margin-top: 3px;
+    font-size: 11px;
+    color: var(--fg-faint);
+    word-break: break-all;
+    line-height: 1.4;
+  }
+
+  .scan-row {
+    display: flex; gap: 8px; margin-top: 12px;
+  }
+  .scan-input {
+    flex: 1 1 auto;
+    background: var(--bg-elev);
+    color: var(--fg-primary);
+    border: 1px solid var(--border-strong);
+    border-radius: 6px;
+    padding: 8px 10px;
+    font-family: 'JetBrains Mono', ui-monospace, monospace;
+    font-size: 13px;
+  }
+  .scan-input:focus {
+    outline: none;
+    border-color: var(--accent);
+    box-shadow: 0 0 0 2px var(--accent-soft);
+  }
+
+  .install summary {
+    cursor: pointer;
+    color: var(--fg-muted);
+    font-size: 13px;
+    margin-top: 6px;
+  }
+  .install pre {
+    margin: 8px 0 0;
+    padding: 12px;
+    background: var(--bg-sink);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    font-family: 'JetBrains Mono', ui-monospace, monospace;
+    font-size: 12px;
+    color: var(--fg-primary);
+    white-space: pre-wrap;
+    line-height: 1.55;
   }
 
   .hint-to-panel {

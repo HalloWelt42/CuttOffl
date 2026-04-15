@@ -177,6 +177,25 @@ export const api = {
     return request(`/projects/${id}/render${qs}`, { method: 'POST' });
   },
 
+  // Transkription
+  transcriptionStatus: () => request('/transcription/status'),
+  transcriptionScan: (extra_roots = []) =>
+    request('/transcription/scan', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ extra_roots }),
+    }),
+  startTranscription: (fileId, body = {}) =>
+    request(`/transcript/${fileId}/generate`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    }),
+  getTranscript: (fileId) => request(`/transcript/${fileId}`),
+  transcriptSrtUrl: (fileId) => `${BASE}/transcript/${fileId}.srt`,
+  deleteTranscript: (fileId) =>
+    request(`/transcript/${fileId}`, { method: 'DELETE' }),
+
   // Exports
   listExports: () => request('/exports'),
   exportDownloadUrl: (jobId) => `${BASE}/exports/${jobId}/download`,
