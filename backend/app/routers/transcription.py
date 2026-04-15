@@ -26,10 +26,16 @@ from pydantic import BaseModel
 
 from app.db import db
 from app.services import transcribe_service as tx
+from app.services.job_service import job_service
 
 logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api", tags=["transcription"])
+
+
+class GenerateRequest(BaseModel):
+    engine: str | None = None   # wenn None: suggested_engine
+    model: str | None = None    # wenn None: suggested_model
 
 
 # --- Capabilities / Scan -------------------------------------------------
@@ -78,6 +84,36 @@ async def _file_or_404(file_id: str):
     if row is None:
         raise HTTPException(status_code=404, detail="Datei nicht gefunden")
     return row
+
+
+@router.post("/transcript/{file_id}/generate")
+async def start_transcription(file_id: str, body: GenerateRequest) -> dict:
+    """Startet einen Transkriptions-Job. Prüft vorab capabilities; wenn
+    die Engine nicht verfuegbar ist oder kein Modell da ist, gibt es
+    eine klare 409-Meldung -- kein Crash."""
+    row = await db.fetch_one("SELECT id FROM files WHERE id = ?", (file_id,))
+    if row is None:
+        raise HTTPException(status_code=404, detail="Datei nicht gefunden")
+
+    caps = tx.capabilities(scan=True)
+    if not caps.available:
+        raise HTTPException(
+            status_code=409,
+            detail={
+                "message": "Transkription ist auf diesem System nicht verfügbar.",
+                "notes": caps.notes,
+                "engines": [asdict(e) for e in caps.engines],
+            },
+        )
+
+    engine = body.engine or caps.suggested_engine
+    model = body.model or caps.suggested_model
+    job_id = await job_service.enqueue(
+        "transcribe",
+        file_id=file_id,
+        payload={"engine": engine, "model": model},
+    )
+    return {"job_id": job_id, "engine": engine, "model": model}
 
 
 @router.get("/transcript/{file_id}")

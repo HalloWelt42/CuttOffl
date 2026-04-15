@@ -100,6 +100,9 @@ def _row_to_fileout(row) -> FileOut:
         keyframe_count=row["keyframe_count"] if "keyframe_count" in row.keys() else None,
         folder_path=row["folder_path"] if "folder_path" in row.keys() else "",
         tags=_tags_from_row(row),
+        has_transcript=bool(row["transcript_path"]) if "transcript_path" in row.keys() else False,
+        transcript_lang=row["transcript_lang"] if "transcript_lang" in row.keys() else None,
+        transcript_model=row["transcript_model"] if "transcript_model" in row.keys() else None,
         created_at=row["created_at"],
     )
 

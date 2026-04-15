@@ -24,13 +24,14 @@ werden sauber nach oben gereicht, ohne die App zu crashen.
 
 from __future__ import annotations
 
+import asyncio
 import json
 import logging
 import os
 import sys
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Optional
+from typing import Callable, Optional
 
 logger = logging.getLogger(__name__)
 
@@ -355,6 +356,154 @@ def segments_to_srt(segments: list[dict]) -> str:
         lines.append(text)
         lines.append("")
     return "\n".join(lines)
+
+
+# --------------------------------------------------------------------------
+# Audio-Extraktion aus Video via ffmpeg
+# --------------------------------------------------------------------------
+
+async def extract_audio(
+    source: Path,
+    dest: Path,
+    sample_rate: int = 16000,
+) -> None:
+    """Extrahiert den Audio-Track als Mono-WAV mit fester Samplingrate.
+    Whisper arbeitet intern mit 16 kHz, daher gleich konvertieren."""
+    from app.services.ffmpeg_service import ffmpeg_binary
+    dest.parent.mkdir(parents=True, exist_ok=True)
+    proc = await asyncio.create_subprocess_exec(
+        ffmpeg_binary(),
+        "-y",
+        "-i", str(source),
+        "-vn",                          # kein Video
+        "-ac", "1",                     # mono
+        "-ar", str(sample_rate),        # 16 kHz
+        "-sample_fmt", "s16",
+        "-f", "wav",
+        str(dest),
+        stdout=asyncio.subprocess.DEVNULL,
+        stderr=asyncio.subprocess.PIPE,
+    )
+    _, err = await proc.communicate()
+    if proc.returncode != 0:
+        raise RuntimeError(
+            f"ffmpeg Audio-Extraktion fehlgeschlagen: "
+            f"{err.decode('utf-8', errors='replace')[-400:]}"
+        )
+
+
+# --------------------------------------------------------------------------
+# Engine-Dispatcher -- ruft die jeweilige Whisper-Implementierung auf und
+# normalisiert die Antwort auf segmente + erkannte Sprache.
+# --------------------------------------------------------------------------
+
+@dataclass
+class TranscribeResult:
+    segments: list[dict]     # [{start, end, text}]
+    language: str
+    engine: str
+    model: str
+
+
+def _find_local_model(engine: str, model: str) -> Optional[str]:
+    """Sucht im lokalen Scan eine passende Modell-Instanz. Gibt den
+    Pfad zurueck, der direkt an die Engine uebergeben werden kann,
+    oder None wenn nichts passt (dann laedt die Engine selbst)."""
+    try:
+        for m in scan_models():
+            if m.engine == engine and m.model == model:
+                return m.path
+    except Exception:
+        pass
+    return None
+
+
+def _run_mlx(audio_path: str, model: str) -> TranscribeResult:
+    import mlx_whisper  # type: ignore
+    # mlx-whisper nimmt den HF-Repo-Path. Wenn wir lokal einen Snapshot
+    # haben, uebergeben wir den direkt.
+    local = _find_local_model("mlx-whisper", model)
+    repo = local or f"mlx-community/whisper-{model}-mlx"
+    result = mlx_whisper.transcribe(audio_path, path_or_hf_repo=repo, verbose=False)
+    segs = [
+        {"start": float(s["start"]), "end": float(s["end"]), "text": (s.get("text") or "").strip()}
+        for s in (result.get("segments") or [])
+    ]
+    return TranscribeResult(
+        segments=segs,
+        language=str(result.get("language") or ""),
+        engine="mlx-whisper",
+        model=model,
+    )
+
+
+def _run_faster(audio_path: str, model: str,
+                progress_cb: Optional[Callable[[float], None]] = None) -> TranscribeResult:
+    from faster_whisper import WhisperModel  # type: ignore
+    # faster-whisper laedt Modelle ueber den HF-Hub-Cache.
+    local = _find_local_model("faster-whisper", model)
+    wm = WhisperModel(local or model, device="auto", compute_type="auto")
+    seg_iter, info = wm.transcribe(audio_path, beam_size=5, vad_filter=True)
+    total = float(getattr(info, "duration", 0.0)) or None
+    segs: list[dict] = []
+    for s in seg_iter:
+        segs.append({"start": float(s.start), "end": float(s.end), "text": (s.text or "").strip()})
+        if progress_cb and total:
+            progress_cb(min(0.99, s.end / total))
+    return TranscribeResult(
+        segments=segs,
+        language=str(getattr(info, "language", "") or ""),
+        engine="faster-whisper",
+        model=model,
+    )
+
+
+def _run_openai(audio_path: str, model: str) -> TranscribeResult:
+    import whisper  # type: ignore
+    # openai-whisper nutzt seinen eigenen Cache (~/.cache/whisper/<size>.pt),
+    # den Modellnamen geben wir direkt weiter.
+    m = whisper.load_model(model)
+    result = m.transcribe(audio_path, verbose=False, fp16=False)
+    segs = [
+        {"start": float(s["start"]), "end": float(s["end"]), "text": (s.get("text") or "").strip()}
+        for s in (result.get("segments") or [])
+    ]
+    return TranscribeResult(
+        segments=segs,
+        language=str(result.get("language") or ""),
+        engine="openai-whisper",
+        model=model,
+    )
+
+
+async def run_transcription(
+    audio_path: Path,
+    engine: str,
+    model: str,
+    progress_cb: Optional[Callable[[float], None]] = None,
+) -> TranscribeResult:
+    """Fuehrt die Transkription in einem Worker-Thread aus (Whisper-Pakete
+    sind synchron). Wirft RuntimeError mit klarer Meldung, wenn die
+    gewaehlte Engine nicht installiert ist oder das Modell fehlt."""
+    if not audio_path.exists():
+        raise RuntimeError(f"Audio-Datei fehlt: {audio_path}")
+
+    def _work() -> TranscribeResult:
+        if engine == "mlx-whisper":
+            return _run_mlx(str(audio_path), model)
+        if engine == "faster-whisper":
+            return _run_faster(str(audio_path), model, progress_cb=progress_cb)
+        if engine == "openai-whisper":
+            return _run_openai(str(audio_path), model)
+        raise RuntimeError(f"Unbekannte Engine: {engine}")
+
+    try:
+        return await asyncio.to_thread(_work)
+    except ImportError as e:
+        raise RuntimeError(
+            f"Engine '{engine}' ist nicht installiert: {e}. "
+            f"Installiere sie in den Einstellungen oder im requirements.txt."
+        )
 
 
 def parse_srt(content: str) -> list[dict]:

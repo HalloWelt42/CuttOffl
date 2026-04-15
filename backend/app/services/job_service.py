@@ -26,7 +26,9 @@ from typing import Any, Awaitable, Callable, Optional
 
 import json as _json
 
-from app.config import PROXIES_DIR, SPRITES_DIR, THUMBS_DIR, WAVEFORMS_DIR
+from app.config import (
+    PROXIES_DIR, SPRITES_DIR, THUMBS_DIR, TMP_DIR, TRANSCRIPTS_DIR, WAVEFORMS_DIR,
+)
 from app.db import db
 from app.models.edl import EDL
 from app.services.error_helper import sanitize_error
@@ -35,6 +37,7 @@ from app.services.proxy_service import generate_proxy
 from app.services.render_service import render_edl
 from app.services.sprite_service import generate_sprite
 from app.services.thumbnail_service import generate_thumbnail
+from app.services import transcribe_service
 from app.services.waveform_service import generate_waveform
 
 logger = logging.getLogger(__name__)
@@ -142,6 +145,8 @@ class JobService:
             await self._process_waveform(job)
         elif job.kind == "render":
             await self._process_render(job)
+        elif job.kind == "transcribe":
+            await self._process_transcribe(job)
         else:
             raise RuntimeError(f"Unbekannter Job-Typ: {job.kind}")
 
@@ -310,6 +315,100 @@ class JobService:
         )
         job.result_path = str(dest)
         await self._broadcast_file_event(job.file_id, "waveform_ready")
+
+    async def _process_transcribe(self, job: Job) -> None:
+        """KI-Transkription: Audio aus dem Original extrahieren, Whisper
+        darueber laufen lassen, Segmente als SRT schreiben. Payload kann
+        `engine` und `model` enthalten -- fehlen sie, nimmt der Service
+        die Empfehlung aus capabilities()."""
+        assert job.file_id, "transcribe-Job benötigt file_id"
+        row = await db.fetch_one(
+            "SELECT path, original_name FROM files WHERE id = ?", (job.file_id,)
+        )
+        if row is None:
+            raise RuntimeError("Datei nicht gefunden")
+        src = Path(row["path"])
+        if not src.exists():
+            raise RuntimeError("Quelldatei fehlt auf der Platte")
+
+        caps = transcribe_service.capabilities(scan=True)
+        payload = job.payload or {}
+        engine = payload.get("engine") or caps.suggested_engine
+        model = payload.get("model") or caps.suggested_model
+        if not engine or not caps.available:
+            raise RuntimeError(
+                "Transkription nicht verfügbar. Bitte in den Einstellungen "
+                "ein Modell einrichten."
+            )
+
+        job.message = f"Audio extrahieren ({src.name})"
+        await self._persist(job)
+        await self._broadcast_job_event(job, "running")
+
+        audio_path = TMP_DIR / f"tx-{job.file_id}.wav"
+        try:
+            await transcribe_service.extract_audio(src, audio_path)
+
+            job.progress = 0.15
+            job.message = f"Transkribiere mit {engine} / {model}"
+            await self._persist(job)
+            self._schedule_broadcast({
+                "type": "job_progress",
+                "job_id": job.id,
+                "kind": job.kind,
+                "file_id": job.file_id,
+                "progress": job.progress,
+                "phase": "transcribing",
+            })
+
+            last_sent = 0.15
+
+            def on_prog(frac: float) -> None:
+                nonlocal last_sent
+                # frac ist 0..1 des Audio-Durchlaufs; wir mappen auf 0.15..0.95
+                pct = 0.15 + max(0.0, min(1.0, frac)) * 0.80
+                job.progress = pct
+                if pct - last_sent >= 0.03:
+                    last_sent = pct
+                    self._schedule_broadcast({
+                        "type": "job_progress",
+                        "job_id": job.id,
+                        "kind": job.kind,
+                        "file_id": job.file_id,
+                        "progress": pct,
+                        "phase": "transcribing",
+                    })
+
+            result = await transcribe_service.run_transcription(
+                audio_path=audio_path,
+                engine=engine,
+                model=model,
+                progress_cb=on_prog,
+            )
+
+            # SRT schreiben
+            srt = transcribe_service.segments_to_srt(result.segments)
+            dest = TRANSCRIPTS_DIR / f"{job.file_id}.srt"
+            dest.parent.mkdir(parents=True, exist_ok=True)
+            dest.write_text(srt, encoding="utf-8")
+
+            await db.execute(
+                """UPDATE files
+                   SET transcript_path=?, transcript_lang=?, transcript_model=?,
+                       updated_at=datetime('now')
+                   WHERE id = ?""",
+                (str(dest), result.language, f"{result.engine}:{result.model}",
+                 job.file_id),
+            )
+            job.result_path = str(dest)
+            job.message = f"Fertig ({len(result.segments)} Segmente, {result.language or '?'})"
+            await self._broadcast_file_event(job.file_id, "transcript_ready")
+        finally:
+            # Temp-WAV wegraeumen -- unabhaengig davon ob erfolgreich
+            try:
+                audio_path.unlink(missing_ok=True)
+            except OSError:
+                pass
 
     async def _process_keyframes(self, job: Job) -> None:
         assert job.file_id, "keyframes-Job benötigt file_id"

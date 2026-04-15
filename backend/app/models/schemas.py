@@ -39,6 +39,9 @@ class FileOut(BaseModel):
     keyframe_count: Optional[int] = None
     folder_path: str = ""
     tags: list[str] = Field(default_factory=list)
+    has_transcript: bool = False
+    transcript_lang: Optional[str] = None
+    transcript_model: Optional[str] = None
     created_at: str
 
 
