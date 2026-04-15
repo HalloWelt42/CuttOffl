@@ -138,7 +138,7 @@ export function filterFiles(files) {
   const format = library.filterFormat;
   const res    = library.filterRes;
   const tag    = library.filterTag;
-  const q      = (library.search || '').trim().toLowerCase();
+  const q      = (library.search || '').trim().toLocaleLowerCase('de');
   return files.filter((f) => {
     if (!matchesStatus(f, status)) return false;
     if (format !== 'all' && (f.video_codec || '').toLowerCase() !== format) return false;
@@ -148,7 +148,16 @@ export function filterFiles(files) {
       const tagKey = tag.toLocaleLowerCase('de');
       if (!tags.some((t) => (t || '').toLocaleLowerCase('de') === tagKey)) return false;
     }
-    if (q && !(f.original_name || '').toLowerCase().includes(q)) return false;
+    if (q) {
+      // Volltext-Suche matcht Dateiname ODER einen der Tags. So findet
+      // der User Videos sowohl ueber den Namen als auch ueber spontan
+      // vergebene Label-Begriffe.
+      const nameHit = (f.original_name || '').toLocaleLowerCase('de').includes(q);
+      const tagHit  = (f.tags || []).some(
+        (t) => (t || '').toLocaleLowerCase('de').includes(q),
+      );
+      if (!nameHit && !tagHit) return false;
+    }
     return true;
   });
 }

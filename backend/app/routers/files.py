@@ -22,30 +22,46 @@ from app.services.folder_service import FolderError, normalize
 
 
 TAG_MAX_LEN = 24
-TAG_ALLOWED = re.compile(r"^[\w äöüÄÖÜß\-]{1,24}$")
+# Erlaubt sind Unicode-Wortzeichen (Buchstaben inkl. Umlaute/CJK, Ziffern,
+# Underscore) sowie Leerzeichen, Bindestrich und Punkt. So bleibt "v1.0",
+# "Urlaub 2026" oder "äöü-Test" zulaessig, aber Kommas, Slashes und andere
+# strukturelle Zeichen werden aussortiert (Komma ist der Trennzeichen).
+TAG_ALLOWED = re.compile(r"^[\w äöüÄÖÜß\-.]{1,24}$")
 
 
-def _normalize_tags(raw: list[str]) -> list[str]:
-    """Trimmt, dedupliziert und validiert Tags. Reihenfolge bleibt erhalten.
-    Leere und zu lange Tags werden verworfen."""
+def _normalize_tags(raw: list[str]) -> tuple[list[str], list[str]]:
+    """Trimmt, dedupliziert und validiert Tags.
+
+    Gibt zwei Listen zurueck: (accepted, rejected). rejected enthaelt
+    die unveraenderten Urspruengs-Strings, damit der Caller dem User
+    genau sagen kann, welche Tags warum verworfen wurden.
+    """
     out: list[str] = []
+    rejected: list[str] = []
     seen: set[str] = set()
     for t in raw or []:
         if not isinstance(t, str):
             continue
+        original = t
         s = " ".join(t.strip().split())
-        if not s or len(s) > TAG_MAX_LEN:
+        if not s:
+            # leerer String, stillschweigend ignorieren (kein "rejected")
+            continue
+        if len(s) > TAG_MAX_LEN:
+            rejected.append(original)
             continue
         if not TAG_ALLOWED.match(s):
+            rejected.append(original)
             continue
         key = s.casefold()
         if key in seen:
+            # Duplikate nicht als Fehler melden
             continue
         seen.add(key)
         out.append(s)
         if len(out) >= 32:
             break
-    return out
+    return out, rejected
 
 
 def _tags_from_row(row) -> list[str]:
@@ -217,19 +233,29 @@ async def move_file(file_id: str, body: FileMoveBody) -> FileOut:
     return _row_to_fileout(row)
 
 
-@router.put("/{file_id}/tags", response_model=FileOut)
-async def set_tags(file_id: str, body: FileTagsBody) -> FileOut:
-    """Setzt die Tag-Liste einer Datei (ersetzt vollstaendig)."""
+@router.put("/{file_id}/tags")
+async def set_tags(file_id: str, body: FileTagsBody) -> dict:
+    """Setzt die Tag-Liste einer Datei (ersetzt vollstaendig).
+
+    Response enthaelt die aktualisierte Datei, die akzeptierten Tags und
+    die Liste der abgelehnten Eingaben -- damit das Frontend dem User
+    konkret sagen kann, welche Eingaben nicht uebernommen wurden (z. B.
+    'foo!' wegen unerlaubter Zeichen).
+    """
     row = await db.fetch_one("SELECT id FROM files WHERE id = ?", (file_id,))
     if row is None:
         raise HTTPException(status_code=404, detail="Datei nicht gefunden")
-    tags = _normalize_tags(body.tags)
+    accepted, rejected = _normalize_tags(body.tags)
     await db.execute(
         "UPDATE files SET tags_json = ?, updated_at=datetime('now') WHERE id = ?",
-        (json.dumps(tags, ensure_ascii=False), file_id),
+        (json.dumps(accepted, ensure_ascii=False), file_id),
     )
     row = await db.fetch_one("SELECT * FROM files WHERE id = ?", (file_id,))
-    return _row_to_fileout(row)
+    return {
+        "file": _row_to_fileout(row).model_dump(),
+        "accepted": accepted,
+        "rejected": rejected,
+    }
 
 
 @router.patch("/{file_id}", response_model=FileOut)

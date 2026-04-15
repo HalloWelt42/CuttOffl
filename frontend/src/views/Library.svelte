@@ -208,15 +208,31 @@
   async function onEditTags(f) {
     const current = joinTags(f.tags);
     const next = await promptDialog(
-      'Tags komma-getrennt eingeben (leer = alle entfernen). Erlaubt sind Buchstaben, Zahlen, Leerzeichen und Bindestriche.',
+      'Tags komma-getrennt eingeben (leer = alle entfernen). Erlaubt sind '
+      + 'Buchstaben (inkl. Umlaute), Zahlen, Leerzeichen, Punkt, Unterstrich '
+      + 'und Bindestrich. Max. 24 Zeichen pro Tag.',
       current,
-      { title: `Tags für "${f.original_name}"`, placeholder: 'z. B. urlaub, 2026, rohmaterial' },
+      { title: `Tags für "${f.original_name}"`,
+        placeholder: 'z. B. urlaub, 2026, rohmaterial, v1.0' },
     );
     if (next == null) return;
     const tags = parseTags(next);
     try {
-      await api.setFileTags(f.id, tags);
-      toast.success(tags.length ? `${tags.length} Tag(s) gespeichert` : 'Tags entfernt');
+      const res = await api.setFileTags(f.id, tags);
+      // Response liefert accepted + rejected getrennt, damit wir dem User
+      // präzise sagen koennen, was angekommen ist und was nicht.
+      const accepted = res.accepted || [];
+      const rejected = res.rejected || [];
+      if (accepted.length > 0) {
+        toast.success(`${accepted.length} Tag(s) gespeichert: ${accepted.join(', ')}`);
+      } else if (tags.length === 0) {
+        toast.info('Alle Tags entfernt');
+      } else {
+        toast.warn('Keiner der eingegebenen Tags war gültig');
+      }
+      if (rejected.length > 0) {
+        toast.warn(`Verworfen (unerlaubte Zeichen oder zu lang): ${rejected.join(', ')}`);
+      }
       refresh();
     } catch (e) { toast.error(e.message); }
   }
@@ -586,10 +602,10 @@
     <div class="group search-group">
       <i class="fa-solid fa-magnifying-glass search-icon"></i>
       <input type="search" class="search-input"
-             placeholder="Nach Name suchen..."
+             placeholder="Name oder Tag suchen..."
              value={library.search}
              oninput={(e) => setSearch(e.currentTarget.value)}
-             title="Dateinamen durchsuchen (Teilstring, Groß-/Kleinschreibung egal)" />
+             title="Durchsucht Dateinamen und Tags (Teilstring, Groß-/Kleinschreibung egal)" />
       {#if library.search}
         <button class="search-clear" onclick={() => setSearch('')}
                 title="Suche zurücksetzen">
