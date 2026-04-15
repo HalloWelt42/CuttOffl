@@ -10,18 +10,31 @@
     setFilter, setSearch, resetFilters, filterFiles, codecOptions, tagOptions,
     isSelected, toggleSelect, selectAll, selectOnly, clearSelection,
   } from '../lib/library.svelte.js';
-  import { parseTags, joinTags } from '../lib/tags.js';
   import { confirmDialog, promptDialog } from '../lib/dialog.svelte.js';
   import { openFolderPicker } from '../lib/folderPicker.svelte.js';
   import PanelHeader from '../components/PanelHeader.svelte';
   import HoverScrubThumb from '../components/HoverScrubThumb.svelte';
   import TagChips from '../components/TagChips.svelte';
+  import TagEditorPopover from '../components/TagEditorPopover.svelte';
 
   let files = $state([]);
   let folderChildren = $state([]);
   let uploading = $state(false);
   let uploadPct = $state(0);
   let fileInput;
+
+  // Tag-Editor (Popover): gleichzeitig nur eines geoeffnet.
+  let tagEditorFor = $state(null);        // file_id oder null
+  let tagEditorAnchor = $state(null);     // Ankerelement
+  function openTagEditor(ev, f) {
+    tagEditorAnchor = ev.currentTarget;
+    tagEditorFor = f.id;
+  }
+  function closeTagEditor() {
+    tagEditorFor = null;
+    tagEditorAnchor = null;
+  }
+  function onTagsChanged() { refresh(); }
 
   // Drag & Drop
   let dropActive = $state(false);         // Für das Panel-Overlay (OS-Dateien)
@@ -201,38 +214,6 @@
     try {
       await api.renameFile(f.id, name);
       toast.success('Datei umbenannt');
-      refresh();
-    } catch (e) { toast.error(e.message); }
-  }
-
-  async function onEditTags(f) {
-    const current = joinTags(f.tags);
-    const next = await promptDialog(
-      'Tags komma-getrennt eingeben (leer = alle entfernen). Erlaubt sind '
-      + 'Buchstaben (inkl. Umlaute), Zahlen, Leerzeichen, Punkt, Unterstrich '
-      + 'und Bindestrich. Max. 24 Zeichen pro Tag.',
-      current,
-      { title: `Tags für "${f.original_name}"`,
-        placeholder: 'z. B. urlaub, 2026, rohmaterial, v1.0' },
-    );
-    if (next == null) return;
-    const tags = parseTags(next);
-    try {
-      const res = await api.setFileTags(f.id, tags);
-      // Response liefert accepted + rejected getrennt, damit wir dem User
-      // präzise sagen koennen, was angekommen ist und was nicht.
-      const accepted = res.accepted || [];
-      const rejected = res.rejected || [];
-      if (accepted.length > 0) {
-        toast.success(`${accepted.length} Tag(s) gespeichert: ${accepted.join(', ')}`);
-      } else if (tags.length === 0) {
-        toast.info('Alle Tags entfernt');
-      } else {
-        toast.warn('Keiner der eingegebenen Tags war gültig');
-      }
-      if (rejected.length > 0) {
-        toast.warn(`Verworfen (unerlaubte Zeichen oder zu lang): ${rejected.join(', ')}`);
-      }
       refresh();
     } catch (e) { toast.error(e.message); }
   }
@@ -861,7 +842,7 @@
                               title="Angezeigten Dateinamen ändern">
                         <i class="fa-solid fa-pen"></i>
                       </button>
-                      <button class="btn" onclick={() => onEditTags(f)}
+                      <button class="btn" onclick={(e) => openTagEditor(e, f)}
                               title="Tags dieser Datei bearbeiten">
                         <i class="fa-solid fa-tag"></i>
                       </button>
@@ -955,7 +936,7 @@
                                 title="Umbenennen">
                           <i class="fa-solid fa-pen"></i>
                         </button>
-                        <button class="btn btn-sm" onclick={() => onEditTags(f)}
+                        <button class="btn btn-sm" onclick={(e) => openTagEditor(e, f)}
                                 title="Tags bearbeiten">
                           <i class="fa-solid fa-tag"></i>
                         </button>
@@ -1009,7 +990,7 @@
                     <button class="btn btn-sm" onclick={() => onRename(f)} title="Umbenennen">
                       <i class="fa-solid fa-pen"></i>
                     </button>
-                    <button class="btn btn-sm" onclick={() => onEditTags(f)} title="Tags bearbeiten">
+                    <button class="btn btn-sm" onclick={(e) => openTagEditor(e, f)} title="Tags bearbeiten">
                       <i class="fa-solid fa-tag"></i>
                     </button>
                     <button class="btn btn-sm" onclick={() => onMoveTo(f)} title="Verschieben">
@@ -1028,6 +1009,20 @@
     {/if}
   </div>
 </section>
+
+{#if tagEditorFor}
+  {@const current = files.find((f) => f.id === tagEditorFor)}
+  {#if current}
+    <TagEditorPopover
+      fileId={current.id}
+      initialTags={current.tags || []}
+      suggestions={availableTags}
+      anchor={tagEditorAnchor}
+      onClose={closeTagEditor}
+      onChange={onTagsChanged}
+    />
+  {/if}
+{/if}
 
 <style>
   .panel { display: flex; flex-direction: column; height: 100%; }
