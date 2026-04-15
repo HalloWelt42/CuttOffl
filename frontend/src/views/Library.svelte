@@ -106,6 +106,26 @@
   // Reagiere auf Wechsel des aktuellen Ordners
   $effect(() => { library.currentFolder; clearSelection(); refresh(); });
 
+  // Wenn ein Filter ins Leere läuft (z. B. Tag-Filter auf einen Wert,
+  // den nach Löschen keine Datei mehr trägt), setzen wir ihn automatisch
+  // zurück -- sonst wundert sich der User, warum "1 Datei" oben steht
+  // und die Liste trotzdem leer ist.
+  $effect(() => {
+    if (library.filterTag && !availableTags.includes(library.filterTag)) {
+      const lost = library.filterTag;
+      setFilter('tag', '');
+      toast.info(`Tag-Filter "${lost}" aufgehoben -- keine Datei trägt diesen Tag mehr`);
+    }
+  });
+  $effect(() => {
+    if (library.filterFormat !== 'all'
+        && !availableCodecs.includes(library.filterFormat)) {
+      const lost = library.filterFormat;
+      setFilter('format', 'all');
+      toast.info(`Codec-Filter "${lost}" aufgehoben -- keine Datei mehr mit diesem Codec`);
+    }
+  });
+
   async function onUpload(ev) {
     const list = ev.target.files;
     if (!list || list.length === 0) return;
