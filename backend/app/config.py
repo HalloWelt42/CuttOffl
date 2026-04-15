@@ -9,7 +9,7 @@ from pathlib import Path
 
 
 APP_NAME = "CuttOffl"
-VERSION = "0.11.2"
+VERSION = "0.12.0"
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 DATA_DIR = Path(os.getenv("CUTTOFFL_DATA_DIR", str(BASE_DIR.parent / "data"))).resolve()
@@ -45,6 +45,7 @@ PROXIES_DIR = DATA_DIR / "proxies"
 THUMBS_DIR = DATA_DIR / "thumbs"
 SPRITES_DIR = DATA_DIR / "sprites"
 WAVEFORMS_DIR = DATA_DIR / "waveforms"
+TRANSCRIPTS_DIR = DATA_DIR / "transcripts"
 TMP_DIR = DATA_DIR / "tmp"
 DB_DIR = DATA_DIR / "db"
 DB_PATH = DB_DIR / "cuttoffl.db"
@@ -85,5 +86,5 @@ ALLOWED_EXTENSIONS = {
 
 def ensure_directories() -> None:
     for d in (ORIGINALS_DIR, PROXIES_DIR, EXPORTS_DIR, THUMBS_DIR,
-              SPRITES_DIR, WAVEFORMS_DIR, TMP_DIR, DB_DIR):
+              SPRITES_DIR, WAVEFORMS_DIR, TRANSCRIPTS_DIR, TMP_DIR, DB_DIR):
         d.mkdir(parents=True, exist_ok=True)

@@ -51,6 +51,9 @@ SCHEMA: tuple[str, ...] = (
         folder_path     TEXT NOT NULL DEFAULT '',
         tags_json       TEXT NOT NULL DEFAULT '[]',
         sha256          TEXT,
+        transcript_path  TEXT,
+        transcript_lang  TEXT,
+        transcript_model TEXT,
         probe_json      TEXT,
         created_at      TEXT NOT NULL DEFAULT (datetime('now')),
         updated_at      TEXT NOT NULL DEFAULT (datetime('now'))
@@ -77,6 +80,12 @@ SCHEMA: tuple[str, ...] = (
     # SHA-256 der Originaldatei (Hex, 64 Zeichen). Fuer Duplikat-Erkennung.
     "ALTER TABLE files ADD COLUMN sha256 TEXT",
     "CREATE INDEX IF NOT EXISTS idx_files_sha256 ON files(sha256)",
+    # Transkription: Pfad zur SRT-Datei, erkannte Sprache, verwendetes
+    # Modell. Wenn transcript_path NULL oder Datei fehlt, gilt das Video
+    # als "ohne Transkript".
+    "ALTER TABLE files ADD COLUMN transcript_path TEXT",
+    "ALTER TABLE files ADD COLUMN transcript_lang TEXT",
+    "ALTER TABLE files ADD COLUMN transcript_model TEXT",
     """
     CREATE TABLE IF NOT EXISTS projects (
         id              TEXT PRIMARY KEY,

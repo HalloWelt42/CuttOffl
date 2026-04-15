@@ -29,7 +29,7 @@ from app.config import (
 from app.db import db
 from app.routers import (
     exports, files, folders, jobs, probe, projects, proxy, sprite,
-    system, thumbnail, upload, ws,
+    system, thumbnail, transcription, upload, ws,
 )
 from app.services.hwaccel_service import detect_hw_encoder
 from app.services.job_service import job_service
@@ -110,6 +110,7 @@ app.include_router(thumbnail.router)
 app.include_router(sprite.router)
 app.include_router(projects.router)
 app.include_router(exports.router)
+app.include_router(transcription.router)
 app.include_router(jobs.router)
 app.include_router(ws.router)
 
