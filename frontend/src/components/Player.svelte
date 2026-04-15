@@ -101,6 +101,15 @@
 </script>
 
 {#if editor.file}
+  {@const subSeg = editor.subtitlesOn && editor.transcript?.has_transcript
+    ? (() => {
+        const t = editor.playhead;
+        for (const s of editor.transcript.segments || []) {
+          if (t >= (s.start ?? 0) && t < (s.end ?? 0)) return s;
+        }
+        return null;
+      })()
+    : null}
   <div class="player" class:is-fullscreen={isFullscreen} bind:this={playerEl}>
     <div class="vid-wrap">
       {#key editor.fileId}
@@ -114,6 +123,9 @@
           onclick={togglePlay}
         ></video>
       {/key}
+      {#if subSeg}
+        <div class="subtitle" aria-live="polite">{subSeg.text}</div>
+      {/if}
     </div>
     <div class="controls mono">
       <button class="btn" onclick={() => nudge(-10)}
@@ -140,6 +152,17 @@
       <span class="sep">/</span>
       <span class="t dim">{fmt(editor.duration)}</span>
       <span class="spacer"></span>
+      {#if editor.transcript?.has_transcript}
+        <button class="btn" class:active={editor.subtitlesOn}
+                onclick={() => { editor.subtitlesOn = !editor.subtitlesOn;
+                                  try { localStorage.setItem('editor.subtitlesOn',
+                                    JSON.stringify(editor.subtitlesOn)); } catch {} }}
+                title={editor.subtitlesOn
+                  ? 'Untertitel im Video ausblenden'
+                  : 'Untertitel im Video einblenden'}>
+          <i class="fa-solid fa-closed-captioning"></i>
+        </button>
+      {/if}
       <button class="btn" onclick={toggleFullscreen}
               title={isFullscreen
                 ? 'Vollbild verlassen (Esc)'
@@ -189,6 +212,7 @@
   }
   .spacer { flex: 1; }
   .vid-wrap {
+    position: relative;
     flex: 1;
     display: grid; place-items: center;
     background: #000;
@@ -200,6 +224,41 @@
     max-height: 100%;
     display: block;
     cursor: pointer;
+  }
+
+  /* Untertitel-Overlay am unteren Bildrand. Ueberlappt das Video, bleibt
+     zentriert, mit ein bisschen Schwarzschatten fuer Lesbarkeit egal
+     welcher Hintergrund. */
+  .subtitle {
+    position: absolute;
+    left: 50%;
+    bottom: 4%;
+    transform: translateX(-50%);
+    max-width: 90%;
+    padding: 6px 14px;
+    background: rgba(0, 0, 0, 0.65);
+    color: #fff;
+    font-size: 18px;
+    font-weight: 600;
+    line-height: 1.35;
+    border-radius: 4px;
+    text-align: center;
+    text-shadow: 0 1px 3px rgba(0,0,0,0.9);
+    pointer-events: none;
+    white-space: pre-wrap;
+  }
+  .player.is-fullscreen .subtitle,
+  .player:fullscreen .subtitle {
+    font-size: 28px;
+    padding: 10px 24px;
+    bottom: 6%;
+  }
+
+  /* Aktiver Toggle fuer den CC-Button */
+  .controls .btn.active {
+    color: var(--accent);
+    border-color: var(--accent);
+    background: var(--accent-soft);
   }
   .controls {
     display: flex;

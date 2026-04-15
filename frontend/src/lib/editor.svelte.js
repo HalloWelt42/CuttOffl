@@ -49,6 +49,12 @@ export const editor = $state({
   waveform: null,          // { samples_per_second, count, peaks: [0..1] }
   // Timeline-Ansicht
   followOn: persisted('editor.followOn', true),
+  // Transkript -- Segmente aus SRT, aktiver Tab, Untertitel-Overlay
+  transcript: null,          // { segments, language, model, has_transcript }
+  transcribing: false,
+  transcribePct: 0,
+  rightTab: persisted('editor.rightTab', 'exports'),   // 'exports' | 'transcript'
+  subtitlesOn: persisted('editor.subtitlesOn', true),
 });
 
 let saveTimer = null;
@@ -133,6 +139,7 @@ export async function loadFile(fileId) {
     // Sprite + Waveform optional laden (gibt's nur nach Proxy-Fertigstellung)
     if (file.has_sprite) void loadSprite(fileId);
     if (file.has_waveform) void loadWaveform(fileId);
+    void loadTranscript(fileId);
   } catch (e) {
     toast.error(`Projekt laden: ${e.message}`);
   }
@@ -187,6 +194,7 @@ export async function loadProject(projectId) {
 
     if (file.has_sprite) void loadSprite(fileId);
     if (file.has_waveform) void loadWaveform(fileId);
+    void loadTranscript(fileId);
   } catch (e) {
     toast.error(`Projekt laden: ${e.message}`);
   }
@@ -464,4 +472,80 @@ export function handleJobEvent(msg) {
       toast.error(`Render: ${msg.job.error || 'fehlgeschlagen'}`);
     }
   }
+}
+
+
+// --- Transkription ---------------------------------------------------------
+
+export async function loadTranscript(fileId) {
+  if (!fileId) return;
+  try {
+    const t = await api.getTranscript(fileId);
+    editor.transcript = t;
+  } catch {
+    // Still: wenn das Backend nichts hat, ist das kein Fehler
+    editor.transcript = { has_transcript: false, segments: [], language: null, model: null };
+  }
+}
+
+export async function startTranscribe(fileId, opts = {}) {
+  if (!fileId) return;
+  editor.transcribing = true;
+  editor.transcribePct = 0;
+  try {
+    await api.startTranscription(fileId, opts);
+    toast.info('Transkription gestartet');
+  } catch (e) {
+    editor.transcribing = false;
+    // Spezialfall 409: Server meldet "nicht verfuegbar" -- wir geben die
+    // Meldung weiter, aber crashen nicht.
+    toast.error(`Transkription: ${e.message}`);
+  }
+}
+
+export function setRightTab(tab) {
+  if (tab !== 'exports' && tab !== 'transcript') return;
+  editor.rightTab = tab;
+  persistLocal('editor.rightTab', tab);
+}
+
+export function toggleSubtitles() {
+  editor.subtitlesOn = !editor.subtitlesOn;
+  persistLocal('editor.subtitlesOn', editor.subtitlesOn);
+}
+
+// Reagiere auf Job-Events vom WebSocket (vom Editor aus aufrufen)
+export function handleTranscribeEvent(msg) {
+  if (!editor.fileId) return;
+  if (msg.type === 'job_progress' && msg.kind === 'transcribe'
+      && msg.file_id === editor.fileId) {
+    editor.transcribePct = msg.progress || 0;
+    editor.transcribing = true;
+  }
+  if (msg.type === 'job_event' && msg.job?.kind === 'transcribe'
+      && msg.job.file_id === editor.fileId) {
+    if (msg.event === 'completed') {
+      editor.transcribing = false;
+      editor.transcribePct = 1;
+      void loadTranscript(editor.fileId);
+      toast.success('Transkription fertig');
+    } else if (msg.event === 'failed') {
+      editor.transcribing = false;
+      toast.error(`Transkription: ${msg.job.error || 'fehlgeschlagen'}`);
+    }
+  }
+  if (msg.type === 'file_event' && msg.event === 'transcript_ready'
+      && msg.file_id === editor.fileId) {
+    void loadTranscript(editor.fileId);
+  }
+}
+
+/** Segment anhand der aktuellen Abspielzeit finden (fuer Subtitle-Overlay
+ *  und Highlighting im Panel). Liefert null, wenn keines passt. */
+export function activeSegmentAt(t, segments) {
+  if (!Array.isArray(segments) || segments.length === 0) return null;
+  for (const s of segments) {
+    if (t >= (s.start ?? 0) && t < (s.end ?? 0)) return s;
+  }
+  return null;
 }

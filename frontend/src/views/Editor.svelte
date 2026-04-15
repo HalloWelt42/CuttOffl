@@ -12,8 +12,9 @@
     deleteSelected, undo, redo, setSnap, setFollow, handleJobEvent, toggleClipMode,
     saveNow, jumpToPrevKeyframe, jumpToNextKeyframe,
     startRangePreview, startClipPreview, startTimelinePreview, stopPreview,
-    startRender,
+    startRender, setRightTab, toggleSubtitles, handleTranscribeEvent, activeSegmentAt,
   } from '../lib/editor.svelte.js';
+  import TranscriptPanel from '../components/TranscriptPanel.svelte';
   import { api } from '../lib/api.js';
   import { wsOn, wsStart } from '../lib/ws.svelte.js';
   import { toast } from '../lib/toast.svelte.js';
@@ -54,6 +55,7 @@
     onMountHook();
     const off = wsOn((msg) => {
       handleJobEvent(msg);
+      handleTranscribeEvent(msg);
       if (msg.type === 'job_event' && msg.job?.kind === 'render'
           && (msg.event === 'completed' || msg.event === 'failed')) {
         refreshExports();
@@ -227,6 +229,20 @@
         <i class="fa-solid fa-pen-to-square"></i>
         <span class="sm-hide">Datei</span>
       </button>
+      <button class="btn" onclick={() => { setRightTab('transcript');
+                                             if (!editor.transcript?.has_transcript
+                                                 && !editor.transcribing) {
+                                               // Panel zeigt Start-Button;
+                                               // hier nur umschalten, kein Auto-Start
+                                             } }}
+              class:active={editor.rightTab === 'transcript'}
+              title="Transkript-Panel öffnen (Tab rechts)">
+        <i class="fa-solid fa-closed-captioning"></i>
+        <span class="sm-hide">
+          {editor.transcript?.has_transcript ? 'Transkript' :
+           editor.transcribing ? 'Läuft ...' : 'Transkribieren'}
+        </span>
+      </button>
       <button class="btn" onclick={() => { saveNow(); go('library'); }}
               title="Den aktuellen Schnitt speichern und zurück zur Bibliothek">
         <i class="fa-solid fa-arrow-left"></i> Bibliothek
@@ -255,9 +271,35 @@
           <Player bind:this={playerRef} />
         </div>
 
-        {#if exports.length}
+        {#if exports.length || editor.transcript !== null}
           <Resizer bind:value={exportsWidth} min={240} max={720} side="right" />
           <aside class="exports-aside" style:width="{exportsWidth}px">
+            <!-- Tab-Leiste: Exports vs. Transkript. Tab-Buttons sind
+                 akzent-eingefärbt, sobald sie aktiv sind -- analog zu den
+                 Info-Panel-Einträgen in der Sidebar. -->
+            <div class="tabs">
+              <button class="tab" class:active={editor.rightTab === 'exports'}
+                      onclick={() => setRightTab('exports')}
+                      title="Fertige Videos zu diesem Projekt">
+                <i class="fa-solid fa-box-archive"></i>
+                Fertige <span class="mono dim">({exports.length})</span>
+              </button>
+              <button class="tab" class:active={editor.rightTab === 'transcript'}
+                      onclick={() => setRightTab('transcript')}
+                      title="Transkript + Untertitel">
+                <i class="fa-solid fa-closed-captioning"></i>
+                Transkript
+                {#if editor.transcribing}
+                  <span class="dot running"></span>
+                {:else if editor.transcript?.has_transcript}
+                  <span class="dot ok"></span>
+                {/if}
+              </button>
+            </div>
+
+            {#if editor.rightTab === 'transcript'}
+              <TranscriptPanel />
+            {:else}
             <div class="exports-head">
               <i class="fa-solid fa-box-archive"></i>
               Fertige Videos <span class="mono dim">({exports.length})</span>
@@ -285,6 +327,7 @@
                 </li>
               {/each}
             </ul>
+            {/if}
           </aside>
         {/if}
       </div>
@@ -467,6 +510,40 @@
     min-width: 0;
     display: flex;
   }
+  /* Tab-Leiste im rechten Panel */
+  .tabs {
+    display: flex;
+    gap: 2px;
+    padding: 6px 6px 0;
+    background: var(--bg-panel);
+    border-bottom: 1px solid var(--border);
+  }
+  .tab {
+    display: inline-flex; align-items: center; gap: 6px;
+    padding: 8px 12px;
+    border: none;
+    background: transparent;
+    color: var(--fg-muted);
+    font: inherit;
+    font-size: 12px;
+    cursor: pointer;
+    border-radius: 6px 6px 0 0;
+    border-bottom: 2px solid transparent;
+  }
+  .tab:hover { color: var(--fg-primary); background: var(--bg-elev); }
+  .tab.active {
+    color: var(--accent);
+    background: var(--bg-elev);
+    border-bottom-color: var(--accent);
+  }
+  .tab .dot {
+    width: 8px; height: 8px; border-radius: 50%;
+    margin-left: 2px;
+  }
+  .tab .dot.ok      { background: var(--success); }
+  .tab .dot.running { background: var(--accent); animation: pulse 1.4s infinite; }
+  @keyframes pulse { 0%,100% { opacity: 1; } 50% { opacity: 0.4; } }
+
   .exports-aside {
     flex: 0 0 auto;
     min-height: 0;
