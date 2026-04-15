@@ -63,6 +63,38 @@
   );
 
   // Sortieroptionen für das Dropdown (Label passt zur Ansicht)
+  // Aktive Filter als strukturierte Liste fuer die Chip-Anzeige.
+  // So sieht der User auf einen Blick welche Filter greifen und kann
+  // sie einzeln per X entfernen.
+  const activeFilters = $derived.by(() => {
+    const out = [];
+    if (library.search && library.search.trim()) {
+      out.push({ key: 'search', label: `Suche: "${library.search.trim()}"`,
+                 clear: () => setSearch('') });
+    }
+    if (library.filterStatus !== 'all') {
+      const lbl = STATUS_OPTIONS.find((o) => o.v === library.filterStatus)?.label
+                  || library.filterStatus;
+      out.push({ key: 'status', label: `Status: ${lbl}`,
+                 clear: () => setFilter('status', 'all') });
+    }
+    if (library.filterFormat !== 'all') {
+      out.push({ key: 'format', label: `Codec: ${library.filterFormat}`,
+                 clear: () => setFilter('format', 'all') });
+    }
+    if (library.filterRes !== 'all') {
+      const lbl = RES_OPTIONS.find((o) => o.v === library.filterRes)?.label
+                  || library.filterRes;
+      out.push({ key: 'res', label: `Auflösung: ${lbl}`,
+                 clear: () => setFilter('res', 'all') });
+    }
+    if (library.filterTag) {
+      out.push({ key: 'tag', label: `Tag: ${library.filterTag}`,
+                 clear: () => setFilter('tag', '') });
+    }
+    return out;
+  });
+
   const SORT_OPTIONS = [
     { k: 'date',     label: 'Datum'  },
     { k: 'name',     label: 'Name'   },
@@ -660,6 +692,24 @@
       {/if}
     </div>
   </div>
+
+  {#if activeFilters.length > 0}
+    <!-- Chip-Leiste mit den aktuell aktiven Filtern. Ein Klick auf das
+         × entfernt den jeweiligen Filter gezielt. -->
+    <div class="active-filters" role="status" aria-live="polite">
+      <i class="fa-solid fa-filter"></i>
+      <span class="af-label">Aktive Filter:</span>
+      {#each activeFilters as af (af.key)}
+        <span class="af-chip">
+          {af.label}
+          <button class="af-x" onclick={af.clear}
+                  title="Diesen Filter entfernen">
+            <i class="fa-solid fa-xmark"></i>
+          </button>
+        </span>
+      {/each}
+    </div>
+  {/if}
 
   {#if selectedCount > 0}
     <div class="bulk-bar" role="toolbar" aria-label="Mehrfachauswahl">
@@ -1277,6 +1327,50 @@
   .search-clear:hover { color: var(--fg-primary); background: var(--bg-panel); }
 
   .filter-group { flex-wrap: wrap; }
+
+  /* Aktive-Filter-Leiste -- zeigt alle derzeit wirksamen Filter als
+     Chips. Jeder Chip hat ein x zum gezielten Entfernen. */
+  .active-filters {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    align-items: center;
+    padding: 8px 16px;
+    background: var(--accent-soft);
+    border-bottom: 1px solid color-mix(in oklab, var(--accent) 40%, var(--border));
+    font-size: 13px;
+  }
+  .active-filters > i { color: var(--accent); }
+  .af-label {
+    color: var(--fg-muted);
+    font-weight: 500;
+    margin-right: 2px;
+  }
+  .af-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 3px 4px 3px 10px;
+    background: var(--bg-panel);
+    border: 1px solid var(--accent);
+    color: var(--fg-primary);
+    border-radius: 14px;
+    font-size: 12px;
+    font-weight: 500;
+  }
+  .af-x {
+    background: transparent;
+    border: none;
+    color: var(--fg-muted);
+    cursor: pointer;
+    width: 20px;
+    height: 20px;
+    border-radius: 50%;
+    display: grid;
+    place-items: center;
+    font-size: 11px;
+  }
+  .af-x:hover { color: var(--accent); background: var(--accent-soft); }
 
   /* Sektion-Kopf mit Filterinfo */
   .sec-head {
