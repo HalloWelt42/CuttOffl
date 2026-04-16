@@ -19,6 +19,9 @@ import { persisted, persist } from './persist.svelte.js';
 import { library } from './library.svelte.js';
 
 export const VIEWS = ['dashboard', 'library', 'editor', 'exports', 'settings'];
+// Erlaubte Tabs pro View (nur Settings hat welche). Die Reihenfolge hier
+// bestimmt auch die Defaults.
+export const SETTINGS_TABS = ['pfade', 'transkription', 'system'];
 
 // --- URL <-> Route -------------------------------------------------------
 
@@ -66,6 +69,14 @@ export function parsePath(pathname) {
     }
     return { view: 'editor', folder: '', fileId: null, projectId: null };
   }
+  if (head === 'settings') {
+    // /settings/<tab> -- unbekannter Tab faellt auf Default zurueck
+    const tab = SETTINGS_TABS.includes(rest[0]) ? rest[0] : null;
+    return {
+      view: 'settings', folder: '', fileId: null, projectId: null,
+      settingsTab: tab,
+    };
+  }
   return { view: head, folder: '', fileId: null, projectId: null };
 }
 
@@ -83,6 +94,10 @@ export function routeToPath(route) {
     if (route.projectId) return `/editor/project/${encodeURIComponent(route.projectId)}`;
     return '/editor';
   }
+  if (v === 'settings' && route.settingsTab
+      && SETTINGS_TABS.includes(route.settingsTab)) {
+    return `/settings/${route.settingsTab}`;
+  }
   return `/${v}`;
 }
 
@@ -98,6 +113,8 @@ export const nav = $state({
   // Die eigentliche Wahrheit fuer den aktuellen Ordner steht im
   // library-Store; dieser sync ueber ein effect in Library.svelte.
   initialFolder: initialRoute.folder,
+  // Settings-Unterseite aus der URL (null = Default)
+  settingsTab: initialRoute.settingsTab ?? null,
 });
 
 // Persistiere beim ersten Aufruf die Default-View (fuer Fallbacks).
@@ -159,6 +176,18 @@ export function syncLibraryFolderUrl(folderPath) {
   }
 }
 
+/** Wechselt den Settings-Tab (URL + State) -- wird von der Tab-Leiste
+ *  im Settings-View aufgerufen. Unbekannter Tab wird ignoriert. */
+export function setSettingsTab(tab) {
+  if (!SETTINGS_TABS.includes(tab)) return;
+  nav.settingsTab = tab;
+  if (nav.view !== 'settings') return;
+  const path = routeToPath({ view: 'settings', settingsTab: tab });
+  if (location.pathname !== path) {
+    history.pushState({}, '', path + location.search);
+  }
+}
+
 export function openInEditor(fileId) {
   nav.activeFileId = fileId;
   nav.activeProjectId = null;
@@ -178,6 +207,7 @@ window.addEventListener('popstate', () => {
   nav.activeFileId = r.fileId;
   nav.activeProjectId = r.projectId;
   nav.initialFolder = r.folder;
+  nav.settingsTab = r.settingsTab ?? null;
   persist('app.view', r.view);
   // Library-Ordner direkt setzen (ohne setCurrentFolder, sonst
   // wuerde der die URL wieder schreiben und popstate-Kette erzeugen)

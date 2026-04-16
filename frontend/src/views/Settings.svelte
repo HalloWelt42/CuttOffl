@@ -3,6 +3,41 @@
   import PanelHeader from '../components/PanelHeader.svelte';
   import { api } from '../lib/api.js';
   import { toast } from '../lib/toast.svelte.js';
+  import { nav, setSettingsTab, SETTINGS_TABS } from '../lib/nav.svelte.js';
+  import { persisted, persist } from '../lib/persist.svelte.js';
+
+  // Aktiver Tab -- Quelle: URL (nav.settingsTab), sonst persistierter
+  // Zuletzt-Tab, sonst Default.
+  const DEFAULT_TAB = 'pfade';
+  let activeTab = $state(
+    nav.settingsTab || persisted('settings.tab', DEFAULT_TAB) || DEFAULT_TAB,
+  );
+
+  // Beim ersten Mount: URL-Tab ggf. ergaenzen, damit Deeplink bestehen
+  // bleibt (z. B. /settings ohne Tab bekommt ?tab=pfade).
+  onMount(() => {
+    if (!nav.settingsTab) setSettingsTab(activeTab);
+  });
+
+  // Auf URL-Aenderungen reagieren (Back/Forward)
+  $effect(() => {
+    if (nav.settingsTab && nav.settingsTab !== activeTab) {
+      activeTab = nav.settingsTab;
+    }
+  });
+
+  function pickTab(t) {
+    if (!SETTINGS_TABS.includes(t)) return;
+    activeTab = t;
+    persist('settings.tab', t);
+    setSettingsTab(t);
+  }
+
+  const TABS = [
+    { id: 'pfade',         label: 'Arbeits-Verzeichnisse', icon: 'fa-folder-tree' },
+    { id: 'transkription', label: 'Transkription',         icon: 'fa-closed-captioning' },
+    { id: 'system',        label: 'System-Info',           icon: 'fa-circle-info' },
+  ];
 
   let ping = $state(null);
   let counts = $state({ files: 0, projects: 0, exports: 0 });
@@ -90,9 +125,24 @@
 </script>
 
 <section class="wrap view-readable">
-  <PanelHeader icon="fa-gear" title="Einstellungen" subtitle="System & Pfade" />
+  <PanelHeader icon="fa-gear" title="Einstellungen"
+               subtitle={TABS.find((t) => t.id === activeTab)?.label ?? ''} />
+
+  <!-- Tab-Leiste direkt unter dem Header. Deeplinks: /settings/<tab> -->
+  <div class="tabs" role="tablist" aria-label="Einstellungs-Bereiche">
+    {#each TABS as t (t.id)}
+      <button class="tab" role="tab" aria-selected={activeTab === t.id}
+              class:active={activeTab === t.id}
+              onclick={() => pickTab(t.id)}
+              title="Zum Bereich {t.label} wechseln">
+        <i class="fa-solid {t.icon}"></i>
+        <span>{t.label}</span>
+      </button>
+    {/each}
+  </div>
 
   <div class="body">
+    {#if activeTab === 'pfade'}
     <div class="card block">
       <h3><i class="fa-solid fa-folder-tree"></i> Arbeits-Verzeichnisse</h3>
       <p class="hint">
@@ -148,6 +198,7 @@
       </div>
     </div>
 
+    {:else if activeTab === 'system'}
     <div class="card block">
       <h3><i class="fa-solid fa-circle-info"></i> System</h3>
       <!-- Zwei Spalten fuer die kurzen Info-Paare; bricht auf schmalen
@@ -163,6 +214,7 @@
       </dl>
     </div>
 
+    {:else if activeTab === 'transkription'}
     <div class="card block">
       <h3><i class="fa-solid fa-closed-captioning"></i> Transkription (KI-Untertitel)</h3>
       <p class="hint">
@@ -284,7 +336,9 @@ pip install -r requirements-transcription.txt
         </button>
       </div>
     </div>
+    {/if}
 
+    <!-- Tab-unabhaengiger Hinweis -- bleibt immer am unteren Rand -->
     <p class="hint-to-panel">
       <i class="fa-solid fa-circle-info"></i>
       Tastaturkürzel und kontextbezogene Hinweise findest du jetzt im
@@ -296,6 +350,40 @@ pip install -r requirements-transcription.txt
 
 <style>
   .wrap { display: flex; flex-direction: column; height: 100%; }
+
+  /* Tab-Leiste direkt unter dem Panel-Header. Layout wie die Info-/
+     Exports-Tabs im Editor: Aktiver Tab akzent-eingefärbt mit unterer
+     Linie. */
+  .tabs {
+    display: flex;
+    gap: 2px;
+    padding: 6px 20px 0;
+    background: var(--bg-panel);
+    border-bottom: 1px solid var(--border);
+    flex-wrap: wrap;
+  }
+  .tab {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 10px 14px;
+    border: none;
+    background: transparent;
+    color: var(--fg-muted);
+    font: inherit;
+    font-size: 13px;
+    cursor: pointer;
+    border-radius: 6px 6px 0 0;
+    border-bottom: 2px solid transparent;
+  }
+  .tab:hover { color: var(--fg-primary); background: var(--bg-elev); }
+  .tab.active {
+    color: var(--accent);
+    background: var(--bg-elev);
+    border-bottom-color: var(--accent);
+  }
+  .tab i { font-size: 13px; }
+
   .body {
     padding: 24px; display: flex; flex-direction: column; gap: 18px;
     max-width: 900px;
