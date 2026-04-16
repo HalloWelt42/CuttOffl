@@ -10,7 +10,7 @@
 </script>
 
 <FloatingPanel
-  state={aboutPanel}
+  geometry={aboutPanel}
   title="Über CuttOffl"
   icon="fa-circle-info"
   onClose={closeAbout}

@@ -1,5 +1,5 @@
 <script>
-  // Generisches verschiebbares Info-Fenster. Wird via `state` an einen
+  // Generisches verschiebbares Info-Fenster. Wird via `geometry` an einen
   // $state-Store gebunden (x, y, width, height, open). Bei mousedown auf
   // der Titelleiste laesst sich das Fenster ziehen, per SE-Griff kann es
   // in der Groesse veraendert werden. Geometrie wird ueber die mitgegebene
@@ -11,7 +11,7 @@
   import { onMount } from 'svelte';
 
   let {
-    state,
+    geometry,
     title = 'Information',
     icon = 'fa-circle-info',
     onClose = () => {},
@@ -29,10 +29,10 @@
 
   function clampInViewport() {
     const pad = 8;
-    const maxX = Math.max(pad, window.innerWidth  - state.width  - pad);
-    const maxY = Math.max(pad, window.innerHeight - state.height - pad);
-    state.x = Math.max(pad, Math.min(state.x, maxX));
-    state.y = Math.max(pad, Math.min(state.y, maxY));
+    const maxX = Math.max(pad, window.innerWidth  - geometry.width  - pad);
+    const maxY = Math.max(pad, window.innerHeight - geometry.height - pad);
+    geometry.x = Math.max(pad, Math.min(geometry.x, maxX));
+    geometry.y = Math.max(pad, Math.min(geometry.y, maxY));
   }
 
   function onHeaderDown(e) {
@@ -40,15 +40,15 @@
     if (e.button !== 0) return;
     if (e.target.closest('button, input, a, select, textarea')) return;
     dragging = true;
-    dragStart = { mx: e.clientX, my: e.clientY, x: state.x, y: state.y };
+    dragStart = { mx: e.clientX, my: e.clientY, x: geometry.x, y: geometry.y };
     window.addEventListener('mousemove', onDragMove);
     window.addEventListener('mouseup', onDragEnd);
     e.preventDefault();
   }
   function onDragMove(e) {
     if (!dragging) return;
-    state.x = dragStart.x + (e.clientX - dragStart.mx);
-    state.y = dragStart.y + (e.clientY - dragStart.my);
+    geometry.x = dragStart.x + (e.clientX - dragStart.mx);
+    geometry.y = dragStart.y + (e.clientY - dragStart.my);
     clampInViewport();
   }
   function onDragEnd() {
@@ -62,7 +62,7 @@
   function onResizeDown(e) {
     if (e.button !== 0) return;
     resizing = true;
-    resizeStart = { mx: e.clientX, my: e.clientY, w: state.width, h: state.height };
+    resizeStart = { mx: e.clientX, my: e.clientY, w: geometry.width, h: geometry.height };
     window.addEventListener('mousemove', onResizeMove);
     window.addEventListener('mouseup', onResizeEnd);
     e.preventDefault();
@@ -70,8 +70,8 @@
   }
   function onResizeMove(e) {
     if (!resizing) return;
-    state.width  = Math.max(MIN_W, resizeStart.w + (e.clientX - resizeStart.mx));
-    state.height = Math.max(MIN_H, resizeStart.h + (e.clientY - resizeStart.my));
+    geometry.width  = Math.max(MIN_W, resizeStart.w + (e.clientX - resizeStart.mx));
+    geometry.height = Math.max(MIN_H, resizeStart.h + (e.clientY - resizeStart.my));
     clampInViewport();
   }
   function onResizeEnd() {
@@ -82,10 +82,10 @@
     onPersist();
   }
 
-  function onWinResize() { if (state.open) clampInViewport(); }
+  function onWinResize() { if (geometry.open) clampInViewport(); }
 
   function onKey(e) {
-    if (!state.open) return;
+    if (!geometry.open) return;
     if (e.key === 'Escape') { e.preventDefault(); onClose(); }
   }
 
@@ -100,13 +100,13 @@
   });
 </script>
 
-{#if state.open}
+{#if geometry.open}
   <div class="fp"
        role="dialog" aria-modal="false" aria-label={title}
-       style:left="{state.x}px"
-       style:top="{state.y}px"
-       style:width="{state.width}px"
-       style:height="{state.height}px">
+       style:left="{geometry.x}px"
+       style:top="{geometry.y}px"
+       style:width="{geometry.width}px"
+       style:height="{geometry.height}px">
     <header class="fp-head" onmousedown={onHeaderDown}
             class:is-dragging={dragging}
             title="Titelleiste greifen und ziehen, um das Fenster zu verschieben">

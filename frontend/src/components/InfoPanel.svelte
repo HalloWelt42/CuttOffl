@@ -38,7 +38,7 @@
 </script>
 
 <FloatingPanel
-  state={infoPanel}
+  geometry={infoPanel}
   title={currentTitle}
   icon="fa-circle-info"
   onClose={closeInfo}
