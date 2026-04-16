@@ -185,6 +185,12 @@ export const api = {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ extra_roots }),
     }),
+  setTranscriptionPreference: (engine, model) =>
+    request('/transcription/preference', {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ engine, model }),
+    }),
   startTranscription: (fileId, body = {}) =>
     request(`/transcript/${fileId}/generate`, {
       method: 'POST',

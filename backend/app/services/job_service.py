@@ -333,8 +333,9 @@ class JobService:
 
         caps = transcribe_service.capabilities(scan=True)
         payload = job.payload or {}
-        engine = payload.get("engine") or caps.suggested_engine
-        model = payload.get("model") or caps.suggested_model
+        # Prioritaet: explizit im Payload > persistierte Nutzer-Wahl > Vorschlag
+        engine = payload.get("engine") or caps.active_engine or caps.suggested_engine
+        model = payload.get("model") or caps.active_model or caps.suggested_model
         if not engine or not caps.available:
             raise RuntimeError(
                 "Transkription nicht verfügbar. Bitte in den Einstellungen "

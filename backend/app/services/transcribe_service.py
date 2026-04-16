@@ -275,13 +275,33 @@ def scan_models(extra_roots: Optional[list[str]] = None) -> list[ModelLocation]:
 # Capabilities-Zusammenfassung
 # --------------------------------------------------------------------------
 
-def capabilities(scan: bool = True) -> Capabilities:
+@dataclass
+class CapabilitiesFull(Capabilities):
+    # Die Nutzer-Auswahl aus user_config.json (falls vorhanden und noch
+    # zu den verfuegbaren Modellen passt). Hat Vorrang vor suggested_*.
+    active_engine: Optional[str] = None
+    active_model: Optional[str] = None
+
+
+def _read_preference() -> tuple[Optional[str], Optional[str]]:
+    """Liest die persistierte Nutzer-Praeferenz aus user_config.json.
+    Beide Werte sind optional -- wenn eins fehlt, greift suggested_*."""
+    try:
+        from app.services.user_config import load as _load
+        data = _load() or {}
+        tx = data.get("transcription") or {}
+        return tx.get("engine") or None, tx.get("model") or None
+    except Exception:
+        return None, None
+
+
+def capabilities(scan: bool = True) -> CapabilitiesFull:
     """Fasst Engine-Verfuegbarkeit und gefundene Modelle zu einer Antwort
     fuer das Frontend zusammen."""
     engines = detect_engines()
     any_installed = any(e.installed for e in engines)
 
-    caps = Capabilities(available=False, engines=engines)
+    caps = CapabilitiesFull(available=False, engines=engines)
 
     if not any_installed:
         caps.notes.append(
@@ -315,14 +335,56 @@ def capabilities(scan: bool = True) -> Capabilities:
         else:
             caps.suggested_model = DEFAULT_MODEL
 
-    caps.available = bool(caps.suggested_engine and caps.models_found)
-    if caps.suggested_engine and not caps.models_found:
+    # Nutzer-Praeferenz anwenden, wenn sie noch zur Realitaet passt:
+    # Die Engine muss installiert sein UND das Modell muss entweder
+    # lokal gefunden sein oder es gibt ueberhaupt keine lokale
+    # Praeferenz (dann lassen wir die Engine trotzdem ziehen).
+    pref_engine, pref_model = _read_preference()
+    installed_engines = {e.name for e in engines if e.installed}
+    if pref_engine and pref_engine in installed_engines:
+        caps.active_engine = pref_engine
+        if pref_model:
+            pref_available = any(
+                m.engine == pref_engine and m.model == pref_model
+                for m in caps.models_found
+            )
+            if pref_available:
+                caps.active_model = pref_model
+    # Fallback: wenn keine gueltige Praeferenz, aktiver = suggested
+    if not caps.active_engine:
+        caps.active_engine = caps.suggested_engine
+    if not caps.active_model:
+        caps.active_model = caps.suggested_model
+
+    caps.available = bool(caps.active_engine and caps.models_found)
+    if caps.active_engine and not caps.models_found:
         caps.notes.append(
-            f"Engine '{caps.suggested_engine}' ist installiert, aber es "
+            f"Engine '{caps.active_engine}' ist installiert, aber es "
             f"wurde kein lokales Whisper-Modell gefunden. Lade in den "
             f"Einstellungen ein Modell herunter oder scanne deine Platte."
         )
     return caps
+
+
+def set_preference(engine: Optional[str], model: Optional[str]) -> None:
+    """Persistiert die Nutzer-Wahl in user_config.json. Beide Werte
+    duerfen None sein -- dann wird die gesamte Praeferenz entfernt
+    (= zurueck zum Auto-Vorschlag)."""
+    from app.services.user_config import load as _load, save as _save
+    data = _load() or {}
+    if not engine and not model:
+        data.pop("transcription", None)
+    else:
+        tx = data.get("transcription") or {}
+        if engine: tx["engine"] = engine
+        else:      tx.pop("engine", None)
+        if model:  tx["model"] = model
+        else:      tx.pop("model", None)
+        if tx:
+            data["transcription"] = tx
+        else:
+            data.pop("transcription", None)
+    _save(data)
 
 
 # --------------------------------------------------------------------------

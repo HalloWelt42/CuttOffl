@@ -53,9 +53,31 @@ async def transcription_status() -> dict:
         "models_found": [asdict(m) for m in caps.models_found],
         "suggested_engine": caps.suggested_engine,
         "suggested_model": caps.suggested_model,
+        # Die tatsaechlich aktive Wahl -- Nutzer-Preference, sonst
+        # suggested_*. Frontend markiert das entsprechende Modell.
+        "active_engine": caps.active_engine,
+        "active_model": caps.active_model,
         "notes": caps.notes,
         "default_model": tx.DEFAULT_MODEL,
         "supported_sizes": list(tx.WHISPER_SIZES),
+    }
+
+
+class PreferenceRequest(BaseModel):
+    engine: str | None = None
+    model: str | None = None
+
+
+@router.put("/transcription/preference")
+async def set_preference(body: PreferenceRequest) -> dict:
+    """Persistiert die Nutzer-Wahl (Engine + Modell). Leerer Body
+    (oder beide Felder None) setzt die Auswahl zurueck auf den
+    automatischen Vorschlag."""
+    tx.set_preference(body.engine, body.model)
+    caps = tx.capabilities(scan=True)
+    return {
+        "active_engine": caps.active_engine,
+        "active_model": caps.active_model,
     }
 
 

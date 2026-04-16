@@ -32,6 +32,22 @@
     } catch (e) { toast.error(e.message); }
   }
 
+  async function useModel(m) {
+    try {
+      await api.setTranscriptionPreference(m.engine, m.model);
+      txStatus = await api.transcriptionStatus();
+      toast.success(`Aktiv: ${m.engine} / ${m.model}`);
+    } catch (e) { toast.error(e.message); }
+  }
+
+  async function resetPreference() {
+    try {
+      await api.setTranscriptionPreference(null, null);
+      txStatus = await api.transcriptionStatus();
+      toast.info('Auswahl zurückgesetzt -- Auto-Vorschlag wird verwendet');
+    } catch (e) { toast.error(e.message); }
+  }
+
   async function scanModels() {
     txScanning = true;
     try {
@@ -193,9 +209,19 @@ pip install -r requirements-transcription.txt
             <b>Einsatzbereit</b>
           </div>
           <dl class="kv kv-two">
-            <div><dt>Engine</dt><dd class="mono">{txStatus.suggested_engine}</dd></div>
-            <div><dt>Modell</dt><dd class="mono">{txStatus.suggested_model}</dd></div>
+            <div><dt>Aktive Engine</dt><dd class="mono">{txStatus.active_engine}</dd></div>
+            <div><dt>Aktives Modell</dt><dd class="mono">{txStatus.active_model}</dd></div>
           </dl>
+          {#if (txStatus.active_engine !== txStatus.suggested_engine
+                || txStatus.active_model !== txStatus.suggested_model)}
+            <p class="meta">
+              Auto-Vorschlag wäre: {txStatus.suggested_engine} / {txStatus.suggested_model}
+              <button class="btn btn-sm" onclick={resetPreference}
+                      title="Eigene Modellwahl verwerfen und wieder dem Vorschlag folgen">
+                <i class="fa-solid fa-rotate-left"></i> Auf Vorschlag zurück
+              </button>
+            </p>
+          {/if}
         </div>
       {/if}
 
@@ -217,9 +243,28 @@ pip install -r requirements-transcription.txt
       {:else}
         <ul class="models">
           {#each txStatus.models_found as m (m.engine + m.path)}
-            <li>
+            {@const isActive = m.engine === txStatus.active_engine
+                               && m.model === txStatus.active_model}
+            {@const engineInstalled = txStatus.engines.find(
+              (e) => e.name === m.engine)?.installed}
+            <li class:active={isActive}>
               <div class="m-head">
                 <span class="name mono">{m.engine} / {m.model}</span>
+                {#if isActive}
+                  <span class="badge-active">
+                    <i class="fa-solid fa-check"></i> Aktiv
+                  </span>
+                {:else}
+                  <button class="btn btn-sm"
+                          onclick={() => useModel(m)}
+                          disabled={!engineInstalled}
+                          title={engineInstalled
+                            ? 'Dieses Modell für die Transkription verwenden'
+                            : `Engine ${m.engine} ist nicht installiert -- siehe Installationshinweise oben`}>
+                    <i class="fa-solid fa-check"></i>
+                    Auswählen
+                  </button>
+                {/if}
                 <span class="size mono">{fmtSizeB(m.size_bytes)}</span>
               </div>
               <div class="path mono" title={m.path}>{m.path}</div>
@@ -392,14 +437,28 @@ pip install -r requirements-transcription.txt
     border: 1px solid var(--border);
     border-radius: 6px;
     padding: 8px 10px;
+    transition: border-color 120ms, background 120ms;
+  }
+  .models li.active {
+    background: var(--accent-soft);
+    border-color: var(--accent);
   }
   .m-head {
-    display: flex; justify-content: space-between; align-items: baseline;
+    display: flex;
+    align-items: center;
     gap: 10px;
     font-size: 13px;
   }
-  .m-head .name { font-weight: 600; }
-  .m-head .size { color: var(--fg-muted); font-size: 12px; }
+  .m-head .name { font-weight: 600; flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+  .m-head .size { color: var(--fg-muted); font-size: 12px; flex: 0 0 auto; }
+  .badge-active {
+    display: inline-flex; align-items: center; gap: 4px;
+    background: var(--accent);
+    color: var(--accent-on);
+    font-size: 11px; font-weight: 700;
+    padding: 3px 8px; border-radius: 4px;
+    text-transform: uppercase; letter-spacing: 0.5px;
+  }
   .models .path {
     margin-top: 3px;
     font-size: 11px;
