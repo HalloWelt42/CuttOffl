@@ -2,7 +2,8 @@
   import { onMount, tick } from 'svelte';
   import { dialog, dialogOk, dialogCancel } from '../lib/dialog.svelte.js';
 
-  let inputEl = $state();
+  // Bewusst KEINE $state() -- nur DOM-Ref fuer focus(), nicht reaktiv.
+  let inputEl;
 
   $effect(() => {
     if (dialog.open && dialog.kind === 'prompt') {
@@ -39,8 +40,7 @@
          programmgesteuert fokussierbar. -->
     <div class="modal" role="dialog" aria-modal="true" tabindex="-1"
          aria-labelledby="dialog-title"
-         onclick={(e) => e.stopPropagation()}
-         onkeydown={(e) => e.stopPropagation()}>
+         onclick={(e) => e.stopPropagation()}>
       <header>
         <i class="fa-solid {dialog.kind === 'alert' ? 'fa-circle-info' :
                              dialog.kind === 'prompt' ? 'fa-keyboard' :

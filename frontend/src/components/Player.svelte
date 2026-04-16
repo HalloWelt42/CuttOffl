@@ -3,8 +3,11 @@
   import { api } from '../lib/api.js';
   import { editor, seek, tickPreview } from '../lib/editor.svelte.js';
 
-  let videoEl = $state();
-  let playerEl = $state();
+  // Bewusst KEINE $state() -- das sind DOM-Refs aus bind:this und
+  // werden nicht von der UI reaktiv gelesen; $state() hier triggert
+  // Reactivity-Loops im Player.
+  let videoEl;
+  let playerEl;
   let lastExternal = 0;
   let isFullscreen = $state(false);
 
