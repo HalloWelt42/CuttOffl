@@ -39,6 +39,8 @@ Pi, Software-Fallback sonst.
 - Hybrid-Render: so viel wie möglich kopieren, nur nötige Schnitte neu kodieren
 - Fertige Videos wieder in die Bibliothek übernehmen für weiteren Schnitt
 - Export mit Codec-Empfehlung für die erkannte Hardware
+- Optional: KI-Transkription mit Whisper (mlx/faster/openai) und
+  SRT-Untertitel samt klickbarem Transkript-Panel im Editor
 - Live-Fortschritt aller Jobs per WebSocket
 
 ## Stack
@@ -57,10 +59,11 @@ Pi, Software-Fallback sonst.
 ## Installation & Start
 
 ```bash
-./setup.sh                  # backend venv + pip install + ffmpeg-Check
-cd frontend && npm install  # frontend deps
+./setup.sh                         # backend venv + pip install + ffmpeg-Check
+./setup.sh --with-transcription    # optional: zusätzlich Whisper für SRT-Untertitel
+cd frontend && npm install         # frontend deps
 cd ..
-./start.sh                  # startet beide Prozesse
+./start.sh                         # startet beide Prozesse
 ```
 
 Weitere Befehle: `status`, `logs`, `stop`, `restart`, `backend`, `frontend`.

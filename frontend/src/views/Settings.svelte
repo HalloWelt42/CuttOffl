@@ -170,19 +170,20 @@
           {/each}
           <details class="install">
             <summary>Installationshinweise anzeigen</summary>
-            <pre>{@html `# In der Backend-venv:
+            <pre>{@html `# Variante A -- einmalig im Setup mitinstallieren:
+./setup.sh --with-transcription
+
+# Variante B -- in die bestehende Backend-venv nachinstallieren:
 cd backend && source .venv/bin/activate
+pip install -r requirements-transcription.txt
 
-# Empfehlung auf Apple Silicon:
-pip install mlx-whisper
+# Variante C -- einzelne Engine selbst waehlen:
+#   Apple Silicon:   pip install mlx-whisper
+#   Pi/Linux/Intel:  pip install faster-whisper
+#   Referenz:        pip install openai-whisper
 
-# Empfehlung auf Pi/Linux/Intel:
-pip install faster-whisper
-
-# Alternative (Referenz, langsam):
-pip install openai-whisper
-
-# Danach Backend einmal neu starten.`}</pre>
+# Danach Backend einmal neu starten:
+./start.sh restart backend`}</pre>
           </details>
         </div>
       {:else}

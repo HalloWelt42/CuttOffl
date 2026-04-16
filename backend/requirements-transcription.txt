@@ -1,0 +1,23 @@
+# Optionale Pakete fuer die KI-Transkription.
+# Werden NICHT automatisch durch das normale setup.sh installiert,
+# damit die App auch auf Rechnern laeuft, die keine GB-Modelle
+# herunterladen moechten.
+#
+# Installation in die bestehende Backend-venv:
+#
+#   cd backend && source .venv/bin/activate
+#   pip install -r requirements-transcription.txt
+#
+# Oder zusammen mit setup:
+#
+#   ./setup.sh --with-transcription
+#
+# mlx-whisper ist auf Apple Silicon (M1/M2/M3/M4) deutlich schneller;
+# faster-whisper laeuft portabel auf Intel-Mac, Linux, Windows und
+# dem Raspberry Pi 5. Environment-Markers sorgen dafuer, dass pip
+# jeweils nur das passende Paket zieht -- auf Apple Silicon werden
+# beide installiert (fuer den Fall, dass der Nutzer zwischen Engines
+# wechseln will), sonst nur faster-whisper.
+
+mlx-whisper>=0.2.0; sys_platform == "darwin" and platform_machine == "arm64"
+faster-whisper>=1.0.0

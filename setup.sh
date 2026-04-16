@@ -10,6 +10,22 @@
 
 set -euo pipefail
 
+# Optionale Flags:
+#   --with-transcription   installiert zusaetzlich die Whisper-Pakete
+#                          fuer KI-Untertitel (requirements-transcription.txt)
+WITH_TRANSCRIPTION=false
+for arg in "$@"; do
+  case "$arg" in
+    --with-transcription) WITH_TRANSCRIPTION=true ;;
+    -h|--help)
+      echo "CuttOffl setup"
+      echo "Optionen:"
+      echo "  --with-transcription  Installiere zusaetzlich Whisper fuer KI-Untertitel"
+      exit 0
+      ;;
+  esac
+done
+
 cd "$(dirname "$0")"
 ROOT="$(pwd)"
 BACKEND="$ROOT/backend"
@@ -99,6 +115,12 @@ source "$BACKEND/.venv/bin/activate"
 python -m pip install --upgrade pip >/dev/null
 python -m pip install -r "$BACKEND/requirements.txt"
 
+if $WITH_TRANSCRIPTION; then
+  echo
+  echo "  zusaetzlich: Transkriptions-Pakete (Whisper)"
+  python -m pip install -r "$BACKEND/requirements-transcription.txt"
+fi
+
 # ------------------------------------------------------------------
 # 3. Frontend: npm install
 # ------------------------------------------------------------------
@@ -125,3 +147,12 @@ echo "Starten mit:"
 echo "  ./start.sh           # beide Prozesse"
 echo "  ./start.sh status"
 echo "  ./start.sh stop"
+
+if ! $WITH_TRANSCRIPTION; then
+  echo
+  echo "Optional (KI-Untertitel/SRT per Whisper):"
+  echo "  ./setup.sh --with-transcription"
+  echo "  oder in der Backend-venv:"
+  echo "    cd backend && source .venv/bin/activate"
+  echo "    pip install -r requirements-transcription.txt"
+fi
