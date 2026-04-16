@@ -1,6 +1,7 @@
 <script>
   import { onMount } from 'svelte';
   import { wsState, wsOn, wsStart } from '../lib/ws.svelte.js';
+  import StatusLeds from './StatusLeds.svelte';
 
   const jobs = $state({ map: new Map() });
 
@@ -28,10 +29,12 @@
 </script>
 
 <div class="bar mono">
-  <span class="status" class:ok={wsState.connected}>
-    <i class="fa-solid {wsState.connected ? 'fa-circle' : 'fa-circle-notch fa-spin'}"></i>
-    {wsState.connected ? 'verbunden' : 'verbinde...'}
-  </span>
+  <!-- LEDs fuer alle Dienste, die ausfallen koennen. Ersetzt die
+       frueher einzelne "verbunden"-Anzeige, die nur den WebSocket
+       bedeutete und bei Backend- oder Transkriptions-Ausfall nichts
+       sagte. -->
+  <StatusLeds />
+  <span class="sep"></span>
 
   {#if active.length === 0}
     <span class="idle">keine aktiven Jobs</span>
@@ -64,8 +67,13 @@
     flex-wrap: wrap;
     min-height: 32px;
   }
-  .status i { font-size: 8px; margin-right: 6px; color: var(--danger); }
-  .status.ok i { color: var(--success); }
+  .sep {
+    width: 1px;
+    height: 16px;
+    background: var(--border);
+    margin: 0 2px;
+    display: inline-block;
+  }
   .idle { color: var(--fg-faint); font-style: italic; }
   .job {
     display: inline-flex;
