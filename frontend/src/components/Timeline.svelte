@@ -117,10 +117,18 @@
       return;
     }
 
-    // Jede Sekunde berechnen: welcher Tile-Index? Dest-Höhe = FILM_H
-    // Dest-Breite so, dass Aspect beibehalten wird.
+    // Tile-Breite auf die Timeline-Skala mappen: jeder Tile deckt
+    // meta.interval Sekunden ab, also ist seine Anzeigebreite genau
+    // pxPerSec * meta.interval. Bei Zoom-In wachsen die Tiles mit,
+    // bei Zoom-Out schrumpfen sie -- das loest das "gequetscht"-
+    // Problem frueher fester Breite. Bei sehr starkem Zoom-Out ueber-
+    // lappen Tiles, deshalb skippen wir dann welche (stride), damit
+    // pro Tile mindestens MIN_TILE_PX Platz bleibt.
     const destH = FILM_H;
-    const destW = destH * (meta.tile_w / meta.tile_h);
+    const MIN_TILE_PX = 28;
+    const tilePx = pxPerSec * meta.interval;
+    const stride = Math.max(1, Math.ceil(MIN_TILE_PX / tilePx));
+    const destW = Math.max(1, tilePx * stride);
 
     // Iteration nach Tile-Indizes, die im sichtbaren Bereich liegen
     const tStart = scrollX / pxPerSec;
@@ -128,7 +136,7 @@
     const iStart = Math.max(0, Math.floor(tStart / meta.interval));
     const iEnd   = Math.min(meta.count - 1, Math.ceil(tEnd / meta.interval));
 
-    for (let i = iStart; i <= iEnd; i++) {
+    for (let i = iStart; i <= iEnd; i += stride) {
       const t = i * meta.interval;
       const x = xAtTime(t);
       const col = i % meta.cols;
@@ -145,7 +153,7 @@
     // Schatten-Linien an Tile-Grenzen für Lesbarkeit
     ctx.strokeStyle = 'rgba(0,0,0,0.35)';
     ctx.lineWidth = 1;
-    for (let i = iStart; i <= iEnd + 1; i++) {
+    for (let i = iStart; i <= iEnd + stride; i += stride) {
       const x = xAtTime(i * meta.interval);
       ctx.beginPath(); ctx.moveTo(x, filmY); ctx.lineTo(x, filmY + FILM_H); ctx.stroke();
     }
@@ -303,11 +311,20 @@
 
     if (farAway) {
       scrollX = target;
-    } else if (curLead > w * (2 / 3)) {
-      // im letzten Drittel: sanft nachziehen
+    } else if (curLead > anchor) {
+      // Sobald der Playhead die Anker-Linie (1/3) passiert hat, ziehen
+      // wir kontinuierlich mit. Frueher wurde erst ab 2/3 nachgezogen,
+      // das erzeugte ein sichtbares Spring-Verhalten. Low easing-Faktor
+      // + Deadzone sorgen dafuer, dass es sanft statt zappelig wirkt.
       const delta = target - scrollX;
-      if (Math.abs(delta) < 0.5) scrollX = target;
-      else scrollX += delta * 0.18;           // easing-Faktor
+      if (Math.abs(delta) < 0.3) {
+        scrollX = target;
+      } else {
+        // Frame-rate-unabhaengiges easing: der Faktor ist so gewaehlt,
+        // dass bei 60 fps ~0.12 pro Frame zurueckgelegt wird -- weich,
+        // aber kein Hinterherhaengen von mehr als einem knappen Frame.
+        scrollX += delta * 0.12;
+      }
     }
 
     rafId = requestAnimationFrame(followTick);
