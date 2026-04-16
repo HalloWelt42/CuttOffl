@@ -2,7 +2,7 @@
   import { onMount, tick } from 'svelte';
   import { dialog, dialogOk, dialogCancel } from '../lib/dialog.svelte.js';
 
-  let inputEl;
+  let inputEl = $state();
 
   $effect(() => {
     if (dialog.open && dialog.kind === 'prompt') {
@@ -31,10 +31,16 @@
 </script>
 
 {#if dialog.open}
+  <!-- svelte-ignore a11y_click_events_have_key_events -->
+  <!-- svelte-ignore a11y_no_static_element_interactions -->
   <div class="backdrop" role="presentation" onclick={dialogCancel}>
-    <div class="modal" role="dialog" aria-modal="true"
+    <!-- Modal: Fokus landet durch Focus-Management auf dem Input/Button,
+         Esc wird global abgefangen. tabindex="-1" macht den Container
+         programmgesteuert fokussierbar. -->
+    <div class="modal" role="dialog" aria-modal="true" tabindex="-1"
          aria-labelledby="dialog-title"
-         onclick={(e) => e.stopPropagation()}>
+         onclick={(e) => e.stopPropagation()}
+         onkeydown={(e) => e.stopPropagation()}>
       <header>
         <i class="fa-solid {dialog.kind === 'alert' ? 'fa-circle-info' :
                              dialog.kind === 'prompt' ? 'fa-keyboard' :

@@ -22,8 +22,8 @@
   const MIN_W = 320;
   const MIN_H = 220;
 
-  let dragging = false;
-  let resizing = false;
+  let dragging = $state(false);
+  let resizing = $state(false);
   let dragStart = { mx: 0, my: 0, x: 0, y: 0 };
   let resizeStart = { mx: 0, my: 0, w: 0, h: 0 };
 

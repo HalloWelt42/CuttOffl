@@ -3,8 +3,8 @@
   import { api } from '../lib/api.js';
   import { editor, seek, tickPreview } from '../lib/editor.svelte.js';
 
-  let videoEl;
-  let playerEl;
+  let videoEl = $state();
+  let playerEl = $state();
   let lastExternal = 0;
   let isFullscreen = $state(false);
 

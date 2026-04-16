@@ -5,6 +5,21 @@
 
   const jobs = $state({ map: new Map() });
 
+  // Laien-verstaendliche Bezeichnung pro Job-Typ. Die rohen kinds
+  // (proxy, thumbnail, sprite, ...) sind Entwickler-Jargon und
+  // gehoeren nicht in die UI.
+  const KIND_INFO = {
+    proxy:      { label: 'Vorschau-Video wird erstellt',  icon: 'fa-film' },
+    thumbnail:  { label: 'Vorschaubild wird erzeugt',     icon: 'fa-image' },
+    sprite:     { label: 'Timeline-Miniaturen',           icon: 'fa-table-cells' },
+    waveform:   { label: 'Audio-Wellenform',              icon: 'fa-wave-square' },
+    keyframes:  { label: 'Schnittpunkte werden erfasst',  icon: 'fa-flag' },
+    transcribe: { label: 'Untertitel werden transkribiert', icon: 'fa-closed-captioning' },
+    render:     { label: 'Video wird gerendert',          icon: 'fa-clapperboard' },
+  };
+  function labelFor(k)  { return KIND_INFO[k]?.label ?? k ?? 'Aufgabe'; }
+  function iconFor(k)   { return KIND_INFO[k]?.icon  ?? 'fa-gears'; }
+
   onMount(() => {
     wsStart();
     return wsOn((msg) => {
@@ -37,12 +52,13 @@
   <span class="sep"></span>
 
   {#if active.length === 0}
-    <span class="idle">keine aktiven Jobs</span>
+    <span class="idle">keine Aufgaben in Arbeit</span>
   {:else}
     {#each active as j (j.id)}
-      <span class="job" class:failed={j.status === 'failed'}>
-        <i class="fa-solid {j.kind === 'proxy' ? 'fa-film' : j.kind === 'thumbnail' ? 'fa-image' : 'fa-gears'}"></i>
-        <span>{j.kind}</span>
+      <span class="job" class:failed={j.status === 'failed'}
+            title={labelFor(j.kind)}>
+        <i class="fa-solid {iconFor(j.kind)}"></i>
+        <span class="lbl">{labelFor(j.kind)}</span>
         {#if j.status === 'failed'}
           <span class="err">fehlgeschlagen</span>
         {:else}
@@ -82,6 +98,12 @@
     color: var(--fg-primary);
   }
   .job.failed { color: var(--danger); }
+  .job .lbl {
+    max-width: 260px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
   .err { color: var(--danger); }
   .pct { min-width: 38px; text-align: right; color: var(--fg-muted); }
   .prog {
