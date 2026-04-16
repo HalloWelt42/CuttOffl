@@ -24,10 +24,17 @@
     onChange = () => {},
   } = $props();
 
+  // Snapshot beim Oeffnen ist beabsichtigt: das Popover arbeitet danach
+  // auf seiner eigenen Liste und speichert nach jeder Aenderung zurueck.
+  // Damit kommen Tag-Aktualisierungen ausserhalb (z. B. anderer Nutzer)
+  // erst beim naechsten Oeffnen in diesen Editor -- gewolltes Verhalten.
+  // svelte-ignore state_referenced_locally
   let tags = $state([...initialTags]);
   let draft = $state('');
   let saving = $state(false);
+  // svelte-ignore non_reactive_update
   let hostEl;
+  // svelte-ignore non_reactive_update
   let inputEl;
   let pos = $state({ left: 0, top: 0, placement: 'below' });
 

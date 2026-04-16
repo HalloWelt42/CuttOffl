@@ -20,6 +20,7 @@
   import { toast } from '../lib/toast.svelte.js';
   import { confirmDialog, promptDialog } from '../lib/dialog.svelte.js';
 
+  // svelte-ignore non_reactive_update
   let playerRef;
   let inPoint = $state(null);
   let outPoint = $state(null);

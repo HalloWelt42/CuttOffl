@@ -65,8 +65,10 @@
 </script>
 
 {#if folderPicker.open}
+  <!-- svelte-ignore a11y_click_events_have_key_events -->
+  <!-- svelte-ignore a11y_no_static_element_interactions -->
   <div class="backdrop" role="presentation" onclick={pickerCancel}>
-    <div class="modal" role="dialog" aria-modal="true"
+    <div class="modal" role="dialog" aria-modal="true" tabindex="-1"
          aria-labelledby="fp-title"
          onclick={(e) => e.stopPropagation()}>
       <header>

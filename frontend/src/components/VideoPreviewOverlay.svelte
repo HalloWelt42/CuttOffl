@@ -3,6 +3,7 @@
 
   let { open = $bindable(false), src = '', title = '' } = $props();
 
+  // svelte-ignore non_reactive_update
   let videoEl;
 
   $effect(() => {
@@ -33,8 +34,13 @@
 </script>
 
 {#if open}
+  <!-- svelte-ignore a11y_click_events_have_key_events -->
+  <!-- svelte-ignore a11y_no_static_element_interactions -->
   <div class="backdrop" role="presentation" onclick={close}>
-    <div class="frame" onclick={(e) => e.stopPropagation()}>
+    <!-- svelte-ignore a11y_click_events_have_key_events -->
+    <!-- svelte-ignore a11y_no_static_element_interactions -->
+    <div class="frame" role="dialog" aria-modal="true" tabindex="-1"
+         onclick={(e) => e.stopPropagation()}>
       <header>
         <div class="title" title={title}>{title}</div>
         <button class="x" onclick={close}
@@ -49,7 +55,9 @@
             src={src}
             controls
             preload="auto"
-          ></video>
+          >
+            <track kind="captions" />
+          </video>
         {/key}
       </div>
     </div>

@@ -309,7 +309,6 @@
   }
   .kpi-value { font-size: 24px; font-weight: 700; line-height: 1.1; }
   .kpi-value .dim { color: var(--fg-faint); font-weight: 400; }
-  .kpi-value .fail { color: var(--danger); font-size: 14px; margin-left: 4px; }
   .kpi-label { font-size: 11px; text-transform: uppercase; letter-spacing: 1px; color: var(--fg-muted); }
   .kpi-sub { font-size: 11px; color: var(--fg-faint); margin-top: 4px; }
 

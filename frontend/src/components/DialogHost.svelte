@@ -3,6 +3,7 @@
   import { dialog, dialogOk, dialogCancel } from '../lib/dialog.svelte.js';
 
   // Bewusst KEINE $state() -- nur DOM-Ref fuer focus(), nicht reaktiv.
+  // svelte-ignore non_reactive_update
   let inputEl;
 
   $effect(() => {

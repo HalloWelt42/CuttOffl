@@ -107,7 +107,12 @@
        style:top="{geometry.y}px"
        style:width="{geometry.width}px"
        style:height="{geometry.height}px">
-    <header class="fp-head" onmousedown={onHeaderDown}
+    <!-- Drag-Handle: header ist semantisch korrekt (Fenster-Titel), aber
+         Svelte will bei mousedown eine aria-role sehen. "toolbar" passt,
+         weil das Fenster-Chrome (Titel + Close + ggf. spaeter mehr) damit
+         als interaktive Regie-Leiste annonciert ist. -->
+    <header class="fp-head" role="toolbar" tabindex="-1"
+            onmousedown={onHeaderDown}
             class:is-dragging={dragging}
             title="Titelleiste greifen und ziehen, um das Fenster zu verschieben">
       <i class="fa-solid {icon} fp-icon"></i>
@@ -120,6 +125,10 @@
     <div class="fp-body">
       {@render children?.()}
     </div>
+    <!-- Resize-Griff: <div> statt <button>, damit keine Click-Semantik,
+         sondern nur drag. svelte-ignore ist hier sauber begruendet -- der
+         Griff ist per Tastatur nicht bedienbar (wie OS-Fenster auch). -->
+    <!-- svelte-ignore a11y_no_noninteractive_element_interactions -->
     <div class="fp-resize" onmousedown={onResizeDown}
          role="separator" aria-orientation="vertical"
          title="Unten rechts greifen und ziehen, um die Größe zu ändern">

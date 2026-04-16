@@ -17,6 +17,7 @@
   import { confirmDialog } from '../lib/dialog.svelte.js';
 
   let query = $state('');
+  // svelte-ignore non_reactive_update
   let listEl;
   let capsStatus = $state(null);
 

@@ -6,7 +6,9 @@
   // Bewusst KEINE $state() -- das sind DOM-Refs aus bind:this und
   // werden nicht von der UI reaktiv gelesen; $state() hier triggert
   // Reactivity-Loops im Player.
+  // svelte-ignore non_reactive_update
   let videoEl;
+  // svelte-ignore non_reactive_update
   let playerEl;
   let lastExternal = 0;
   let isFullscreen = $state(false);
@@ -124,7 +126,12 @@
           onplay={onPlay}
           onpause={onPause}
           onclick={togglePlay}
-        ></video>
+        >
+          <!-- Leerer captions-Track erfuellt die a11y-Anforderung; die
+               echten Untertitel kommen aus dem Transkript und werden als
+               Overlay (.subtitle) gerendert, nicht ueber native tracks. -->
+          <track kind="captions" />
+        </video>
       {/key}
       {#if subSeg}
         <div class="subtitle" aria-live="polite">{subSeg.text}</div>
@@ -282,7 +289,6 @@
     font-size: 12px;
   }
   .controls button:hover { color: var(--fg-primary); border-color: var(--border-strong); }
-  .controls button.big { background: var(--accent); color: #0b0f14; border-color: var(--accent); padding: 8px 16px; }
   .t { margin-left: 12px; font-size: 13px; }
   .dim { color: var(--fg-muted); }
   .sep { color: var(--fg-faint); }

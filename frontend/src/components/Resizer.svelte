@@ -23,6 +23,9 @@
   }
 </script>
 
+<!-- Drag-Trennlinie zwischen Panels. role="separator" ist korrekt,
+     Tastatur-Bedienung gibt's analog zu OS-Fenstern absichtlich nicht. -->
+<!-- svelte-ignore a11y_no_noninteractive_element_interactions -->
 <div
   class="resizer"
   class:dragging
