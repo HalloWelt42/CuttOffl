@@ -21,6 +21,7 @@ data/exports/*
 data/thumbs/*
 data/sprites/*
 data/waveforms/*
+data/transcripts/*
 data/tmp/*
 data/db/*
 !data/**/.gitkeep
