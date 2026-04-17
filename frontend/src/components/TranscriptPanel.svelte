@@ -20,6 +20,8 @@
   import { confirmDialog } from '../lib/dialog.svelte.js';
 
   let query = $state('');
+  let currentMatchIdx = $state(0);     // 0-basiert, -1 = kein aktiver Treffer
+  let searchInputEl = $state();
   // svelte-ignore non_reactive_update
   let listEl;
   let capsStatus = $state(null);
@@ -32,12 +34,78 @@
       ? editor.liveSegments
       : (t?.segments || [])
   );
-  const filtered = $derived.by(() => {
-    const q = query.trim().toLocaleLowerCase('de');
-    if (!q) return segments;
-    return segments.filter((s) => (s.text || '').toLocaleLowerCase('de').includes(q));
+
+  // Indizes aller Segmente, die den Suchbegriff enthalten. Anders als
+  // vorher filtern wir die Liste NICHT -- alle Segmente bleiben sichtbar,
+  // nur die Treffer werden markiert und per vor/zurueck angesprungen.
+  const q = $derived(query.trim());
+  const qLow = $derived(q.toLocaleLowerCase('de'));
+  const matches = $derived.by(() => {
+    if (!qLow) return [];
+    const hits = [];
+    for (let i = 0; i < segments.length; i++) {
+      if ((segments[i].text || '').toLocaleLowerCase('de').includes(qLow)) {
+        hits.push(i);
+      }
+    }
+    return hits;
   });
+
+  // Treffer-Index klemmen, wenn sich die matches aendern
+  $effect(() => {
+    if (matches.length === 0) { currentMatchIdx = -1; return; }
+    if (currentMatchIdx < 0) currentMatchIdx = 0;
+    else if (currentMatchIdx >= matches.length) currentMatchIdx = matches.length - 1;
+  });
+
   const active = $derived(activeSegmentAt(editor.playhead, segments));
+
+  /** Text eines Segments in [text, match, text, ...]-Tupel zerlegen,
+   *  damit die Suchtreffer im Template mit <mark> gerendert werden. */
+  function splitForHighlight(text) {
+    if (!qLow) return [{ t: text, hit: false }];
+    const parts = [];
+    const lower = text.toLocaleLowerCase('de');
+    let i = 0;
+    while (i < text.length) {
+      const at = lower.indexOf(qLow, i);
+      if (at === -1) { parts.push({ t: text.slice(i), hit: false }); break; }
+      if (at > i)    parts.push({ t: text.slice(i, at), hit: false });
+      parts.push({ t: text.slice(at, at + qLow.length), hit: true });
+      i = at + qLow.length;
+    }
+    return parts;
+  }
+
+  function gotoMatch(idx) {
+    if (matches.length === 0) return;
+    const n = matches.length;
+    // Modulo mit Korrektur fuer negative Werte
+    currentMatchIdx = ((idx % n) + n) % n;
+    const segIdx = matches[currentMatchIdx];
+    const seg = segments[segIdx];
+    if (!seg) return;
+    // Playhead mitziehen -- das aktive Segment wird so auch in der
+    // Timeline und Untertitel sichtbar
+    seek(seg.start);
+    // In den Sichtbereich scrollen
+    const el = listEl?.querySelector(`[data-idx="${segIdx}"]`);
+    if (el) el.scrollIntoView({ block: 'center', behavior: 'smooth' });
+  }
+  function nextMatch() { gotoMatch(currentMatchIdx + 1); }
+  function prevMatch() { gotoMatch(currentMatchIdx - 1); }
+
+  function onSearchKey(e) {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      if (e.shiftKey) prevMatch(); else nextMatch();
+    } else if (e.key === 'Escape') {
+      query = '';
+      searchInputEl?.blur();
+    }
+  }
+
+  function clearSearch() { query = ''; searchInputEl?.focus(); }
 
   function fmtTs(s) {
     if (s == null) return '-';
@@ -62,6 +130,10 @@
     // Nach manuellem Scroll 1,5 s Pause, damit der User nicht staendig
     // wieder an die aktuelle Stelle gerissen wird.
     if (Date.now() - userScrolledAt < 1500) return;
+    // Bei aktiver Suche ueberlassen wir das Scrollen der Such-Navigation
+    // (gotoMatch). So springt die Ansicht nicht zwischen Playhead und
+    // Treffer hin und her.
+    if (qLow) return;
     const idx = segments.indexOf(active);
     if (idx < 0) return;
     const el = listEl.querySelector(`[data-idx="${idx}"]`);
@@ -140,9 +212,37 @@
     </div>
   {:else if t?.has_transcript || segments.length > 0}
     <div class="tp-tools">
-      <input type="search" class="tp-search"
-             placeholder="Im Transkript suchen..."
-             bind:value={query} />
+      <div class="search-wrap">
+        <i class="fa-solid fa-magnifying-glass search-ico"></i>
+        <input type="search" class="tp-search"
+               placeholder="Im Transkript suchen..."
+               bind:this={searchInputEl}
+               bind:value={query}
+               onkeydown={onSearchKey} />
+        {#if query}
+          <button class="search-clear" onclick={clearSearch}
+                  title="Suche leeren (Esc)">
+            <i class="fa-solid fa-xmark"></i>
+          </button>
+        {/if}
+      </div>
+      {#if qLow}
+        <span class="match-count mono"
+              class:no-hit={matches.length === 0}>
+          {matches.length === 0 ? '0 Treffer'
+            : `${currentMatchIdx + 1} von ${matches.length}`}
+        </span>
+        <button class="btn btn-sm" onclick={prevMatch}
+                disabled={matches.length === 0}
+                title="Voriger Treffer (Shift+Enter)">
+          <i class="fa-solid fa-chevron-up"></i>
+        </button>
+        <button class="btn btn-sm" onclick={nextMatch}
+                disabled={matches.length === 0}
+                title="Naechster Treffer (Enter)">
+          <i class="fa-solid fa-chevron-down"></i>
+        </button>
+      {/if}
       <button class="btn btn-sm" class:is-on={editor.transcriptFollowOn}
               onclick={toggleTranscriptFollow}
               title={editor.transcriptFollowOn
@@ -163,18 +263,28 @@
     </div>
 
     <ul class="segs" bind:this={listEl} onscroll={onUserScroll}>
-      {#each filtered as s, i (s.start + '-' + s.end + '-' + i)}
+      {#each segments as s, i (s.start + '-' + s.end + '-' + i)}
         {@const isActive = active && s.start === active.start && s.end === active.end}
-        <li class:active={isActive} data-idx={segments.indexOf(s)}>
+        {@const matchPos = matches.indexOf(i)}
+        {@const isMatch = matchPos >= 0}
+        {@const isCurrentMatch = isMatch && matchPos === currentMatchIdx}
+        <li class:active={isActive}
+            class:is-match={isMatch}
+            class:is-current-match={isCurrentMatch}
+            data-idx={i}>
           <button class="seg" class:seg-active={isActive}
                   onclick={() => seek(s.start)}
                   title="Zu dieser Stelle springen">
             <span class="ts mono">{fmtTs(s.start)}</span>
-            <span class="txt">{s.text}</span>
+            <span class="txt">
+              {#each splitForHighlight(s.text) as part, pi (pi)}
+                {#if part.hit}<mark>{part.t}</mark>{:else}{part.t}{/if}
+              {/each}
+            </span>
           </button>
         </li>
       {/each}
-      {#if filtered.length === 0}
+      {#if qLow && matches.length === 0}
         <li class="nohit">Keine Treffer für "{query}"</li>
       {/if}
     </ul>
@@ -217,24 +327,67 @@
   .empty p { margin: 0; max-width: 320px; }
 
   .tp-tools {
-    display: flex; gap: 6px;
+    display: flex;
+    gap: 6px;
     padding: 8px 12px;
     border-bottom: 1px solid var(--border);
     background: var(--bg-panel);
+    align-items: center;
+    flex-wrap: wrap;
+  }
+  .search-wrap {
+    position: relative;
+    flex: 1 1 180px;
+    min-width: 150px;
+  }
+  .search-ico {
+    position: absolute;
+    left: 8px; top: 50%;
+    transform: translateY(-50%);
+    color: var(--fg-faint);
+    font-size: 11px;
+    pointer-events: none;
   }
   .tp-search {
-    flex: 1 1 auto;
+    width: 100%;
     background: var(--bg-elev);
     color: var(--fg-primary);
     border: 1px solid var(--border);
     border-radius: 6px;
-    padding: 5px 10px;
+    padding: 5px 26px 5px 26px;
     font: inherit;
-    font-size: 12px;
+    font-size: 13px;
   }
   .tp-search:focus {
     outline: none;
     border-color: var(--accent);
+    box-shadow: 0 0 0 2px var(--accent-soft);
+  }
+  .search-clear {
+    position: absolute;
+    right: 4px; top: 50%;
+    transform: translateY(-50%);
+    background: transparent;
+    border: none;
+    color: var(--fg-muted);
+    cursor: pointer;
+    padding: 2px 5px;
+    border-radius: 4px;
+    font: inherit;
+  }
+  .search-clear:hover { color: var(--fg-primary); background: var(--bg-panel); }
+
+  .match-count {
+    font-size: 11px;
+    color: var(--fg-muted);
+    padding: 3px 6px;
+    background: var(--bg-elev);
+    border-radius: 10px;
+    border: 1px solid var(--border);
+  }
+  .match-count.no-hit {
+    color: var(--danger);
+    border-color: color-mix(in oklab, var(--danger) 40%, var(--border));
   }
 
   .segs {
@@ -293,4 +446,25 @@
     font-weight: 700;
   }
   .seg-active .ts { color: var(--accent); font-weight: 700; }
+
+  /* Such-Markierung: <mark>-Spans im Text. Suchtreffer-Segmente
+     insgesamt bekommen einen dezenten linken Strich in Amber, das
+     aktive (aktuell angesprungene) Treffer-Segment ist kraeftiger. */
+  .segs mark {
+    background: color-mix(in oklab, var(--warning) 45%, transparent);
+    color: var(--fg-primary);
+    padding: 0 2px;
+    border-radius: 2px;
+  }
+  .segs li.is-match .seg {
+    border-left-color: color-mix(in oklab, var(--warning) 55%, var(--border));
+  }
+  .segs li.is-current-match .seg {
+    background: color-mix(in oklab, var(--warning) 18%, var(--bg-elev));
+    border-left-color: var(--warning);
+  }
+  .segs li.is-current-match mark {
+    background: var(--warning);
+    color: #1a0d03;
+  }
 </style>
