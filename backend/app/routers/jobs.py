@@ -56,6 +56,20 @@ async def clear_completed_jobs(keep_renders: bool = True) -> dict:
     return {"deleted": count}
 
 
+@router.post("/{job_id}/cancel")
+async def cancel_job(job_id: str) -> dict:
+    """Bricht einen laufenden oder wartenden Job ab. Der Worker
+    erkennt das an definierten Pruefpunkten -- bei Transkriptionen
+    nach jedem Chunk. Bereits abgeschlossene Jobs bleiben unveraendert."""
+    row = await db.fetch_one("SELECT status FROM jobs WHERE id = ?", (job_id,))
+    if row is None:
+        raise HTTPException(status_code=404, detail="Job nicht gefunden")
+    if row["status"] in ("completed", "failed", "cancelled"):
+        return {"job_id": job_id, "status": row["status"], "changed": False}
+    ok = await job_service.cancel(job_id)
+    return {"job_id": job_id, "requested": ok}
+
+
 @router.get("/{job_id}")
 async def get_job(job_id: str) -> dict:
     row = await db.fetch_one("SELECT * FROM jobs WHERE id = ?", (job_id,))

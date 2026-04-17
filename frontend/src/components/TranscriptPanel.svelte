@@ -12,7 +12,9 @@
   // Wenn die Transkription läuft, kommt eine Progress-Zeile.
 
   import { api } from '../lib/api.js';
-  import { editor, seek, startTranscribe, activeSegmentAt } from '../lib/editor.svelte.js';
+  import {
+    editor, seek, startTranscribe, cancelTranscribe, activeSegmentAt,
+  } from '../lib/editor.svelte.js';
   import { toast } from '../lib/toast.svelte.js';
   import { confirmDialog } from '../lib/dialog.svelte.js';
 
@@ -22,7 +24,13 @@
   let capsStatus = $state(null);
 
   const t = $derived(editor.transcript);
-  const segments = $derived(t?.segments || []);
+  // Live-Segmente haben Vorrang, solange die Transkription laeuft --
+  // sobald sie fertig ist, uebernimmt die endgueltige SRT-Liste.
+  const segments = $derived(
+    editor.transcribing && editor.liveSegments.length > 0
+      ? editor.liveSegments
+      : (t?.segments || [])
+  );
   const filtered = $derived.by(() => {
     const q = query.trim().toLocaleLowerCase('de');
     if (!q) return segments;
@@ -93,11 +101,20 @@
   {#if editor.transcribing}
     <div class="banner">
       <i class="fa-solid fa-spinner fa-spin"></i>
-      Transkription läuft... {Math.round((editor.transcribePct || 0) * 100)} %
+      <span class="banner-text">
+        Transkription läuft... {Math.round((editor.transcribePct || 0) * 100)} %
+        {#if editor.liveSegments.length > 0}
+          &middot; {editor.liveSegments.length} Segmente bisher
+        {/if}
+      </span>
+      <button class="btn btn-sm btn-danger" onclick={cancelTranscribe}
+              title="Transkription nach dem aktuellen Abschnitt abbrechen">
+        <i class="fa-solid fa-stop"></i> Abbrechen
+      </button>
     </div>
   {/if}
 
-  {#if !t?.has_transcript && !editor.transcribing}
+  {#if !t?.has_transcript && !editor.transcribing && editor.liveSegments.length === 0}
     <div class="empty">
       <p>
         Dieses Video hat noch kein Transkript. Die KI extrahiert den Ton und
@@ -109,19 +126,21 @@
         <i class="fa-solid fa-wand-magic-sparkles"></i> Transkribieren
       </button>
     </div>
-  {:else if t?.has_transcript}
+  {:else if t?.has_transcript || segments.length > 0}
     <div class="tp-tools">
       <input type="search" class="tp-search"
              placeholder="Im Transkript suchen..."
              bind:value={query} />
-      <a class="btn btn-sm" href={api.transcriptSrtUrl(editor.fileId)} download
-         title="SRT-Datei herunterladen">
-        <i class="fa-solid fa-download"></i> SRT
-      </a>
-      <button class="btn btn-sm btn-danger" onclick={onDelete}
-              title="Transkript entfernen (Video bleibt)">
-        <i class="fa-solid fa-trash"></i>
-      </button>
+      {#if t?.has_transcript}
+        <a class="btn btn-sm" href={api.transcriptSrtUrl(editor.fileId)} download
+           title="SRT-Datei herunterladen">
+          <i class="fa-solid fa-download"></i> SRT
+        </a>
+        <button class="btn btn-sm btn-danger" onclick={onDelete}
+                title="Transkript entfernen (Video bleibt)">
+          <i class="fa-solid fa-trash"></i>
+        </button>
+      {/if}
     </div>
 
     <ul class="segs" bind:this={listEl}>
@@ -163,7 +182,8 @@
     border-bottom: 1px solid var(--accent);
     font-size: 13px;
   }
-  .banner i { color: var(--accent); }
+  .banner > i { color: var(--accent); }
+  .banner-text { flex: 1 1 auto; }
 
   .empty {
     padding: 18px 14px;

@@ -148,6 +148,7 @@ export const api = {
   clearFailedJobs: () => request('/jobs/failed', { method: 'DELETE' }),
   clearCompletedJobs: (keep_renders = true) =>
     request(`/jobs/completed?keep_renders=${keep_renders}`, { method: 'DELETE' }),
+  cancelJob: (id) => request(`/jobs/${id}/cancel`, { method: 'POST' }),
 
   // Probe
   probe: (id) => request(`/probe/${id}`),

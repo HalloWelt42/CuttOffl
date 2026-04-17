@@ -57,6 +57,10 @@ export const editor = $state({
   transcript: null,          // { segments, language, model, has_transcript }
   transcribing: false,
   transcribePct: 0,
+  // Live-Segmente waehrend der Transkription (aus WebSocket), werden
+  // beim Abschluss durch das gespeicherte SRT ersetzt.
+  liveSegments: [],
+  transcribeJobId: null,
   rightTab: persisted('editor.rightTab', 'exports'),   // 'exports' | 'transcript'
   subtitlesOn: persisted('editor.subtitlesOn', true),
 });
@@ -496,14 +500,28 @@ export async function startTranscribe(fileId, opts = {}) {
   if (!fileId) return;
   editor.transcribing = true;
   editor.transcribePct = 0;
+  editor.liveSegments = [];
   try {
-    await api.startTranscription(fileId, opts);
+    const res = await api.startTranscription(fileId, opts);
+    editor.transcribeJobId = res?.job_id ?? null;
     toast.info('Transkription gestartet');
   } catch (e) {
     editor.transcribing = false;
+    editor.transcribeJobId = null;
     // Spezialfall 409: Server meldet "nicht verfuegbar" -- wir geben die
     // Meldung weiter, aber crashen nicht.
     toast.error(`Transkription: ${e.message}`);
+  }
+}
+
+export async function cancelTranscribe() {
+  const jid = editor.transcribeJobId;
+  if (!jid) return;
+  try {
+    await api.cancelJob(jid);
+    toast.info('Abbruch angefordert -- stoppt nach dem aktuellen Abschnitt');
+  } catch (e) {
+    toast.error(`Abbruch: ${e.message}`);
   }
 }
 
@@ -526,15 +544,30 @@ export function handleTranscribeEvent(msg) {
     editor.transcribePct = msg.progress || 0;
     editor.transcribing = true;
   }
+  // Live-Segmente: wir ergaenzen die Liste direkt, damit der User
+  // schon Text sieht, bevor die ganze Transkription fertig ist.
+  if (msg.type === 'transcript_segment'
+      && msg.file_id === editor.fileId && msg.segment) {
+    editor.liveSegments = [...editor.liveSegments, msg.segment];
+  }
   if (msg.type === 'job_event' && msg.job?.kind === 'transcribe'
       && msg.job.file_id === editor.fileId) {
     if (msg.event === 'completed') {
       editor.transcribing = false;
       editor.transcribePct = 1;
+      editor.transcribeJobId = null;
+      editor.liveSegments = [];  // endgueltige Segmente kommen jetzt aus loadTranscript
       void loadTranscript(editor.fileId);
       toast.success('Transkription fertig');
+    } else if (msg.event === 'cancelled') {
+      editor.transcribing = false;
+      editor.transcribeJobId = null;
+      // Teiltranskript behalten -- User hat es gesehen, kann Cancel-
+      // Ergebnis je nach Bedarf weiter nutzen
+      toast.info('Transkription abgebrochen');
     } else if (msg.event === 'failed') {
       editor.transcribing = false;
+      editor.transcribeJobId = null;
       toast.error(`Transkription: ${msg.job.error || 'fehlgeschlagen'}`);
     }
   }

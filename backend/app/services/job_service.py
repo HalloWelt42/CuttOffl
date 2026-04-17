@@ -46,6 +46,13 @@ logger = logging.getLogger(__name__)
 Broadcaster = Callable[[dict], Awaitable[None]]
 
 
+class CancelledByUser(Exception):
+    """Signal, das Worker-Handler werfen koennen, wenn der Job vom
+    Nutzer per cancel-Event abgebrochen wurde. Unterscheidet den Fall
+    sauber von echten Fehlern."""
+    pass
+
+
 @dataclass
 class Job:
     id: str
@@ -58,6 +65,9 @@ class Job:
     result_path: Optional[str] = None
     error: Optional[str] = None
     payload: dict = field(default_factory=dict)
+    # cancel_event wird beim Anlegen erzeugt und kann vom Worker
+    # ueberprueft werden (event.is_set()). Der Cancel-Endpunkt setzt es.
+    cancel_event: Optional[asyncio.Event] = None
 
 
 class JobService:
@@ -95,7 +105,7 @@ class JobService:
             (job_id, kind, file_id, project_id),
         )
         job = Job(id=job_id, kind=kind, file_id=file_id, project_id=project_id,
-                  payload=payload or {})
+                  payload=payload or {}, cancel_event=asyncio.Event())
         await self._queue.put(job)
         await self._broadcast_job_event(job, "queued")
         return job_id
@@ -105,14 +115,45 @@ class JobService:
             return None
         return self._job_to_dict(self._active)
 
+    async def cancel(self, job_id: str) -> bool:
+        """Markiert einen Job zum Abbrechen. Laufende Jobs beachten das
+        Event an definierten Pruefpunkten (aktuell: Transkriptions-Chunks).
+        Queue-Jobs, die noch nicht gestartet sind, werden beim Aufruf
+        direkt als cancelled markiert."""
+        # Wenn der aktive Job das ist: Event setzen, Worker prueft selber
+        if self._active and self._active.id == job_id:
+            if self._active.cancel_event is not None:
+                self._active.cancel_event.set()
+            return True
+        # Wenn in der Queue: Status auf cancelled setzen. Der Worker
+        # ueberspringt Jobs mit status=cancelled.
+        await db.execute(
+            "UPDATE jobs SET status='cancelled', updated_at=datetime('now') "
+            "WHERE id = ? AND status IN ('pending','queued')",
+            (job_id,),
+        )
+        return True
+
     async def _run_worker(self) -> None:
         while True:
             job = await self._queue.get()
+            # Vor-Cancel pruefen (Job wurde in der Queue schon gecancelt)
+            pre = await db.fetch_one("SELECT status FROM jobs WHERE id = ?", (job.id,))
+            if pre and pre["status"] == "cancelled":
+                self._queue.task_done()
+                await self._broadcast_job_event(job, "cancelled")
+                continue
             self._active = job
             try:
                 await self._process(job)
             except asyncio.CancelledError:
                 raise
+            except CancelledByUser:
+                logger.info(f"Job {job.id} vom Nutzer abgebrochen")
+                job.status = "cancelled"
+                job.message = "Vom Nutzer abgebrochen"
+                await self._persist(job)
+                await self._broadcast_job_event(job, "cancelled")
             except Exception as e:
                 logger.exception(f"Job-Fehler ({job.kind} {job.id}): {e}")
                 job.status = "failed"
@@ -369,7 +410,7 @@ class JobService:
                 # frac ist 0..1 des Audio-Durchlaufs; wir mappen auf 0.15..0.95
                 pct = 0.15 + max(0.0, min(1.0, frac)) * 0.80
                 job.progress = pct
-                if pct - last_sent >= 0.03:
+                if pct - last_sent >= 0.02:
                     last_sent = pct
                     self._schedule_broadcast({
                         "type": "job_progress",
@@ -380,11 +421,24 @@ class JobService:
                         "phase": "transcribing",
                     })
 
+            # Segmente live pushen, sobald sie fertig sind -- das Frontend
+            # ergaenzt die Panel-Liste und zeigt Text mit, waehrend der
+            # Rest noch laeuft.
+            def on_segment(seg: dict) -> None:
+                self._schedule_broadcast({
+                    "type": "transcript_segment",
+                    "job_id": job.id,
+                    "file_id": job.file_id,
+                    "segment": seg,
+                })
+
             result = await transcribe_service.run_transcription(
                 audio_path=audio_path,
                 engine=engine,
                 model=model,
                 progress_cb=on_prog,
+                segment_cb=on_segment,
+                cancel_event=job.cancel_event,
             )
 
             # SRT schreiben

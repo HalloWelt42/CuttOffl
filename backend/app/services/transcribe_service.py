@@ -480,62 +480,124 @@ def _find_local_model(engine: str, model: str) -> Optional[str]:
     return None
 
 
-def _run_mlx(audio_path: str, model: str) -> TranscribeResult:
-    import mlx_whisper  # type: ignore
-    # mlx-whisper nimmt den HF-Repo-Path. Wenn wir lokal einen Snapshot
-    # haben, uebergeben wir den direkt.
-    local = _find_local_model("mlx-whisper", model)
-    repo = local or f"mlx-community/whisper-{model}-mlx"
-    result = mlx_whisper.transcribe(audio_path, path_or_hf_repo=repo, verbose=False)
-    segs = [
-        {"start": float(s["start"]), "end": float(s["end"]), "text": (s.get("text") or "").strip()}
-        for s in (result.get("segments") or [])
-    ]
-    return TranscribeResult(
-        segments=segs,
-        language=str(result.get("language") or ""),
-        engine="mlx-whisper",
-        model=model,
-    )
+# --------------------------------------------------------------------------
+# Modell-Cache: jedes geladene Whisper-Modell bleibt im Speicher, damit
+# wiederholte Transkriptionen nicht jedes Mal Sekunden mit Setup warten.
+# Key ist (engine, model). mlx-whisper laedt intern im transcribe-Call
+# selber eine Gewichte-Datei, deshalb gibt es dort nur einen Pfad-Cache,
+# keine Modell-Instanz.
+# --------------------------------------------------------------------------
+
+_model_cache: dict[tuple[str, str], object] = {}
 
 
-def _run_faster(audio_path: str, model: str,
-                progress_cb: Optional[Callable[[float], None]] = None) -> TranscribeResult:
+def _get_faster_model(model: str):
+    key = ("faster-whisper", model)
+    if key in _model_cache:
+        return _model_cache[key]
     from faster_whisper import WhisperModel  # type: ignore
-    # faster-whisper laedt Modelle ueber den HF-Hub-Cache.
     local = _find_local_model("faster-whisper", model)
     wm = WhisperModel(local or model, device="auto", compute_type="auto")
-    seg_iter, info = wm.transcribe(audio_path, beam_size=5, vad_filter=True)
-    total = float(getattr(info, "duration", 0.0)) or None
-    segs: list[dict] = []
-    for s in seg_iter:
-        segs.append({"start": float(s.start), "end": float(s.end), "text": (s.text or "").strip()})
-        if progress_cb and total:
-            progress_cb(min(0.99, s.end / total))
-    return TranscribeResult(
-        segments=segs,
-        language=str(getattr(info, "language", "") or ""),
-        engine="faster-whisper",
-        model=model,
-    )
+    _model_cache[key] = wm
+    return wm
 
 
-def _run_openai(audio_path: str, model: str) -> TranscribeResult:
+def _get_openai_model(model: str):
+    key = ("openai-whisper", model)
+    if key in _model_cache:
+        return _model_cache[key]
     import whisper  # type: ignore
-    # openai-whisper nutzt seinen eigenen Cache (~/.cache/whisper/<size>.pt),
-    # den Modellnamen geben wir direkt weiter.
     m = whisper.load_model(model)
-    result = m.transcribe(audio_path, verbose=False, fp16=False)
-    segs = [
-        {"start": float(s["start"]), "end": float(s["end"]), "text": (s.get("text") or "").strip()}
-        for s in (result.get("segments") or [])
-    ]
-    return TranscribeResult(
-        segments=segs,
-        language=str(result.get("language") or ""),
-        engine="openai-whisper",
-        model=model,
+    _model_cache[key] = m
+    return m
+
+
+def _mlx_repo_for(model: str) -> str:
+    """mlx-whisper braucht keinen Modell-Handle, nur den Repo-Pfad."""
+    local = _find_local_model("mlx-whisper", model)
+    return local or f"mlx-community/whisper-{model}-mlx"
+
+
+# --------------------------------------------------------------------------
+# Chunking: Audio in ca. 25-Sekunden-Blöcke schneiden und jeden einzeln
+# transkribieren. Vorteil: Wir koennen nach jedem Chunk Segmente an die UI
+# pushen (Live-Text), einen sauberen Prozent-Fortschritt melden und bei
+# Cancel direkt abbrechen.
+# --------------------------------------------------------------------------
+
+CHUNK_SECONDS = 25.0
+CHUNK_OVERLAP = 0.5
+
+
+async def _get_audio_duration(path: Path) -> float:
+    from app.services.ffmpeg_service import ffprobe_binary
+    proc = await asyncio.create_subprocess_exec(
+        ffprobe_binary(),
+        "-v", "error",
+        "-show_entries", "format=duration",
+        "-of", "default=nw=1:nk=1",
+        str(path),
+        stdout=asyncio.subprocess.PIPE,
+        stderr=asyncio.subprocess.DEVNULL,
     )
+    out, _ = await proc.communicate()
+    try:
+        return float(out.decode().strip() or 0.0)
+    except Exception:
+        return 0.0
+
+
+async def _extract_audio_chunk(
+    src: Path, dest: Path, start: float, duration: float,
+) -> None:
+    from app.services.ffmpeg_service import ffmpeg_binary
+    proc = await asyncio.create_subprocess_exec(
+        ffmpeg_binary(), "-y",
+        "-ss", f"{start:.3f}",
+        "-t", f"{duration:.3f}",
+        "-i", str(src),
+        "-vn", "-ac", "1", "-ar", "16000", "-sample_fmt", "s16",
+        "-f", "wav",
+        str(dest),
+        stdout=asyncio.subprocess.DEVNULL,
+        stderr=asyncio.subprocess.PIPE,
+    )
+    _, err = await proc.communicate()
+    if proc.returncode != 0:
+        raise RuntimeError(
+            f"Audio-Chunk fehlgeschlagen: "
+            f"{err.decode('utf-8', errors='replace')[-200:]}"
+        )
+
+
+def _transcribe_file_once(engine: str, model: str, path: str) -> dict:
+    """Synchrone Einzel-Transkription einer WAV-Datei mit der gewuenschten
+    Engine. Gibt ein Dict mit 'segments' und 'language' zurueck."""
+    if engine == "mlx-whisper":
+        import mlx_whisper  # type: ignore
+        result = mlx_whisper.transcribe(
+            path, path_or_hf_repo=_mlx_repo_for(model), verbose=False,
+        )
+        return {
+            "segments": list(result.get("segments") or []),
+            "language": str(result.get("language") or ""),
+        }
+    if engine == "faster-whisper":
+        wm = _get_faster_model(model)
+        seg_iter, info = wm.transcribe(path, beam_size=5, vad_filter=True)
+        segs = []
+        for s in seg_iter:
+            segs.append({"start": float(s.start), "end": float(s.end),
+                         "text": (s.text or "").strip()})
+        return {"segments": segs, "language": str(getattr(info, "language", "") or "")}
+    if engine == "openai-whisper":
+        m = _get_openai_model(model)
+        result = m.transcribe(path, verbose=False, fp16=False)
+        return {
+            "segments": list(result.get("segments") or []),
+            "language": str(result.get("language") or ""),
+        }
+    raise RuntimeError(f"Unbekannte Engine: {engine}")
 
 
 async def run_transcription(
@@ -543,29 +605,114 @@ async def run_transcription(
     engine: str,
     model: str,
     progress_cb: Optional[Callable[[float], None]] = None,
+    segment_cb: Optional[Callable[[dict], None]] = None,
+    cancel_event: Optional[asyncio.Event] = None,
+    chunk_seconds: float = CHUNK_SECONDS,
 ) -> TranscribeResult:
-    """Fuehrt die Transkription in einem Worker-Thread aus (Whisper-Pakete
-    sind synchron). Wirft RuntimeError mit klarer Meldung, wenn die
-    gewaehlte Engine nicht installiert ist oder das Modell fehlt."""
+    """Transkribiert Stueck fuer Stueck. Nach jedem Chunk:
+    - progress_cb(frac)       -> bisheriger Fortschritt [0..1]
+    - segment_cb(segment)     -> einzelnes {start,end,text}-Dict (schon mit
+                                  absolutem Zeitstempel relativ zum Gesamt-
+                                  Audio, damit die UI es direkt anzeigen kann)
+    - cancel_event            -> wird vor jedem Chunk geprueft; bei set()
+                                  steigt die Funktion mit CancelledByUser aus.
+
+    Wirft RuntimeError bei Setup-Problemen, ImportError wird in RuntimeError
+    mit klarer Erklaerung umgebaut.
+    """
+    from app.services.job_service import CancelledByUser  # lazy wegen Zyklen
+
     if not audio_path.exists():
         raise RuntimeError(f"Audio-Datei fehlt: {audio_path}")
 
-    def _work() -> TranscribeResult:
-        if engine == "mlx-whisper":
-            return _run_mlx(str(audio_path), model)
-        if engine == "faster-whisper":
-            return _run_faster(str(audio_path), model, progress_cb=progress_cb)
-        if engine == "openai-whisper":
-            return _run_openai(str(audio_path), model)
-        raise RuntimeError(f"Unbekannte Engine: {engine}")
+    duration = await _get_audio_duration(audio_path)
+    if duration <= 0:
+        raise RuntimeError("Dauer der Audio-Datei nicht ermittelbar")
 
-    try:
-        return await asyncio.to_thread(_work)
-    except ImportError as e:
-        raise RuntimeError(
-            f"Engine '{engine}' ist nicht installiert: {e}. "
-            f"Installiere sie in den Einstellungen oder im requirements.txt."
-        )
+    # Bei sehr kurzen Quellen (<1.5*chunk) machen wir es in einem Rutsch
+    if duration <= chunk_seconds * 1.5:
+        def _single():
+            return _transcribe_file_once(engine, model, str(audio_path))
+        try:
+            res = await asyncio.to_thread(_single)
+        except ImportError as e:
+            raise RuntimeError(
+                f"Engine '{engine}' ist nicht installiert: {e}"
+            )
+        segs: list[dict] = []
+        for s in res["segments"]:
+            seg = {
+                "start": float(s.get("start", 0.0)),
+                "end":   float(s.get("end", 0.0)),
+                "text":  (s.get("text") or "").strip(),
+            }
+            if seg["text"]:
+                segs.append(seg)
+                if segment_cb:
+                    segment_cb(seg)
+        if progress_cb: progress_cb(1.0)
+        return TranscribeResult(segments=segs, language=res.get("language", ""),
+                                engine=engine, model=model)
+
+    # Langere Quellen: Chunking mit kleinem Overlap, damit Worte nicht
+    # an Chunk-Grenzen abgeschnitten werden.
+    all_segs: list[dict] = []
+    detected_lang = ""
+    offset = 0.0
+    stride = chunk_seconds - CHUNK_OVERLAP
+    chunk_count = int((duration + stride - 1) // stride)
+    chunk_idx = 0
+
+    from app.config import TMP_DIR
+
+    while offset < duration:
+        if cancel_event and cancel_event.is_set():
+            raise CancelledByUser()
+
+        chunk_idx += 1
+        length = min(chunk_seconds, duration - offset)
+        chunk_wav = TMP_DIR / f"tx-{audio_path.stem}-{chunk_idx:04d}.wav"
+        try:
+            await _extract_audio_chunk(audio_path, chunk_wav, offset, length)
+            try:
+                chunk_res = await asyncio.to_thread(
+                    _transcribe_file_once, engine, model, str(chunk_wav),
+                )
+            except ImportError as e:
+                raise RuntimeError(
+                    f"Engine '{engine}' ist nicht installiert: {e}"
+                )
+            if not detected_lang and chunk_res.get("language"):
+                detected_lang = chunk_res["language"]
+            # Segmente mit Offset verschieben
+            for s in chunk_res["segments"]:
+                text = (s.get("text") or "").strip()
+                if not text:
+                    continue
+                start = float(s.get("start", 0.0)) + offset
+                end   = float(s.get("end", 0.0)) + offset
+                # Bei Overlap koennen doppelte Eintraege vorkommen: wenn
+                # das letzte gespeicherte Segment denselben Text im selben
+                # Zeitfenster hat, ueberspringen.
+                if all_segs and all_segs[-1]["text"] == text \
+                        and abs(all_segs[-1]["start"] - start) < 1.0:
+                    continue
+                seg = {"start": start, "end": end, "text": text}
+                all_segs.append(seg)
+                if segment_cb:
+                    segment_cb(seg)
+        finally:
+            try: chunk_wav.unlink(missing_ok=True)
+            except OSError: pass
+
+        offset += stride
+        if progress_cb:
+            progress_cb(min(0.99, chunk_idx / max(1, chunk_count)))
+
+    if progress_cb: progress_cb(1.0)
+    return TranscribeResult(
+        segments=all_segs, language=detected_lang, engine=engine, model=model,
+    )
 
 
 def parse_srt(content: str) -> list[dict]:
