@@ -179,6 +179,31 @@ async def get_transcript_srt(file_id: str):
                         filename=f"{base}.srt")
 
 
+@router.get("/transcript/{file_id}.vtt")
+async def get_transcript_vtt(file_id: str):
+    """Gleicher Inhalt wie SRT, aber als WebVTT -- praktisch fuer HTML5-
+    Player mit <track kind='captions'>."""
+    row = await _file_or_404(file_id)
+    p = row["transcript_path"]
+    if not p or not Path(p).exists():
+        raise HTTPException(status_code=404, detail="Kein Transkript vorhanden")
+    try:
+        srt_text = Path(p).read_text(encoding="utf-8")
+    except OSError as e:
+        raise HTTPException(status_code=500, detail=f"SRT nicht lesbar: {e}")
+    segs = tx.parse_srt(srt_text)
+    vtt = tx.segments_to_vtt(segs)
+    base = (row["original_name"] or file_id).rsplit(".", 1)[0]
+    from fastapi.responses import Response
+    return Response(
+        content=vtt,
+        media_type="text/vtt; charset=utf-8",
+        headers={
+            "Content-Disposition": f'attachment; filename="{base}.vtt"',
+        },
+    )
+
+
 @router.delete("/transcript/{file_id}")
 async def delete_transcript(file_id: str) -> dict:
     row = await _file_or_404(file_id)

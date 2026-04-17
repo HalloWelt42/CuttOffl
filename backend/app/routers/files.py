@@ -6,18 +6,21 @@ Liste, Detail, Download, Löschen der hochgeladenen Originale.
 
 from __future__ import annotations
 
+import io
 import json
 import re
+import zipfile
 from pathlib import Path
 
 from fastapi import APIRouter, HTTPException
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, Response
 
 from app.db import db
 from app.models.schemas import (
     FileBulkDeleteBody, FileBulkMoveBody, FileMoveBody, FileOut,
     FileRenameBody, FileTagsBody,
 )
+from app.services import transcribe_service as tx
 from app.services.folder_service import FolderError, normalize
 
 
@@ -308,6 +311,48 @@ async def download_file(file_id: str):
         path,
         media_type=media,
         filename=row["original_name"] or path.name,
+    )
+
+
+@router.get("/{file_id}/bundle.zip")
+async def download_bundle(file_id: str):
+    """ZIP mit Video + SRT + VTT -- sinnvoll wenn ein Transkript
+    existiert. Ohne Transkript kommt trotzdem ein ZIP mit nur dem
+    Video (damit die URL einheitlich nutzbar bleibt)."""
+    row = await db.fetch_one(
+        """SELECT path, original_name, transcript_path
+           FROM files WHERE id = ?""", (file_id,),
+    )
+    if row is None:
+        raise HTTPException(status_code=404, detail="Datei nicht gefunden")
+    video = Path(row["path"])
+    if not video.exists():
+        raise HTTPException(status_code=410, detail="Originaldatei fehlt auf Platte")
+
+    orig_name = row["original_name"] or video.name
+    stem = orig_name.rsplit(".", 1)[0]
+
+    buf = io.BytesIO()
+    with zipfile.ZipFile(buf, "w", zipfile.ZIP_STORED, allowZip64=True) as zf:
+        # Video 1:1 reinschreiben
+        zf.write(video, arcname=orig_name)
+        # Transkript: wenn vorhanden, SRT + VTT aus der gleichen Quelle
+        tp = row["transcript_path"]
+        if tp and Path(tp).exists():
+            try:
+                srt_text = Path(tp).read_text(encoding="utf-8")
+                zf.writestr(f"{stem}.srt", srt_text)
+                segs = tx.parse_srt(srt_text)
+                zf.writestr(f"{stem}.vtt", tx.segments_to_vtt(segs))
+            except OSError:
+                pass  # Transkript lesbar gemacht, war aber nicht kritisch
+    buf.seek(0)
+    return Response(
+        content=buf.getvalue(),
+        media_type="application/zip",
+        headers={
+            "Content-Disposition": f'attachment; filename="{stem}.zip"',
+        },
     )
 
 

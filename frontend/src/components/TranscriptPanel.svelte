@@ -252,8 +252,12 @@
       </button>
       {#if t?.has_transcript}
         <a class="btn btn-sm" href={api.transcriptSrtUrl(editor.fileId)} download
-           title="SRT-Datei herunterladen">
+           title="Als SRT-Datei herunterladen (klassisches Untertitel-Format)">
           <i class="fa-solid fa-download"></i> SRT
+        </a>
+        <a class="btn btn-sm" href={api.transcriptVttUrl(editor.fileId)} download
+           title="Als WebVTT-Datei herunterladen (fuer HTML5-Video-Player)">
+          <i class="fa-solid fa-download"></i> VTT
         </a>
         <button class="btn btn-sm btn-danger" onclick={onDelete}
                 title="Transkript entfernen (Video bleibt)">

@@ -921,10 +921,17 @@
                         <i class="fa-solid fa-folder-tree"></i>
                         <span class="sm-hide">Verschieben</span>
                       </button>
-                      <a class="btn" href={api.fileDownloadUrl(f.id)} download
-                         title="Original-Datei herunterladen">
-                        <i class="fa-solid fa-download"></i>
-                      </a>
+                      {#if f.has_transcript}
+                        <a class="btn" href={api.fileBundleUrl(f.id)} download
+                           title="Video + Untertitel (SRT & VTT) als ZIP herunterladen">
+                          <i class="fa-solid fa-file-zipper"></i>
+                        </a>
+                      {:else}
+                        <a class="btn" href={api.fileDownloadUrl(f.id)} download
+                           title="Original-Datei herunterladen">
+                          <i class="fa-solid fa-download"></i>
+                        </a>
+                      {/if}
                       <button class="btn" onclick={() => onRegenProxy(f)}
                               title="Proxy-Vorschau neu erzeugen">
                         <i class="fa-solid fa-arrows-rotate"></i>
@@ -1014,10 +1021,17 @@
                                 title="Verschieben">
                           <i class="fa-solid fa-folder-tree"></i>
                         </button>
-                        <a class="btn btn-sm" href={api.fileDownloadUrl(f.id)} download
-                           title="Download">
-                          <i class="fa-solid fa-download"></i>
-                        </a>
+                        {#if f.has_transcript}
+                          <a class="btn btn-sm" href={api.fileBundleUrl(f.id)} download
+                             title="Video + Untertitel als ZIP herunterladen">
+                            <i class="fa-solid fa-file-zipper"></i>
+                          </a>
+                        {:else}
+                          <a class="btn btn-sm" href={api.fileDownloadUrl(f.id)} download
+                             title="Download">
+                            <i class="fa-solid fa-download"></i>
+                          </a>
+                        {/if}
                         <button class="btn btn-sm btn-danger" onclick={() => onDelete(f)}
                                 title="Löschen">
                           <i class="fa-solid fa-trash"></i>

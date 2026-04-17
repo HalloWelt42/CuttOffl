@@ -80,6 +80,8 @@ export const api = {
   folderZipUrl: (folder = '', recursive = true) =>
     `${BASE}/folders/download?folder=${encodeURIComponent(folder)}&recursive=${recursive ? 'true' : 'false'}`,
   fileDownloadUrl: (id) => `${BASE}/files/${id}/download`,
+  // ZIP mit Video + SRT + VTT (wenn Transkript vorhanden, sonst nur Video)
+  fileBundleUrl:   (id) => `${BASE}/files/${id}/bundle.zip`,
 
   // System
   systemOverview: () => request('/system/overview'),
@@ -200,6 +202,7 @@ export const api = {
     }),
   getTranscript: (fileId) => request(`/transcript/${fileId}`),
   transcriptSrtUrl: (fileId) => `${BASE}/transcript/${fileId}.srt`,
+  transcriptVttUrl: (fileId) => `${BASE}/transcript/${fileId}.vtt`,
   deleteTranscript: (fileId) =>
     request(`/transcript/${fileId}`, { method: 'DELETE' }),
 

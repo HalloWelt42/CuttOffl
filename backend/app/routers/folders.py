@@ -256,19 +256,19 @@ async def download_folder_zip(
 
     if recursive and base:
         rows = await db.fetch_all(
-            """SELECT original_name, path, folder_path, size_bytes
+            """SELECT original_name, path, folder_path, size_bytes, transcript_path
                FROM files WHERE folder_path = ? OR folder_path LIKE ?
                ORDER BY folder_path, original_name""",
             (base, base + "/%"),
         )
     elif recursive:
         rows = await db.fetch_all(
-            """SELECT original_name, path, folder_path, size_bytes
+            """SELECT original_name, path, folder_path, size_bytes, transcript_path
                FROM files ORDER BY folder_path, original_name"""
         )
     else:
         rows = await db.fetch_all(
-            """SELECT original_name, path, folder_path, size_bytes
+            """SELECT original_name, path, folder_path, size_bytes, transcript_path
                FROM files WHERE folder_path = ?
                ORDER BY original_name""",
             (base,),
@@ -276,8 +276,11 @@ async def download_folder_zip(
     if not rows:
         raise HTTPException(status_code=404, detail="Keine Dateien im Ordner")
 
-    # Auf existierende Dateien reduzieren und Größe bestimmen
+    # Auf existierende Dateien reduzieren. Transcript-Pfade (SRT) werden
+    # zusaetzlich als eigene Eintraege im ZIP gefuehrt -- im selben
+    # Ordner wie das Video, mit passendem Dateinamen.
     items: list[tuple[str, Path]] = []
+    transcripts: list[tuple[str, str]] = []   # (member_name, srt_text)
     missing: list[str] = []
     for r in rows:
         p = Path(r["path"])
@@ -286,6 +289,19 @@ async def download_folder_zip(
             continue
         member = _safe_zip_member(base, r["folder_path"] or "", r["original_name"])
         items.append((member, p))
+        # SRT + VTT pro Video mit rein, wenn Transkript da
+        tp = r["transcript_path"] if "transcript_path" in r.keys() else None
+        if tp and Path(tp).exists():
+            try:
+                srt_text = Path(tp).read_text(encoding="utf-8")
+                stem_member = member.rsplit(".", 1)[0]
+                transcripts.append((f"{stem_member}.srt", srt_text))
+                # VTT lokal erzeugen
+                from app.services import transcribe_service as _tx
+                vtt_text = _tx.segments_to_vtt(_tx.parse_srt(srt_text))
+                transcripts.append((f"{stem_member}.vtt", vtt_text))
+            except OSError:
+                pass
     if missing:
         logger.info(f"ZIP-Download: {len(missing)} fehlende Datei(en) übersprungen")
     if not items:
@@ -334,6 +350,11 @@ async def download_folder_zip(
                         dst.write(chunk)
                         if len(buf.data) >= 512 * 1024:
                             yield buf.take()
+                if len(buf.data) > 0:
+                    yield buf.take()
+            # Transkripte (SRT + VTT) nach allen Videos einpacken
+            for (t_member, t_text) in transcripts:
+                zf.writestr(t_member, t_text)
                 if len(buf.data) > 0:
                     yield buf.take()
         # Central directory wurde beim Close geschrieben -- letzten Puffer leeren

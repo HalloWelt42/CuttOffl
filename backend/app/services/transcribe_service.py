@@ -715,6 +715,35 @@ async def run_transcription(
     )
 
 
+def segments_to_vtt(segments: list[dict]) -> str:
+    """Wie segments_to_srt, aber als WebVTT (für HTML5 <track kind="captions">).
+    Unterschiede zu SRT: Header "WEBVTT", Punkt statt Komma als Dezimal-
+    Trenner, keine Cue-Nummern noetig."""
+    def fmt(t: float) -> str:
+        if t < 0:
+            t = 0.0
+        ms = int(round(t * 1000))
+        hh = ms // 3_600_000
+        ms -= hh * 3_600_000
+        mm = ms // 60_000
+        ms -= mm * 60_000
+        ss = ms // 1000
+        ms -= ss * 1000
+        return f"{hh:02d}:{mm:02d}:{ss:02d}.{ms:03d}"
+
+    lines: list[str] = ["WEBVTT", ""]
+    for seg in segments:
+        start = float(seg.get("start", 0.0))
+        end = float(seg.get("end", start))
+        text = str(seg.get("text", "")).strip()
+        if not text:
+            continue
+        lines.append(f"{fmt(start)} --> {fmt(end)}")
+        lines.append(text)
+        lines.append("")
+    return "\n".join(lines)
+
+
 def parse_srt(content: str) -> list[dict]:
     """Liest SRT zurueck in Segmente. Toleriert CRLF und leere Blocks."""
     segs: list[dict] = []
