@@ -1,6 +1,8 @@
 <script>
   import { onMount } from 'svelte';
-  import { editor, seek, selectClip, setClipRange } from '../lib/editor.svelte.js';
+  import {
+    editor, seek, selectClip, setClipRange, setTimelineZoom,
+  } from '../lib/editor.svelte.js';
 
   let canvas;
   let wrap;
@@ -15,7 +17,14 @@
   }
 
   // Zoom = Pixel pro Sekunde
-  let pxPerSec = $state(40);
+  // pxPerSec spiegelt editor.timelineZoom beidseitig. Der Store ist
+  // die Quelle der Wahrheit (Persistenz + Toolbar-Presets), der lokale
+  // State puffert Mausrad-Zoom-Updates.
+  let pxPerSec = $state(editor.timelineZoom || 40);
+  $effect(() => {
+    const z = editor.timelineZoom;
+    if (z && Math.abs(z - pxPerSec) > 0.1) pxPerSec = z;
+  });
   let scrollX = $state(0);
 
   // Drag-State (scrubben oder Clip-Kanten verschieben)
@@ -117,26 +126,33 @@
       return;
     }
 
-    // Tile-Breite auf die Timeline-Skala mappen: jeder Tile deckt
-    // meta.interval Sekunden ab, also ist seine Anzeigebreite genau
-    // pxPerSec * meta.interval. Bei Zoom-In wachsen die Tiles mit,
-    // bei Zoom-Out schrumpfen sie -- das loest das "gequetscht"-
-    // Problem frueher fester Breite. Bei sehr starkem Zoom-Out ueber-
-    // lappen Tiles, deshalb skippen wir dann welche (stride), damit
-    // pro Tile mindestens MIN_TILE_PX Platz bleibt.
+    // Thumbnails bleiben immer in ihrem nativen Seitenverhaeltnis --
+    // Hoehe = Bandhoehe, Breite = destH * tile-Aspect. Kein Strecken,
+    // kein Stauchen.
     const destH = FILM_H;
-    const MIN_TILE_PX = 28;
+    const destW = Math.max(1, Math.round(destH * (meta.tile_w / meta.tile_h)));
+
+    // Jedes Tile deckt meta.interval Sekunden ab, also tilePx Pixel in
+    // der Timeline. Damit die Bilder sich nicht ueberlappen, ueber-
+    // springen wir Tiles, sobald destW > tilePx -- z. B. jedes zweite
+    // oder dritte. Bei starkem Zoom-In, wenn tilePx >> destW, bleiben
+    // Luecken zwischen den Bildern (natuerlich, kein Strecken). Eine
+    // kleine Reserve (0.98) haelt knappe Faelle sauber nebeneinander.
     const tilePx = pxPerSec * meta.interval;
-    const stride = Math.max(1, Math.ceil(MIN_TILE_PX / tilePx));
-    const destW = Math.max(1, tilePx * stride);
+    const stride = Math.max(1, Math.ceil(destW / Math.max(1, tilePx * 0.98)));
+    const stepPx = tilePx * stride;   // Pixel zwischen den gezeichneten Tiles
 
     // Iteration nach Tile-Indizes, die im sichtbaren Bereich liegen
     const tStart = scrollX / pxPerSec;
     const tEnd   = tStart + width / pxPerSec;
     const iStart = Math.max(0, Math.floor(tStart / meta.interval));
     const iEnd   = Math.min(meta.count - 1, Math.ceil(tEnd / meta.interval));
+    // Auf Stride ausrichten, damit das Tile-Raster beim Scrollen
+    // stabil bleibt (nicht pro Frame andere Tiles treffen).
+    const iFirst = iStart - (iStart % stride);
 
-    for (let i = iStart; i <= iEnd; i += stride) {
+    for (let i = iFirst; i <= iEnd; i += stride) {
+      if (i < 0) continue;
       const t = i * meta.interval;
       const x = xAtTime(t);
       const col = i % meta.cols;
@@ -150,10 +166,11 @@
       );
     }
 
-    // Schatten-Linien an Tile-Grenzen für Lesbarkeit
+    // Schatten-Linien jeweils zwischen zwei gezeichneten Tiles
     ctx.strokeStyle = 'rgba(0,0,0,0.35)';
     ctx.lineWidth = 1;
-    for (let i = iStart; i <= iEnd + stride; i += stride) {
+    for (let i = iFirst; i <= iEnd + stride; i += stride) {
+      if (i < 0) continue;
       const x = xAtTime(i * meta.interval);
       ctx.beginPath(); ctx.moveTo(x, filmY); ctx.lineTo(x, filmY + FILM_H); ctx.stroke();
     }
@@ -424,6 +441,9 @@
       const factor = ev.deltaY < 0 ? 1.25 : 0.8;
       pxPerSec = Math.max(4, Math.min(400, pxPerSec * factor));
       scrollX = Math.max(0, focusT * pxPerSec - x);
+      // in den Store spiegeln -- aber ueber setTimelineZoom, damit auch
+      // die Persistenz mitkommt
+      setTimelineZoom(pxPerSec);
     } else {
       scrollX = Math.max(0, Math.min(totalPx() - width, scrollX + ev.deltaX + ev.deltaY));
     }

@@ -1,12 +1,12 @@
 <script>
-  // Generisches verschiebbares Info-Fenster. Wird via `geometry` an einen
-  // $state-Store gebunden (x, y, width, height, open). Bei mousedown auf
-  // der Titelleiste laesst sich das Fenster ziehen, per SE-Griff kann es
-  // in der Groesse veraendert werden. Geometrie wird ueber die mitgegebene
-  // onPersist-Callback vom Parent im localStorage gesichert.
+  // Generisches verschiebbares Info-Fenster. Liest die Geometrie via
+  // `geometry`-Prop (nur lesen!) und meldet Aenderungen per Callback
+  // `onChange(partial)` zurueck -- der Parent haelt den Store und
+  // schreibt zurueck. Damit kommt Svelte 5 nicht auf die Idee, dass wir
+  // eine Prop mutieren ("ownership_invalid_mutation"-Warnungen).
   //
-  // Das "typische Blau" der Hinweisfenster: Header mit Akzent-Rand + Info-
-  // Symbol. Inhalt in eigener Slot-Zone mit grosszuegiger Typografie.
+  // onPersist() wird nach Drag-Ende / Resize-Ende aufgerufen -- gibt
+  // dem Parent die Chance, localStorage zu schreiben.
 
   import { onMount } from 'svelte';
 
@@ -15,6 +15,7 @@
     title = 'Information',
     icon = 'fa-circle-info',
     onClose = () => {},
+    onChange = () => {},
     onPersist = () => {},
     children,
   } = $props();
@@ -27,12 +28,20 @@
   let dragStart = { mx: 0, my: 0, x: 0, y: 0 };
   let resizeStart = { mx: 0, my: 0, w: 0, h: 0 };
 
-  function clampInViewport() {
+  function clampedTo(x, y, w, h) {
     const pad = 8;
-    const maxX = Math.max(pad, window.innerWidth  - geometry.width  - pad);
-    const maxY = Math.max(pad, window.innerHeight - geometry.height - pad);
-    geometry.x = Math.max(pad, Math.min(geometry.x, maxX));
-    geometry.y = Math.max(pad, Math.min(geometry.y, maxY));
+    const maxX = Math.max(pad, window.innerWidth  - w - pad);
+    const maxY = Math.max(pad, window.innerHeight - h - pad);
+    return {
+      x: Math.max(pad, Math.min(x, maxX)),
+      y: Math.max(pad, Math.min(y, maxY)),
+    };
+  }
+
+  function clampInViewport() {
+    const g = geometry;
+    const c = clampedTo(g.x, g.y, g.width, g.height);
+    if (c.x !== g.x || c.y !== g.y) onChange(c);
   }
 
   function onHeaderDown(e) {
@@ -47,9 +56,9 @@
   }
   function onDragMove(e) {
     if (!dragging) return;
-    geometry.x = dragStart.x + (e.clientX - dragStart.mx);
-    geometry.y = dragStart.y + (e.clientY - dragStart.my);
-    clampInViewport();
+    const nx = dragStart.x + (e.clientX - dragStart.mx);
+    const ny = dragStart.y + (e.clientY - dragStart.my);
+    onChange(clampedTo(nx, ny, geometry.width, geometry.height));
   }
   function onDragEnd() {
     if (!dragging) return;
@@ -70,9 +79,10 @@
   }
   function onResizeMove(e) {
     if (!resizing) return;
-    geometry.width  = Math.max(MIN_W, resizeStart.w + (e.clientX - resizeStart.mx));
-    geometry.height = Math.max(MIN_H, resizeStart.h + (e.clientY - resizeStart.my));
-    clampInViewport();
+    const w = Math.max(MIN_W, resizeStart.w + (e.clientX - resizeStart.mx));
+    const h = Math.max(MIN_H, resizeStart.h + (e.clientY - resizeStart.my));
+    const c = clampedTo(geometry.x, geometry.y, w, h);
+    onChange({ width: w, height: h, ...c });
   }
   function onResizeEnd() {
     if (!resizing) return;

@@ -60,8 +60,31 @@
     videoEl.play().catch(() => {});
   });
 
-  function onPlay()  { editor.isPlaying = true; }
-  function onPause() { editor.isPlaying = false; }
+  // HTML5-Video feuert "timeupdate" nur alle ~200 ms -- zu wenig fuer
+  // eine smoothe Playhead-Nadel auf der Timeline. Solange das Video
+  // laeuft, holen wir per rAF den exakten currentTime und spiegeln ihn
+  // in den Store. Damit bleibt die Nadel synchron zu 60 fps, ohne dass
+  // wir die tatsaechliche Wiedergabe interpolieren muessten.
+  let smoothRaf = 0;
+
+  function smoothTick() {
+    smoothRaf = 0;
+    if (!videoEl || videoEl.paused) return;
+    const t = videoEl.currentTime;
+    lastExternal = t;
+    // Nur schreiben, wenn sich auch wirklich was veraendert hat
+    if (Math.abs(t - editor.playhead) > 0.001) editor.playhead = t;
+    smoothRaf = requestAnimationFrame(smoothTick);
+  }
+
+  function onPlay()  {
+    editor.isPlaying = true;
+    if (!smoothRaf) smoothRaf = requestAnimationFrame(smoothTick);
+  }
+  function onPause() {
+    editor.isPlaying = false;
+    if (smoothRaf) { cancelAnimationFrame(smoothRaf); smoothRaf = 0; }
+  }
 
   export function togglePlay() {
     if (!videoEl) return;
@@ -101,6 +124,7 @@
     return () => {
       document.removeEventListener('fullscreenchange', on);
       document.removeEventListener('webkitfullscreenchange', on);
+      if (smoothRaf) cancelAnimationFrame(smoothRaf);
     };
   });
 </script>

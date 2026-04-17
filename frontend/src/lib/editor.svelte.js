@@ -49,6 +49,10 @@ export const editor = $state({
   waveform: null,          // { samples_per_second, count, peaks: [0..1] }
   // Timeline-Ansicht
   followOn: persisted('editor.followOn', true),
+  // Timeline-Zoom in Pixel pro Sekunde. Die Timeline-Komponente spiegelt
+  // diesen Wert in ihren lokalen Zustand und schreibt Mausrad-Zoom hierher
+  // zurueck. So kann die Editor-Toolbar Zoom-Presets setzen.
+  timelineZoom: persisted('editor.timelineZoom', 40),
   // Transkript -- Segmente aus SRT, aktiver Tab, Untertitel-Overlay
   transcript: null,          // { segments, language, model, has_transcript }
   transcribing: false,
@@ -548,4 +552,14 @@ export function activeSegmentAt(t, segments) {
     if (t >= (s.start ?? 0) && t < (s.end ?? 0)) return s;
   }
   return null;
+}
+
+
+/** Setzt den Timeline-Zoom (Pixel pro Sekunde). Wird von der Editor-
+ *  Toolbar (Preset-Dropdown) und von der Timeline selbst (Mausrad)
+ *  gerufen. */
+export function setTimelineZoom(pxPerSec) {
+  const v = Math.max(4, Math.min(400, Number(pxPerSec) || 40));
+  editor.timelineZoom = v;
+  persistLocal('editor.timelineZoom', v);
 }

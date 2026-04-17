@@ -14,6 +14,7 @@
   title="Über CuttOffl"
   icon="fa-circle-info"
   onClose={closeAbout}
+  onChange={(p) => Object.assign(aboutPanel, p)}
   onPersist={persistAboutGeometry}
 >
   <section class="intro">

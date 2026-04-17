@@ -42,6 +42,7 @@
   title={currentTitle}
   icon="fa-circle-info"
   onClose={closeInfo}
+  onChange={(p) => Object.assign(infoPanel, p)}
   onPersist={persistInfoGeometry}
 >
   {#if nav.view === 'editor'}

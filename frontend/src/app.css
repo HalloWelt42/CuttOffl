@@ -191,6 +191,26 @@ html, body {
 .btn-danger { border-color: color-mix(in oklab, var(--danger) 40%, var(--border)); }
 .btn-danger:hover:not(:disabled) { color: var(--danger); border-color: var(--danger); }
 
+/* Semantische Buttons -- helfen beim schnellen Wiedererkennen:
+     .btn-cut   -- Schnitt-/Aenderungs-Aktionen (In/Out, Split, Clip) --
+                    warmes Orange, Icon faerbt ein, Rahmen akzentuiert.
+     .btn-play  -- Vorschau- und Abspiel-Aktionen -- Akzent-Blau, dezent.
+   Darstellungs- und Werkzeug-Buttons bleiben im neutralen .btn-Grau. */
+.btn-cut { border-color: color-mix(in oklab, var(--warning) 45%, var(--border)); }
+.btn-cut i { color: var(--warning); }
+.btn-cut:hover:not(:disabled) {
+  color: var(--warning);
+  border-color: var(--warning);
+  background: color-mix(in oklab, var(--warning) 12%, var(--bg-elev));
+}
+.btn-play { border-color: color-mix(in oklab, var(--accent) 45%, var(--border)); }
+.btn-play i { color: var(--accent); }
+.btn-play:hover:not(:disabled) {
+  color: var(--accent);
+  border-color: var(--accent);
+  background: var(--accent-soft);
+}
+
 .btn-stop {
   background: var(--danger);
   color: #fff;

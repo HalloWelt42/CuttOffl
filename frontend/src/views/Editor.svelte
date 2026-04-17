@@ -13,8 +13,41 @@
     saveNow, jumpToPrevKeyframe, jumpToNextKeyframe,
     startRangePreview, startClipPreview, startTimelinePreview, stopPreview,
     startRender, setRightTab, toggleSubtitles, handleTranscribeEvent, activeSegmentAt,
+    setTimelineZoom,
   } from '../lib/editor.svelte.js';
   import TranscriptPanel from '../components/TranscriptPanel.svelte';
+
+  // Zoom-Presets fuer die Timeline. Die Werte in px/Sekunde sind so
+  // gewaehlt, dass typische Schnitt-Szenarien direkt ansteuerbar sind:
+  //   Übersicht    : 10 px/s  -- sieht lange Videos am Stueck
+  //   Standard     : 40 px/s  -- Default, allgemein nutzbar
+  //   Genauer      : 80 px/s
+  //   Frame-nah    : 160 px/s
+  //   Frame-genau  : 320 px/s -- nahe am Maximum (400)
+  // "Gesamt" passt den Zoom so an, dass das komplette Video ins Panel
+  // passt -- nuetzlich bei sehr langen Quellen.
+  const ZOOM_PRESETS = [
+    { v: 10,  label: 'Übersicht' },
+    { v: 40,  label: 'Standard' },
+    { v: 80,  label: 'Genauer' },
+    { v: 160, label: 'Frame-nah' },
+    { v: 320, label: 'Frame-genau' },
+  ];
+
+  let timelineWidthPx = $state(800);   // wird fuer "Gesamt" genutzt
+
+  function zoomFitAll() {
+    const dur = editor.duration || 1;
+    const target = Math.max(4, Math.min(400, (timelineWidthPx - 40) / dur));
+    setTimelineZoom(target);
+  }
+
+  function pickZoom(e) {
+    const v = e.currentTarget.value;
+    if (v === 'fit') { zoomFitAll(); return; }
+    const n = Number(v);
+    if (!isNaN(n)) setTimelineZoom(n);
+  }
   import { api } from '../lib/api.js';
   import { wsOn, wsStart } from '../lib/ws.svelte.js';
   import { toast } from '../lib/toast.svelte.js';
@@ -360,17 +393,19 @@
         </div>
 
         <div class="group">
-          <button class="btn" onclick={setIn}
+          <!-- Schnitt-Aktionen: warm-Orange (.btn-cut), damit klar ist,
+               dass diese Gruppe die EDL veraendert. -->
+          <button class="btn btn-cut" onclick={setIn}
                   title="Startpunkt (In-Punkt) der Auswahl auf die aktuelle Playhead-Position setzen (Taste I)">
             <i class="fa-solid fa-angle-right"></i> Start
             {#if inPoint != null}<span class="mono t">{fmt(inPoint)}</span>{/if}
           </button>
-          <button class="btn" onclick={setOut}
+          <button class="btn btn-cut" onclick={setOut}
                   title="Endpunkt (Out-Punkt) der Auswahl auf die aktuelle Playhead-Position setzen (Taste O)">
             <i class="fa-solid fa-angle-left"></i> Ende
             {#if outPoint != null}<span class="mono t">{fmt(outPoint)}</span>{/if}
           </button>
-          <button class="btn"
+          <button class="btn btn-play"
                   onclick={() => startRangePreview(inPoint, outPoint)}
                   disabled={inPoint == null || outPoint == null || editor.preview}
                   title="Den gewählten Bereich (Start → Ende) einmal abspielen (Taste P)">
@@ -391,7 +426,8 @@
         </div>
 
         <div class="group">
-          <button class="btn" onclick={() => startClipPreview(editor.selectedClipId)}
+          <!-- Vorschau (blau) vs. Schnitt (orange) vs. Werkzeug (neutral) -->
+          <button class="btn btn-play" onclick={() => startClipPreview(editor.selectedClipId)}
                   disabled={!editor.selectedClipId || editor.preview}
                   title="Den ausgewählten Clip einmal vom Anfang bis zum Ende abspielen">
             <i class="fa-solid fa-play"></i> Clip abspielen
@@ -401,16 +437,16 @@
                   title="Nur den ausgewählten Clip als eigene Videodatei exportieren">
             <i class="fa-solid fa-file-export"></i> Clip exportieren
           </button>
-          <button class="btn" onclick={splitAtPlayhead}
+          <button class="btn btn-cut" onclick={splitAtPlayhead}
                   title="Den Clip am Playhead in zwei Clips teilen (Taste S)">
             <i class="fa-solid fa-scissors"></i> Teilen
           </button>
-          <button class="btn" onclick={deleteSelected}
+          <button class="btn btn-danger" onclick={deleteSelected}
                   disabled={!editor.selectedClipId}
                   title="Den ausgewählten Clip aus der Timeline entfernen (Taste Entf / Backspace)">
             <i class="fa-solid fa-trash"></i>
           </button>
-          <button class="btn" onclick={() => toggleClipMode(editor.selectedClipId)}
+          <button class="btn btn-cut" onclick={() => toggleClipMode(editor.selectedClipId)}
                   disabled={!editor.selectedClipId}
                   title="Modus des ausgewählten Clips umschalten: copy (verlustfrei, keyframe-genau) ↔ reencode (frame-genau, neu kodiert)">
             <i class="fa-solid fa-arrows-rotate"></i>
@@ -428,7 +464,7 @@
               {/if}
             </button>
           {:else}
-            <button class="btn"
+            <button class="btn btn-play"
                     onclick={startTimelinePreview}
                     disabled={!stats().count}
                     title="Alle Clips der Timeline nacheinander abspielen, mit Sprung über die Lücken (Umschalt + Leertaste)">
@@ -457,13 +493,30 @@
           </label>
           <label class="btn-toggle" class:is-on={editor.followOn}
                  title={editor.followOn
-                   ? 'Timeline folgt dem Playhead: sobald der Abspielkopf in das letzte Drittel der Ansicht gelangt, wird sanft nachgescrollt.'
+                   ? 'Timeline folgt dem Playhead: sobald der Abspielkopf die Anker-Linie passiert, wird sanft nachgezogen.'
                    : 'Timeline folgt dem Playhead nicht. Die Ansicht bleibt fix, der Playhead kann aus dem sichtbaren Bereich laufen.'}>
             <input type="checkbox" checked={editor.followOn}
                    onchange={(e) => setFollow(e.target.checked)} />
             <i class="fa-solid fa-location-crosshairs"></i>
             Timeline folgt
           </label>
+
+          <!-- Zoom-Presets fuer die Timeline -->
+          <span class="zoom-wrap" title="Timeline-Zoom (auch mit Cmd/Ctrl + Mausrad ueber der Timeline)">
+            <i class="fa-solid fa-magnifying-glass zoom-ico"></i>
+            <select class="zoom-select"
+                    value={String(editor.timelineZoom)}
+                    onchange={pickZoom}>
+              {#each ZOOM_PRESETS as p (p.v)}
+                <option value={String(p.v)}>{p.label}</option>
+              {/each}
+              {#if !ZOOM_PRESETS.some((p) => p.v === editor.timelineZoom)}
+                <option value={String(editor.timelineZoom)}
+                        >Benutzerdefiniert ({Math.round(editor.timelineZoom)} px/s)</option>
+              {/if}
+              <option value="fit">Gesamt einpassen</option>
+            </select>
+          </span>
         </div>
 
         <div class="group right mono">
