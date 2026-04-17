@@ -14,6 +14,7 @@
   import { api } from '../lib/api.js';
   import {
     editor, seek, startTranscribe, cancelTranscribe, activeSegmentAt,
+    toggleTranscriptFollow,
   } from '../lib/editor.svelte.js';
   import { toast } from '../lib/toast.svelte.js';
   import { confirmDialog } from '../lib/dialog.svelte.js';
@@ -49,11 +50,22 @@
            + `:${String(sec).padStart(2,'0')}`;
   }
 
-  // Aktives Segment in den Sichtbereich scrollen
+  // Aktives Segment in den Sichtbereich scrollen. Eigener Follow-
+  // Schalter (transcriptFollowOn) -- unabhaengig vom Timeline-Follow.
+  // Wir nutzen data-idx als stabilen Schluessel (Float-Vergleich in
+  // data-Attributen ist unzuverlaessig).
+  let userScrolledAt = 0;
+  function onUserScroll() { userScrolledAt = Date.now(); }
+
   $effect(() => {
-    if (!editor.followOn || !listEl || !active) return;
-    const el = listEl.querySelector(`[data-seg-start="${active.start}"]`);
-    if (el) el.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+    if (!editor.transcriptFollowOn || !listEl || !active) return;
+    // Nach manuellem Scroll 1,5 s Pause, damit der User nicht staendig
+    // wieder an die aktuelle Stelle gerissen wird.
+    if (Date.now() - userScrolledAt < 1500) return;
+    const idx = segments.indexOf(active);
+    if (idx < 0) return;
+    const el = listEl.querySelector(`[data-idx="${idx}"]`);
+    if (el) el.scrollIntoView({ block: 'center', behavior: 'smooth' });
   });
 
   async function checkCapabilities() {
@@ -131,6 +143,13 @@
       <input type="search" class="tp-search"
              placeholder="Im Transkript suchen..."
              bind:value={query} />
+      <button class="btn btn-sm" class:is-on={editor.transcriptFollowOn}
+              onclick={toggleTranscriptFollow}
+              title={editor.transcriptFollowOn
+                ? 'Mitlaufen beim Abspielen ist an. Die Liste scrollt zur aktuellen Stelle.'
+                : 'Mitlaufen ist aus. Du scrollst frei.'}>
+        <i class="fa-solid fa-location-crosshairs"></i>
+      </button>
       {#if t?.has_transcript}
         <a class="btn btn-sm" href={api.transcriptSrtUrl(editor.fileId)} download
            title="SRT-Datei herunterladen">
@@ -143,11 +162,12 @@
       {/if}
     </div>
 
-    <ul class="segs" bind:this={listEl}>
-      {#each filtered as s (s.start + '-' + s.end)}
-        <li class:active={active && s.start === active.start && s.end === active.end}
-            data-seg-start={s.start}>
-          <button class="seg" onclick={() => seek(s.start)}
+    <ul class="segs" bind:this={listEl} onscroll={onUserScroll}>
+      {#each filtered as s, i (s.start + '-' + s.end + '-' + i)}
+        {@const isActive = active && s.start === active.start && s.end === active.end}
+        <li class:active={isActive} data-idx={segments.indexOf(s)}>
+          <button class="seg" class:seg-active={isActive}
+                  onclick={() => seek(s.start)}
                   title="Zu dieser Stelle springen">
             <span class="ts mono">{fmtTs(s.start)}</span>
             <span class="txt">{s.text}</span>
@@ -223,34 +243,54 @@
     overflow-y: auto;
     min-height: 0;
   }
-  .segs li.active .seg {
-    background: var(--accent-soft);
-    border-left: 3px solid var(--accent);
+  .segs li {
+    /* Dezente Farbsteuerung fuer nicht-aktive Segmente */
+    color: var(--fg-muted);
+  }
+  .segs li.active {
+    color: var(--fg-primary);
   }
   .segs li.nohit {
     padding: 12px;
     color: var(--fg-faint);
-    font-size: 13px;
+    font-size: 14px;
     text-align: center;
   }
   .seg {
     width: 100%;
     display: grid;
-    grid-template-columns: 56px 1fr;
-    gap: 10px;
+    grid-template-columns: 64px 1fr;
+    gap: 12px;
     align-items: baseline;
-    padding: 8px 12px;
+    padding: 10px 14px;
     background: transparent;
     border: none;
     border-left: 3px solid transparent;
-    color: var(--fg-primary);
+    color: inherit;
     cursor: pointer;
     text-align: left;
     font: inherit;
-    font-size: 13px;
+    /* Lesbarer: groesser + etwas dicker */
+    font-size: 15px;
+    font-weight: 500;
     line-height: 1.55;
+    transition: background 120ms, color 120ms, border-color 120ms;
   }
   .seg:hover { background: var(--bg-elev); }
-  .seg .ts { color: var(--fg-muted); font-size: 11px; }
-  .seg .txt { color: var(--fg-primary); }
+  .seg .ts {
+    color: var(--fg-faint);
+    font-size: 12px;
+    font-weight: 500;
+  }
+  .seg .txt { color: inherit; }
+
+  /* Aktives Segment: akzentfarbig unterlegt, linke Leiste breiter, Text
+     fetter -- klar lesbar beim Mitlaufen, wie in Voice2Text. */
+  .seg-active {
+    background: var(--accent-soft);
+    border-left-color: var(--accent);
+    color: var(--fg-primary);
+    font-weight: 700;
+  }
+  .seg-active .ts { color: var(--accent); font-weight: 700; }
 </style>

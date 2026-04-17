@@ -63,6 +63,10 @@ export const editor = $state({
   transcribeJobId: null,
   rightTab: persisted('editor.rightTab', 'exports'),   // 'exports' | 'transcript'
   subtitlesOn: persisted('editor.subtitlesOn', true),
+  // Mitlaufen der Transkript-Liste: unabhaengig vom Timeline-Follow.
+  // Wenn an, wird das aktuell gesprochene Segment beim Playback
+  // automatisch in den sichtbaren Bereich gescrollt.
+  transcriptFollowOn: persisted('editor.transcriptFollowOn', true),
 });
 
 let saveTimer = null;
@@ -534,6 +538,11 @@ export function setRightTab(tab) {
 export function toggleSubtitles() {
   editor.subtitlesOn = !editor.subtitlesOn;
   persistLocal('editor.subtitlesOn', editor.subtitlesOn);
+}
+
+export function toggleTranscriptFollow() {
+  editor.transcriptFollowOn = !editor.transcriptFollowOn;
+  persistLocal('editor.transcriptFollowOn', editor.transcriptFollowOn);
 }
 
 // Reagiere auf Job-Events vom WebSocket (vom Editor aus aufrufen)
