@@ -212,9 +212,14 @@ def _output_forces_reencode(
     if output.audio_mute or output.audio_normalize or output.audio_mono:
         return True, "Audio-Filter aktiv"
     if output.resolution and output.resolution != "source":
-        return True, f"Zielaufloesung {output.resolution}"
+        return True, f"Zielauflösung {output.resolution}"
     if output.bitrate:
         return True, f"Ziel-Bitrate {output.bitrate}"
+    if output.crf is not None:
+        # Ein gesetzter CRF-Wert ist ein explizites Qualitätsziel; ohne
+        # Reencode würde er ignoriert. Lieber transkodieren -- sonst
+        # wäre die Anzeige "copy" ein Betrug am User.
+        return True, f"CRF {output.crf}"
     if source_meta is not None:
         # Codec 'source' heißt: wir übernehmen den Quell-Codec -- kein
         # Wechsel, daher auch kein Transcoding-Zwang.

@@ -10,11 +10,8 @@
   import { toast } from '../lib/toast.svelte.js';
   import {
     RENDER_PRESETS,
-    estimateFilesizeBytes,
-    estimateVideoBitrateKbps,
     parseBitrateKbps,
     formatBytes,
-    profileForcesReencode,
   } from '../lib/renderPresets.js';
 
   let { open = $bindable(false) } = $props();
@@ -71,24 +68,22 @@
     });
   });
 
-  // Sobald codecInfo geladen ist UND noch kein Preset aktiv matcht,
-  // wenden wir das Default-Preset (Empfohlen) an -- dann steht beim
-  // ersten Öffnen die System-Empfehlung (HEVC auf Apple Silicon,
-  // H.264 auf Pi/Linux), nicht der hartcodierte YouTube-1080p-Satz.
-  // defaultApplied verhindert, dass der Effect den Default wieder
-  // aufzwingt, nachdem der User von Hand alles abgewählt hat.
-  let defaultApplied = $state(false);
+  // Stille Codec-Vorauswahl: sobald codecInfo geladen ist UND der
+  // Codec noch auf dem neutralen Fallback steht ('h264') UND das
+  // System etwas anderes empfiehlt (HEVC auf Apple Silicon), stellen
+  // wir den Dropdown-Wert einmal still um. Keine UI-Kachel, keine
+  // Preset-Markierung -- nur ein ehrlicher Startwert im Dropdown.
+  let codecDefaultApplied = $state(false);
   $effect(() => {
-    if (!open) { defaultApplied = false; return; }
+    if (!open) { codecDefaultApplied = false; return; }
     if (!codecInfo) return;
-    if (defaultApplied) return;
-    if (activePresetId) { defaultApplied = true; return; }
+    if (codecDefaultApplied) return;
     untrack(() => {
-      const def = RENDER_PRESETS.find((p) => p.default);
-      if (def) {
-        applyPreset(def);
-        defaultApplied = true;
+      const rec = codecInfo.recommendations?.find((r) => r.default);
+      if (rec && codec === 'h264' && rec.codec !== 'h264') {
+        codec = rec.codec;
       }
+      codecDefaultApplied = true;
     });
   });
 
@@ -101,23 +96,39 @@
     codecInfo?.recommendations?.find((r) => r.default) ?? null
   );
 
-  // stats spiegelt den EFFEKTIVEN Modus wider, nicht den User-gesetzten
-  // clip.mode. Wenn das Output-Profil einen Reencode erzwingt (andere
-  // Auflösung, andere Bitrate, Codec-Wechsel, Audio-Filter), werden
-  // beim Render alle Clips transkodiert -- die Anzeige muss das auch
-  // so zeigen, sonst luegt sie ("copy: 1" bei de facto reencode).
+  // Timeline-Basiswerte (die kommen lokal aus der EDL, keine
+  // Render-Regel-Logik -- das ist nur Addition).
   const stats = $derived.by(() => {
     const tl = editor.edl?.timeline ?? [];
     const total = tl.reduce((s, c) => s + (c.src_end - c.src_start), 0);
-    const forced = profileForcesReencode(currentProfile, editor.file);
-    const isReenc = (c) => c.mode === 'reencode' || forced.forced;
-    const copyN = tl.filter((c) => !isReenc(c)).length;
-    const reN   = tl.filter((c) => isReenc(c)).length;
-    return {
-      total, copyN, reN, count: tl.length,
-      forcedReason: forced.reason,
-      forcedByProfile: forced.forced,
-    };
+    return { total, count: tl.length };
+  });
+
+  // Single Source of Truth: das Backend sagt, was beim Render
+  // passiert (mode, reason, Größenschätzung, echte kbps). Jede
+  // currentProfile-Änderung triggert einen debounced Request,
+  // bis die Antwort da ist bleibt der letzte bekannte Stand.
+  let analysis = $state(null);
+  let analyzeTimer = null;
+  $effect(() => {
+    if (!open) return;
+    // Abhängigkeiten reaktiv einsammeln:
+    // eslint-disable-next-line no-unused-expressions
+    currentProfile; stats.total; editor.file?.id;
+    untrack(() => {
+      if (!editor.file?.id || !stats.total) { analysis = null; return; }
+      if (analyzeTimer) clearTimeout(analyzeTimer);
+      analyzeTimer = setTimeout(async () => {
+        try {
+          analysis = await api.analyzeRender(
+            currentProfile, editor.file.id, stats.total,
+          );
+        } catch (e) {
+          // Bei Fehler behalten wir den letzten Stand; kein UI-Krach.
+          analysis = { error: e.message };
+        }
+      }, 250);
+    });
   });
 
   // Wenn Zielgrößen-Modus aktiv: Bitrate aus (MB - Audio) / Dauer
@@ -148,25 +159,19 @@
     audio_mute:      audioMute,
   });
 
-  // Größe schätzen -- Hausnummer, keine Messung. Bei Passthrough/Copy-Mode
-  // nimmt estimateFilesizeBytes die Quell-Datei proportional zur
-  // Clip-Länge, statt eine (unsinnige) Bitrate-Heuristik zu rechnen.
-  const estimatedBytes = $derived(
-    estimateFilesizeBytes(currentProfile, stats.total, editor.file),
-  );
+  // Alle Anzeige-Werte kommen aus analysis (Backend). Fallbacks sind
+  // harmlose Zwischen-Defaults, solange die erste Antwort noch nicht
+  // da ist.
+  const estimatedBytes = $derived(analysis?.estimated_bytes ?? 0);
   const estimatedLabel = $derived(formatBytes(estimatedBytes));
-  const videoMbps = $derived(
-    (estimateVideoBitrateKbps(currentProfile, editor.file) / 1000).toFixed(
-      estimateVideoBitrateKbps(currentProfile, editor.file) >= 10_000 ? 0 : 1
-    )
-  );
-  const audioKbps = $derived(
-    audioMute ? 0 : parseBitrateKbps(audioBitrate),
-  );
-
-  const filtersForceReencode = $derived(
-    audioNormalize || audioMono || audioMute,
-  );
+  const videoMbps = $derived(((analysis?.video_kbps ?? 0) / 1000).toFixed(
+    (analysis?.video_kbps ?? 0) >= 10_000 ? 0 : 1,
+  ));
+  const audioKbps = $derived(analysis?.audio_kbps ?? 0);
+  const analysisForced = $derived(analysis?.mode === 'reencode');
+  const analysisReason = $derived(analysis?.reason ?? '');
+  const copyCount = $derived(analysisForced ? 0 : stats.count);
+  const reencCount = $derived(analysisForced ? stats.count : 0);
 
   // --- Dropdown-Optionen ---
   const AUDIO_BITRATE_OPTIONS = [
@@ -190,60 +195,25 @@
 
   function applyPreset(preset) {
     const p = preset.profile;
-    // Passthrough-Preset: Quell-Metadaten übernehmen, damit
-    // _output_forces_reencode() nichts triggert und der Renderer
-    // tatsächlich -c copy nutzen kann (keyframe-genauer Schnitt
-    // ohne Transcoding).
-    if (preset.passthrough) {
-      // Echtes Durchreichen: Codec 'source' (Backend löst zur Laufzeit
-      // auf), Audio-Codec 'copy', keine Bitrate, kein CRF, kein Filter.
-      // qualityMode 'none', damit currentProfile.bitrate UND .crf sauber
-      // null sind -- sonst stuft die Grössen-Schätzung das als
-      // verlustfrei ein und zeigt 79 GB.
-      codec = 'source';
-      container = p.container || 'mp4';
-      resolution = 'source';
-      bitrate = '';
-      crf = null;
-      qualityMode = 'none';
-      audioCodec     = 'copy';
-      audioBitrate   = p.audio_bitrate || '160k';
-      audioNormalize = false;
-      audioMono      = false;
-      audioMute      = false;
-      activePresetId = preset.id;
-      return;
-    }
-    // Dynamic-Preset (Empfohlen): Codec aus der System-Empfehlung
-    // (codecInfo.recommendations mit default=true). Der Rest kommt
-    // aus preset.profile -- CRF 22, source-Auflösung, keine Bitrate.
-    if (preset.dynamic && codecInfo?.recommendations) {
-      const rec = codecInfo.recommendations.find((r) => r.default)
-               ?? codecInfo.recommendations[0];
-      codec = rec?.codec || p.codec;
-      container = p.container;
-      resolution = p.resolution;
-      bitrate = '';
-      crf = p.crf ?? 22;
-      qualityMode = 'crf';
-      audioCodec     = p.audio_codec;
-      audioBitrate   = p.audio_bitrate;
-      audioNormalize = p.audio_normalize;
-      audioMono      = p.audio_mono;
-      audioMute      = p.audio_mute;
-      activePresetId = preset.id;
-      return;
-    }
     codec = p.codec;
     container = p.container;
     resolution = p.resolution;
+    // qualityMode wird aus den Profil-Werten abgeleitet:
+    //   - Bitrate gesetzt -> 'bitrate'
+    //   - CRF gesetzt     -> 'crf'
+    //   - beides null     -> 'none' (kein Qualitätstarget, ermöglicht
+    //                         echten Copy-Mode im Backend)
     if (p.bitrate) {
       bitrate = p.bitrate;
       qualityMode = 'bitrate';
-    } else {
+    } else if (p.crf !== null && p.crf !== undefined) {
       bitrate = '';
       crf = p.crf;
       qualityMode = 'crf';
+    } else {
+      bitrate = '';
+      crf = null;
+      qualityMode = 'none';
     }
     audioCodec     = p.audio_codec;
     audioBitrate   = p.audio_bitrate;
@@ -507,7 +477,7 @@
         <div class="summary mono">
           <div><b>{stats.count}</b> Clips · <b>{stats.total.toFixed(2)}</b> s gesamt</div>
           <div class="dim">
-            copy: {stats.copyN} · reencode: {stats.reN}{#if stats.forcedByProfile} ({stats.forcedReason} → alles reencode){/if}
+            copy: {copyCount} · reencode: {reencCount}{#if analysisForced && analysisReason} ({analysisReason} → alles reencode){/if}
           </div>
         </div>
 
@@ -758,7 +728,7 @@
                 Stumm
               </button>
             </div>
-            {#if filtersForceReencode}
+            {#if audioNormalize || audioMono || audioMute}
               <p class="filter-note">
                 <i class="fa-solid fa-circle-info"></i>
                 Audio-Filter sind aktiv -- alle Clips werden neu kodiert,

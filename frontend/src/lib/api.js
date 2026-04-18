@@ -199,6 +199,12 @@ export const api = {
     const qs = clipId ? `?clip_id=${encodeURIComponent(clipId)}` : '';
     return request(`/projects/${id}/render${qs}`, { method: 'POST' });
   },
+  analyzeRender: (output, source_file_id, total_seconds) =>
+    request('/render/analyze', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ output, source_file_id, total_seconds }),
+    }),
 
   // Transkription
   transcriptionStatus: () => request('/transcription/status'),
