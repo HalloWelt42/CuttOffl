@@ -138,8 +138,16 @@
   $effect(() => {
     const src = step?.audio_src;
     if (!audioEl) return;
-    if (!tour.running || !src) {
+    if (!tour.running) {
       audioEl.pause();
+      return;
+    }
+    // Ein Step ohne audio_src darf die Tour nicht anhalten. Wir
+    // pausieren den Player und planen stattdessen den Fallback-
+    // Advance, damit die Demo-Tour nahtlos zum nächsten Schritt geht.
+    if (!src) {
+      audioEl.pause();
+      scheduleFallbackAdvance();
       return;
     }
     // Quelle wechseln, wenn nötig
