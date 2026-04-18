@@ -3,7 +3,6 @@
 import { api } from './api.js';
 import { toast } from './toast.svelte.js';
 import { persisted, persist as persistLocal } from './persist.svelte.js';
-import { RENDER_PRESETS } from './renderPresets.js';
 
 const HIST_MAX = 80;
 
@@ -11,26 +10,21 @@ function uid() {
   return 'c' + Math.random().toString(36).slice(2, 10);
 }
 
-// Default-Output beim Neuanlegen eines Projekts: unser "bestes"
-// Allround-Preset (YouTube 1080p, H.264 8 Mbit/s, HW-Encoder-tauglich).
-// Wenn kein default-Preset markiert ist, fallen wir auf einfache
-// Source-Defaults zurück.
-function defaultOutput() {
-  const def = RENDER_PRESETS.find((p) => p.default);
-  if (def) {
-    return { container: 'mp4', ...def.profile };
-  }
-  return {
-    codec: 'h264', resolution: 'source', container: 'mp4', crf: 23,
-    audio_codec: 'aac', audio_bitrate: '160k',
-  };
-}
-
+// Neutraler Output-Default fuer frische Projekte. Das Backend akzeptiert
+// null fuer Bitrate und CRF und entscheidet beim Render dann sauber ueber
+// den Modus. Das Backend-Schema liefert den echten Pydantic-Default --
+// hier nur was die UI als sinnvollen Start zeigt, bis der User ein
+// Preset waehlt oder selbst dreht.
 function emptyEdl(fileId) {
   return {
     source_file_id: fileId,
     timeline: [],
-    output: defaultOutput(),
+    output: {
+      codec: 'h264', resolution: 'source', container: 'mp4',
+      bitrate: null, crf: null,
+      audio_codec: 'aac', audio_bitrate: '160k',
+      audio_normalize: false, audio_mono: false, audio_mute: false,
+    },
   };
 }
 
@@ -105,32 +99,14 @@ function scheduleSave() {
   saveTimer = setTimeout(() => void persist(), 600);
 }
 
-// Vor dem PUT: EDL auf gültige Clips filtern und Zahlen auf sinnvolle
-// Präzision bringen. Pydantic verwirft src_end <= src_start (422),
-// und src_start < 0 ebenfalls. Zwischenzustände aus Drag-Operationen
-// oder Tour-Animationen können sonst die Speicherung killen.
-function sanitizeEdlForSave(edl) {
-  if (!edl) return edl;
-  const tl = (edl.timeline ?? [])
-    .filter((c) => {
-      const s = Number(c?.src_start);
-      const e = Number(c?.src_end);
-      return Number.isFinite(s) && Number.isFinite(e) && s >= 0 && e > s;
-    })
-    .map((c) => ({
-      ...c,
-      src_start: Number(Math.max(0, c.src_start).toFixed(3)),
-      src_end: Number(Math.max(c.src_start + 0.001, c.src_end).toFixed(3)),
-    }));
-  return { ...edl, timeline: tl };
-}
-
 async function persist() {
   if (!editor.projectId || !editor.edl || editor.saving) return;
   editor.saving = true;
   try {
-    const safe = sanitizeEdlForSave(editor.edl);
-    await api.updateProject(editor.projectId, { edl: safe });
+    // Das Backend-Schema filtert degenerierte Clips und rundet
+    // Zeit-Werte -- hier kein Frontend-Sanitize mehr (zentralisierte
+    // Logik liegt im Backend).
+    await api.updateProject(editor.projectId, { edl: editor.edl });
     editor.dirty = false;
   } catch (e) {
     toast.error(`EDL-Speichern: ${e.message}`);

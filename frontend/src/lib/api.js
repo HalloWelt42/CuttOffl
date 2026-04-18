@@ -205,6 +205,7 @@ export const api = {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ output, source_file_id, total_seconds }),
     }),
+  renderPresets: () => request('/render/presets'),
 
   // Transkription
   transcriptionStatus: () => request('/transcription/status'),

@@ -23,6 +23,7 @@ from pydantic import BaseModel, Field
 
 from app.db import db
 from app.models.edl import OutputProfile
+from app.services.render_presets import RENDER_PRESETS, RenderPreset
 from app.services.render_service import (
     _output_forces_reencode, _norm_vcodec,
 )
@@ -187,6 +188,15 @@ def analyze_output(
             round(source_bitrate_kbps, 1) if source_bitrate_kbps else None
         ),
     )
+
+
+@router.get("/presets", response_model=list[RenderPreset])
+async def list_presets() -> list[RenderPreset]:
+    """Alle Export-Presets. Frontend lädt sie einmal und rendert daraus
+    die Schnellwahl-Kacheln. Presets sind backend-seitig definiert,
+    damit sie auch von Skripten oder der Tour konsistent genutzt
+    werden können -- und nicht im Frontend hart kodiert leben."""
+    return RENDER_PRESETS
 
 
 @router.post("/analyze", response_model=AnalyzeResponse)

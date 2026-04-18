@@ -8,11 +8,7 @@
   import { editor, setOutput, startRender, cancelRender } from '../lib/editor.svelte.js';
   import { api } from '../lib/api.js';
   import { toast } from '../lib/toast.svelte.js';
-  import {
-    RENDER_PRESETS,
-    parseBitrateKbps,
-    formatBytes,
-  } from '../lib/renderPresets.js';
+  import { parseBitrateKbps, formatBytes } from '../lib/renderPresets.js';
 
   let { open = $bindable(false) } = $props();
 
@@ -37,9 +33,12 @@
   let codecInfo      = $state(null);
   let activeTab      = $state('profile');   // 'profile' | 'video' | 'audio'
   let activePresetId = $state(null);
+  // Presets kommen vom Backend -- leer bis sie geladen sind.
+  let renderPresets  = $state([]);
 
   onMount(async () => {
     try { codecInfo = await api.systemCodecs(); } catch {}
+    try { renderPresets = await api.renderPresets(); } catch {}
   });
 
   // Beim Öffnen: EDL -> State synchronisieren. WICHTIG: untrack um
@@ -229,7 +228,7 @@
   // Bitrate dort aus Dauer und MB berechnet ist.
   function matchPreset() {
     if (qualityMode === 'size') return null;
-    for (const preset of RENDER_PRESETS) {
+    for (const preset of renderPresets) {
       const p = preset.profile;
       const same =
         p.codec === codec &&
@@ -532,7 +531,7 @@
             die Werte danach feintunen.
           </div>
           <div class="presets-grid">
-            {#each RENDER_PRESETS as preset (preset.id)}
+            {#each renderPresets as preset (preset.id)}
               <button class="preset" class:is-active={activePresetId === preset.id}
                       onclick={() => applyPreset(preset)}
                       title={preset.hint ?? preset.note}>
@@ -548,7 +547,7 @@
             {/each}
           </div>
           {#if activePresetId}
-            {@const active = RENDER_PRESETS.find((p) => p.id === activePresetId)}
+            {@const active = renderPresets.find((p) => p.id === activePresetId)}
             {#if active?.hint}
               <div class="preset-hint">
                 <i class="fa-solid fa-circle-info"></i>

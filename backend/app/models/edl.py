@@ -105,6 +105,39 @@ class EDL(BaseModel):
     timeline: list[Clip] = Field(default_factory=list)
     output: OutputProfile = Field(default_factory=OutputProfile)
 
+    @field_validator("timeline", mode="before")
+    @classmethod
+    def _sanitize_timeline(cls, v):
+        """Filtert degenerierte Clips heraus (src_end <= src_start,
+        negative src_start, NaN), bevor die Einzel-Clip-Validierung
+        greift. Rundet Zeit-Werte auf 3 Nachkommastellen.
+
+        Grund: das Frontend erzeugt waehrend Drag-Operationen oder
+        Animationen kurzfristig degenerate Clips. Frueher hat ein
+        Frontend-Sanitize das abgefangen -- jetzt macht das Backend
+        das zentral, sonst muessten beide Seiten die Regel kennen.
+        """
+        if not isinstance(v, list):
+            return v
+        cleaned = []
+        for item in v:
+            if not isinstance(item, dict):
+                cleaned.append(item)
+                continue
+            try:
+                s = float(item.get("src_start"))
+                e = float(item.get("src_end"))
+            except (TypeError, ValueError):
+                continue
+            if not (s >= 0 and e > s):
+                continue
+            # Flache Kopie, damit der Aufrufer-Dict nicht mutiert wird
+            patched = dict(item)
+            patched["src_start"] = round(s, 3)
+            patched["src_end"] = round(e, 3)
+            cleaned.append(patched)
+        return cleaned
+
 
 class ProjectCreate(BaseModel):
     name: str
