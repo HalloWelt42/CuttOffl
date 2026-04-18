@@ -31,6 +31,9 @@ data/tts-cache/*
 # Laufzeit
 logs/
 
+# Lokale Notizen (nie ins Repo)
+notes/
+
 # Node / Vite
 node_modules/
 dist/
