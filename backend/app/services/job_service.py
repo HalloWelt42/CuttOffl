@@ -318,10 +318,19 @@ class JobService:
         if prow is None:
             raise RuntimeError("Projekt nicht gefunden")
         frow = await db.fetch_one(
-            "SELECT path FROM files WHERE id = ?", (prow["source_file_id"],)
+            """SELECT path, video_codec, audio_codec, width, height, fps
+               FROM files WHERE id = ?""",
+            (prow["source_file_id"],),
         )
         if frow is None:
             raise RuntimeError("Quelldatei nicht gefunden")
+        source_meta = {
+            "video_codec": frow["video_codec"],
+            "audio_codec": frow["audio_codec"],
+            "width": frow["width"],
+            "height": frow["height"],
+            "fps": frow["fps"],
+        }
         # Falls der Job einen EDL-Override mitbringt (z. B. Einzel-Clip-Export),
         # hat dieser Vorrang vor der gespeicherten Projekt-EDL.
         override = (job.payload or {}).get("edl_override")
@@ -371,6 +380,7 @@ class JobService:
             job_id=job.id,
             progress_cb=on_progress,
             filename_suffix=f"clip-{clip_tag}" if clip_tag else "",
+            source_meta=source_meta,
         )
         job.result_path = str(final)
 

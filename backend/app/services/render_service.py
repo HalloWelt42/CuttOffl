@@ -64,6 +64,30 @@ async def _pick_video_encoder(codec: str) -> tuple[str, list[str]]:
     return "libx264", ["-preset", "medium"]
 
 
+async def _hw_decode_flags(source_codec: Optional[str]) -> list[str]:
+    """HW-Decode-Flags vor dem -i, damit 4K HEVC auf Apple Silicon und
+    Raspberry Pi nicht den Software-Dekoder zum Flaschenhals machen.
+    Spiegelt die Logik aus proxy_service._hw_decode_flags, damit beide
+    Pipelines gleich schnell sind."""
+    if not source_codec:
+        return []
+    codec = source_codec.lower()
+    supported_vt = {"hevc", "h265", "h264", "avc1", "prores",
+                    "h263", "mpeg1video", "mpeg2video", "mpeg4", "vp9"}
+    try:
+        hw = await detect_hw_encoder()
+    except Exception:
+        hw = None
+    if hw == "h264_videotoolbox" and codec in supported_vt:
+        return ["-hwaccel", "videotoolbox"]
+    if hw == "h264_v4l2m2m":
+        if codec in ("h264", "avc1"):
+            return ["-c:v", "h264_v4l2m2m"]
+        if codec in ("hevc", "h265"):
+            return ["-c:v", "hevc_v4l2m2m"]
+    return []
+
+
 def _scale_filter(resolution: str) -> Optional[str]:
     if not resolution or resolution == "source":
         return None
@@ -136,14 +160,108 @@ def _audio_filter_chain(output: OutputProfile) -> Optional[str]:
     return ",".join(filters) if filters else None
 
 
-def _needs_reencode(clip: Clip, output: OutputProfile) -> bool:
-    """Erzwingt Re-Encoding, wenn Audio-Filter aktiv sind -- sonst greifen
-    die Filter nicht (copy-Mode kopiert den AV-Stream 1:1)."""
+# Codec-Aliasse: ffprobe meldet "hevc", manche Container "h265"; unser
+# Output-Profil kennt nur h264/hevc. Hier normalisieren wir, damit
+# Gleich-Vergleiche ehrlich sind.
+def _norm_vcodec(c: Optional[str]) -> str:
+    if not c:
+        return ""
+    c = c.lower().strip()
+    if c in ("hevc", "h265", "x265"):
+        return "hevc"
+    if c in ("h264", "avc", "avc1", "x264"):
+        return "h264"
+    return c
+
+
+def _norm_acodec(c: Optional[str]) -> str:
+    if not c:
+        return ""
+    return c.lower().strip()
+
+
+def _output_forces_reencode(
+    output: OutputProfile, source_meta: Optional[dict]
+) -> tuple[bool, str]:
+    """Entscheidet auf Profil-Ebene, ob dieses Ziel-Profil Re-Encoding
+    fordert. Gibt (True/False, Grund) zurück.
+
+    Copy-Mode kopiert den AV-Stream 1:1 -- Auflösung, Codec, Bitrate,
+    Audio-Codec und Audio-Filter werden dann IGNORIERT. Das macht einen
+    Render "in Sekunden fertig", obwohl der User ein anderes Ziel-
+    Profil gewählt hat. Deshalb prüfen wir hier streng:
+      - Auflösung ≠ "source"               → skalieren, geht nicht mit copy
+      - Bitrate explizit gesetzt           → greift nur beim Transcode
+      - Ziel-Codec ≠ Quell-Codec           → muss transkodiert werden
+      - Ziel-Audio-Codec ≠ Quell-Audio     → muss transkodiert werden
+      - Audio-Filter (mute/norm/mono)      → braucht Transcode
+    """
+    if output.audio_mute or output.audio_normalize or output.audio_mono:
+        return True, "Audio-Filter aktiv"
+    if output.resolution and output.resolution != "source":
+        return True, f"Zielaufloesung {output.resolution}"
+    if output.bitrate:
+        return True, f"Ziel-Bitrate {output.bitrate}"
+    if source_meta is not None:
+        src_v = _norm_vcodec(source_meta.get("video_codec"))
+        dst_v = _norm_vcodec(output.codec)
+        if src_v and dst_v and src_v != dst_v:
+            return True, f"Video-Codec-Wechsel {src_v}->{dst_v}"
+        # Audio: "copy" in den Audio-Codec-Einstellungen umgeht jeden
+        # Wechsel; sonst vergleichen wir die Codec-Namen.
+        if output.audio_codec != "copy":
+            src_a = _norm_acodec(source_meta.get("audio_codec"))
+            dst_a = _norm_acodec(output.audio_codec)
+            if src_a and dst_a and src_a != dst_a:
+                return True, f"Audio-Codec-Wechsel {src_a}->{dst_a}"
+    return False, ""
+
+
+def _needs_reencode(
+    clip: Clip,
+    output: OutputProfile,
+    profile_forces: bool = False,
+) -> bool:
+    """Entscheidet pro Clip, ob transkodiert werden muss. Zusätzlich zu
+    Clip-eigenem mode='reencode' und Audio-Filter wirkt hier der
+    profile_forces-Flag -- wenn das Output-Profil eh schon reencode
+    erzwingt, müssen *alle* Clips transkodieren, damit der finale
+    concat-Demuxer homogen kompatible Streams bekommt."""
     if clip.mode == "reencode":
         return True
     if output.audio_mute or output.audio_normalize or output.audio_mono:
         return True
+    if profile_forces:
+        return True
     return False
+
+
+def _quality_args(encoder: str, output: OutputProfile) -> list[str]:
+    """Mappt Bitrate/CRF auf encoder-spezifische Flags.
+
+    - libx264/libx265: -b:v oder -crf
+    - h264_videotoolbox/hevc_videotoolbox: -b:v oder -q:v (kennen kein
+      -crf). CRF 0-51 -> q:v 100-0 linear gemappt (50 ≈ q 51, 23 ≈ 55).
+    - h264_v4l2m2m: nur -b:v (Pi-HW-Encoder kennt keine CRF-artige
+      Quality-Steuerung, Default ist hartes Bitrate-Target).
+    """
+    if output.bitrate:
+        return ["-b:v", output.bitrate]
+    if output.crf is None:
+        return []
+    crf = int(output.crf)
+    if encoder in ("libx264", "libx265"):
+        return ["-crf", str(crf)]
+    if encoder in ("h264_videotoolbox", "hevc_videotoolbox"):
+        # Apple-VT-Quality: 0-100 (100 = verlustfrei). Wir bilden
+        # sinnvoll ab: CRF 18 -> q 75, 23 -> q 65, 28 -> q 55.
+        q = max(0, min(100, 100 - crf * 2))
+        return ["-q:v", str(q)]
+    if encoder == "h264_v4l2m2m":
+        # Fallback: ohne Bitrate kein Target -- geben wir eine sinnvolle
+        # Default-Bitrate an, damit der Pi-Encoder nicht floatet.
+        return ["-b:v", "6M"]
+    return []
 
 
 async def _build_clip(
@@ -155,10 +273,13 @@ async def _build_clip(
     encoder_flags: list[str],
     scale_vf: Optional[str],
     on_sec: Callable[[float], None],
+    profile_forces_reencode: bool = False,
+    source_codec: Optional[str] = None,
 ) -> None:
     """Erzeugt genau ein Segment ins dest."""
     base = [ffmpeg_binary(), "-y", "-hide_banner", "-loglevel", "error"]
-    reencode = _needs_reencode(clip, output)
+    reencode = _needs_reencode(clip, output, profile_forces_reencode)
+    hw_flags = await _hw_decode_flags(source_codec)
     # Bei copy-Mode OHNE Filter: schnelles verlustfreies Schneiden
     if not reencode:
         args = base + [
@@ -171,17 +292,16 @@ async def _build_clip(
             str(dest),
         ]
     else:
-        # Reencode: output-seek + Filter
+        # Reencode mit HW-Decode vor dem -i. Bei 4K HEVC spart das
+        # Faktor 5-20 Rechenzeit gegenueber Software-Decode.
         args = base + [
+            *hw_flags,
             "-ss", f"{clip.src_start:.3f}",
             "-to", f"{clip.src_end:.3f}",
             "-i", str(source),
             "-c:v", encoder, *encoder_flags,
+            *_quality_args(encoder, output),
         ]
-        if output.bitrate:
-            args += ["-b:v", output.bitrate]
-        elif encoder in ("libx264", "libx265") and output.crf is not None:
-            args += ["-crf", str(output.crf)]
         if scale_vf:
             args += ["-vf", scale_vf]
         # Audio-Teil: komplette Stummschaltung via -an, sonst Codec +
@@ -235,8 +355,14 @@ async def render_edl(
     job_id: str,
     progress_cb: ProgressCb = None,
     filename_suffix: str = "",
+    source_meta: Optional[dict] = None,
 ) -> Path:
-    """Rendert die EDL gegen `source` und gibt den Pfad zum fertigen Video zurück."""
+    """Rendert die EDL gegen `source` und gibt den Pfad zum fertigen Video zurück.
+
+    source_meta: {video_codec, audio_codec, width, height, fps} -- wird
+    benoetigt, um ehrlich zu entscheiden, ob der Copy-Mode reicht oder
+    das Ziel-Profil Transcoding erzwingt.
+    """
     if not edl.timeline:
         raise RuntimeError("EDL ist leer")
     if not source.exists():
@@ -254,9 +380,16 @@ async def render_edl(
     encoder, encoder_flags = await _pick_video_encoder(output.codec)
     scale_vf = _scale_filter(output.resolution)
 
-    # Wenn alle Clips copy + keine Skalierung nötig + nur Container-kompatibel,
-    # könnte man auf den Concat-Merge ohne Re-Encode auch alles belassen.
-    # Das passiert hier automatisch, weil die Segmente dann bereits mit `-c copy` entstehen.
+    # Profil-Ebene: erzwingt das Ziel-Profil ein Re-Encode (Skalierung,
+    # Codec-Wechsel, Ziel-Bitrate, Audio-Filter)? Dann alle Clips
+    # transkodieren -- der concat-Demuxer braucht homogene Streams.
+    profile_forces, reason = _output_forces_reencode(output, source_meta)
+    if profile_forces:
+        logger.info(f"Render erzwingt Reencode: {reason}")
+    else:
+        logger.info(
+            "Render bleibt im Copy-Mode -- Ziel-Profil passt zur Quelle"
+        )
 
     segments: list[Path] = []
     done_sec = 0.0
@@ -284,7 +417,7 @@ async def render_edl(
     try:
         for i, clip in enumerate(edl.timeline):
             seg = work / f"seg_{i:04d}.{container}"
-            mode = "copy" if not _needs_reencode(clip, output) else "reencode"
+            mode = "copy" if not _needs_reencode(clip, output, profile_forces) else "reencode"
             if progress_cb is not None:
                 progress_cb(
                     min(0.999, done_sec / total), "rendering",
@@ -301,6 +434,8 @@ async def render_edl(
                 encoder_flags=encoder_flags,
                 scale_vf=scale_vf,
                 on_sec=make_segment_cb(i, clip.duration, mode),
+                profile_forces_reencode=profile_forces,
+                source_codec=(source_meta or {}).get("video_codec"),
             )
             segments.append(seg)
             done_sec += clip.duration
