@@ -188,6 +188,8 @@ class JobService:
             await self._process_render(job)
         elif job.kind == "transcribe":
             await self._process_transcribe(job)
+        elif job.kind == "download_model":
+            await self._process_download_model(job)
         else:
             raise RuntimeError(f"Unbekannter Job-Typ: {job.kind}")
 
@@ -464,6 +466,41 @@ class JobService:
                 audio_path.unlink(missing_ok=True)
             except OSError:
                 pass
+
+    async def _process_download_model(self, job: Job) -> None:
+        """Laedt ein Whisper-Modell in den Standard-Cache der jeweiligen
+        Engine. payload = { engine, model }."""
+        payload = job.payload or {}
+        engine = payload.get("engine")
+        model = payload.get("model")
+        if not engine or not model:
+            raise RuntimeError("download_model-Job braucht engine + model")
+        job.message = f"Lade {engine} / {model}"
+        await self._persist(job)
+        await self._broadcast_job_event(job, "running")
+
+        last_sent = 0.0
+
+        def on_prog(frac: float) -> None:
+            nonlocal last_sent
+            job.progress = max(0.0, min(1.0, float(frac)))
+            if job.progress - last_sent >= 0.01:
+                last_sent = job.progress
+                self._schedule_broadcast({
+                    "type": "job_progress",
+                    "job_id": job.id,
+                    "kind": job.kind,
+                    "progress": job.progress,
+                    "phase": "downloading",
+                })
+
+        target = await transcribe_service.download_model(
+            engine=engine, model=model,
+            progress_cb=on_prog,
+            cancel_event=job.cancel_event,
+        )
+        job.result_path = target
+        job.message = f"{engine} / {model} bereit"
 
     async def _process_keyframes(self, job: Job) -> None:
         assert job.file_id, "keyframes-Job benötigt file_id"

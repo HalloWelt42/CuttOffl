@@ -194,6 +194,12 @@ export const api = {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ engine, model }),
     }),
+  downloadModel: (engine, model) =>
+    request('/transcription/download', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ engine, model }),
+    }),
   startTranscription: (fileId, body = {}) =>
     request(`/transcript/${fileId}/generate`, {
       method: 'POST',

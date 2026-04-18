@@ -68,6 +68,44 @@ class PreferenceRequest(BaseModel):
     model: str | None = None
 
 
+class DownloadRequest(BaseModel):
+    engine: str
+    model: str
+
+
+@router.post("/transcription/download")
+async def transcription_download(body: DownloadRequest) -> dict:
+    """Startet einen Hintergrund-Download des gewuenschten Whisper-
+    Modells in den Standard-Cache der Engine. Progress kommt per
+    WebSocket als 'job_progress'-Event mit kind='download_model'."""
+    engine = body.engine
+    model = body.model
+    if engine not in ("mlx-whisper", "faster-whisper", "openai-whisper"):
+        raise HTTPException(status_code=400, detail=f"Unbekannte Engine: {engine}")
+    if model not in tx.WHISPER_SIZES:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Unbekannte Modellgröße: {model}. "
+                   f"Erlaubt: {', '.join(tx.WHISPER_SIZES)}",
+        )
+    # Engine muss installiert sein -- sonst koennen wir das Modell zwar
+    # herunterladen, aber nicht nutzen. Wir lehnen das gleich ab, damit
+    # der User nicht GB laedt, die er nicht einsetzen kann.
+    caps = tx.capabilities(scan=False)
+    engine_info = next((e for e in caps.engines if e.name == engine), None)
+    if not engine_info or not engine_info.installed:
+        raise HTTPException(
+            status_code=409,
+            detail=f"Engine '{engine}' ist nicht installiert. "
+                   f"Installiere erst das Paket in der Backend-venv.",
+        )
+    job_id = await job_service.enqueue(
+        "download_model",
+        payload={"engine": engine, "model": model},
+    )
+    return {"job_id": job_id, "engine": engine, "model": model}
+
+
 @router.put("/transcription/preference")
 async def set_preference(body: PreferenceRequest) -> dict:
     """Persistiert die Nutzer-Wahl (Engine + Modell). Leerer Body

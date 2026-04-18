@@ -5,6 +5,16 @@
   import { toast } from '../lib/toast.svelte.js';
   import { nav, setSettingsTab, SETTINGS_TABS } from '../lib/nav.svelte.js';
   import { persisted, persist } from '../lib/persist.svelte.js';
+  import { wsOn, wsStart } from '../lib/ws.svelte.js';
+
+  // --- Modell-Download ---
+  const WHISPER_SIZES = ['tiny', 'base', 'small', 'medium',
+                         'large-v2', 'large-v3', 'large-v3-turbo'];
+  let dlEngine = $state('');
+  let dlModel  = $state('small');
+  let dlJobId  = $state(null);
+  let dlProgress = $state(0);
+  let dlMessage  = $state('');
 
   // Aktiver Tab -- Quelle: URL (nav.settingsTab), sonst persistierter
   // Zuletzt-Tab, sonst Default.
@@ -64,6 +74,11 @@
       originalsInput = pp.saved?.originals_dir ?? '';
       exportsInput   = pp.saved?.exports_dir   ?? '';
       txStatus = tx;
+      // Default-Engine fuer den Download-Abschnitt: erste installierte
+      if (!dlEngine) {
+        const first = tx?.engines?.find((e) => e.installed);
+        if (first) dlEngine = first.name;
+      }
     } catch (e) { toast.error(e.message); }
   }
 
@@ -82,6 +97,57 @@
       toast.info('Auswahl zurückgesetzt -- Auto-Vorschlag wird verwendet');
     } catch (e) { toast.error(e.message); }
   }
+
+  async function startModelDownload() {
+    if (!dlEngine || !dlModel) return;
+    try {
+      const res = await api.downloadModel(dlEngine, dlModel);
+      dlJobId = res?.job_id ?? null;
+      dlProgress = 0;
+      dlMessage = `${dlEngine} / ${dlModel} wird geladen...`;
+      toast.info(`Download gestartet: ${dlEngine} / ${dlModel}`);
+    } catch (e) {
+      toast.error(e.message);
+    }
+  }
+
+  async function cancelModelDownload() {
+    if (!dlJobId) return;
+    try {
+      await api.cancelJob(dlJobId);
+      toast.info('Abbruch angefordert');
+    } catch (e) { toast.error(e.message); }
+  }
+
+  onMount(() => {
+    wsStart();
+    const off = wsOn(async (msg) => {
+      if (msg.type === 'job_progress' && msg.kind === 'download_model'
+          && msg.job_id === dlJobId) {
+        dlProgress = msg.progress || 0;
+      }
+      if (msg.type === 'job_event' && msg.job?.kind === 'download_model'
+          && msg.job.id === dlJobId) {
+        if (msg.event === 'completed') {
+          dlProgress = 1;
+          dlMessage = `${dlEngine} / ${dlModel} fertig`;
+          dlJobId = null;
+          // Status neu laden, damit das neue Modell in der Liste erscheint
+          try { txStatus = await api.transcriptionStatus(); } catch {}
+          toast.success(`Modell ${dlEngine} / ${dlModel} heruntergeladen`);
+        } else if (msg.event === 'failed') {
+          dlMessage = `Fehler: ${msg.job.error || 'unbekannt'}`;
+          dlJobId = null;
+          toast.error(`Download: ${msg.job.error || 'fehlgeschlagen'}`);
+        } else if (msg.event === 'cancelled') {
+          dlMessage = 'Abgebrochen';
+          dlJobId = null;
+          toast.info('Download abgebrochen');
+        }
+      }
+    });
+    return off;
+  });
 
   async function scanModels() {
     txScanning = true;
@@ -325,6 +391,56 @@ pip install -r requirements-transcription.txt
         </ul>
       {/if}
 
+      <h4 class="sub">Weiteres Modell herunterladen</h4>
+      <p class="meta">
+        Lädt direkt vom offiziellen HuggingFace-Repo in den Cache der
+        gewählten Engine. Downloads laufen im Hintergrund, Fortschritt
+        erscheint unten.
+      </p>
+      <div class="scan-row">
+        <select class="sort-select" bind:value={dlEngine}
+                title="Für welche Engine soll das Modell geladen werden?">
+          {#each (txStatus?.engines || []).filter((e) => e.installed) as e (e.name)}
+            <option value={e.name}>{e.name}</option>
+          {/each}
+          {#if (txStatus?.engines || []).every((e) => !e.installed)}
+            <option value="">— keine Engine installiert —</option>
+          {/if}
+        </select>
+        <select class="sort-select" bind:value={dlModel}
+                title="Modellgröße. Größere Modelle sind genauer, brauchen aber mehr Platz und Zeit.">
+          {#each WHISPER_SIZES as s (s)}
+            <option value={s}>{s}</option>
+          {/each}
+        </select>
+        <button class="btn btn-primary" onclick={startModelDownload}
+                disabled={!dlEngine || !!dlJobId}
+                title="Modell in den Cache herunterladen">
+          <i class="fa-solid fa-download"></i>
+          Herunterladen
+        </button>
+      </div>
+      {#if dlJobId || dlMessage}
+        <div class="dl-progress">
+          <div class="dl-head">
+            <span class="mono">{dlMessage}</span>
+            {#if dlJobId}
+              <span class="mono dim">{Math.round((dlProgress || 0) * 100)} %</span>
+              <button class="btn btn-sm btn-danger" onclick={cancelModelDownload}
+                      title="Download abbrechen">
+                <i class="fa-solid fa-stop"></i>
+              </button>
+            {/if}
+          </div>
+          {#if dlJobId}
+            <div class="dl-bar">
+              <div class="dl-fill" style:width={`${Math.round((dlProgress || 0) * 100)}%`}></div>
+            </div>
+          {/if}
+        </div>
+      {/if}
+
+      <h4 class="sub">Auf der Platte scannen</h4>
       <div class="scan-row">
         <input type="text" class="scan-input"
                placeholder="Optional: zusätzlichen Ordner zum Scannen …"
@@ -572,6 +688,34 @@ pip install -r requirements-transcription.txt
     outline: none;
     border-color: var(--accent);
     box-shadow: 0 0 0 2px var(--accent-soft);
+  }
+
+  .dl-progress {
+    margin-top: 10px;
+    padding: 8px 10px;
+    background: var(--bg-elev);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+  }
+  .dl-head {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-size: 12px;
+  }
+  .dl-head .mono { flex: 1 1 auto; }
+  .dl-bar {
+    margin-top: 6px;
+    height: 6px;
+    background: var(--bg-sink);
+    border-radius: 3px;
+    overflow: hidden;
+    border: 1px solid var(--border);
+  }
+  .dl-fill {
+    height: 100%;
+    background: var(--accent);
+    transition: width 200ms linear;
   }
 
   .install summary {

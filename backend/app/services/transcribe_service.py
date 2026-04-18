@@ -600,6 +600,159 @@ def _transcribe_file_once(engine: str, model: str, path: str) -> dict:
     raise RuntimeError(f"Unbekannte Engine: {engine}")
 
 
+# --------------------------------------------------------------------------
+# Modell-Downloader
+# --------------------------------------------------------------------------
+
+# Geschaetzte Groesse pro Modell auf der Platte (in Bytes). Wird fuer die
+# Progress-Abschaetzung beim Download verwendet. Zahlen sind grob, aber
+# ausreichend fuer einen aussagekraeftigen Prozent-Balken.
+MODEL_SIZE_ESTIMATE: dict[tuple[str, str], int] = {
+    # mlx-whisper (HF-Repos mlx-community/whisper-<size>-mlx)
+    ("mlx-whisper", "tiny"):            80_000_000,
+    ("mlx-whisper", "base"):           150_000_000,
+    ("mlx-whisper", "small"):          480_000_000,
+    ("mlx-whisper", "medium"):       1_500_000_000,
+    ("mlx-whisper", "large-v2"):     3_100_000_000,
+    ("mlx-whisper", "large-v3"):     3_100_000_000,
+    ("mlx-whisper", "large-v3-turbo"): 1_700_000_000,
+    # faster-whisper (HF-Repos Systran/faster-whisper-<size>)
+    ("faster-whisper", "tiny"):         75_000_000,
+    ("faster-whisper", "base"):        145_000_000,
+    ("faster-whisper", "small"):       490_000_000,
+    ("faster-whisper", "medium"):    1_530_000_000,
+    ("faster-whisper", "large-v2"):  3_100_000_000,
+    ("faster-whisper", "large-v3"):  3_100_000_000,
+    ("faster-whisper", "large-v3-turbo"): 1_600_000_000,
+    # openai-whisper (direkt als .pt Datei in ~/.cache/whisper/)
+    ("openai-whisper", "tiny"):         75_000_000,
+    ("openai-whisper", "base"):        145_000_000,
+    ("openai-whisper", "small"):       465_000_000,
+    ("openai-whisper", "medium"):    1_500_000_000,
+    ("openai-whisper", "large-v2"):  3_090_000_000,
+    ("openai-whisper", "large-v3"):  3_090_000_000,
+    ("openai-whisper", "large-v3-turbo"): 1_620_000_000,
+}
+
+
+def _hf_repo_for(engine: str, model: str) -> str:
+    if engine == "mlx-whisper":
+        return f"mlx-community/whisper-{model}-mlx"
+    if engine == "faster-whisper":
+        return f"Systran/faster-whisper-{model}"
+    raise RuntimeError(f"HF-Download nur für mlx-whisper und faster-whisper")
+
+
+def _hf_cache_dir_for(engine: str, model: str) -> Path:
+    """Pfad zum HF-Cache-Ordner des Modells (auch waehrend Download
+    existieren dort schon Partial-Files, die wir fuer Progress nutzen)."""
+    home = Path.home() / ".cache" / "huggingface" / "hub"
+    if engine == "mlx-whisper":
+        return home / f"models--mlx-community--whisper-{model}-mlx"
+    if engine == "faster-whisper":
+        return home / f"models--Systran--faster-whisper-{model}"
+    return home
+
+
+def _openai_cache_file_for(model: str) -> Path:
+    return Path.home() / ".cache" / "whisper" / f"{model}.pt"
+
+
+def _dir_size_bytes(p: Path) -> int:
+    if not p.exists():
+        return 0
+    total = 0
+    for f in p.rglob("*"):
+        try:
+            if f.is_file():
+                total += f.stat().st_size
+        except OSError:
+            pass
+    return total
+
+
+async def download_model(
+    engine: str,
+    model: str,
+    progress_cb: Optional[Callable[[float], None]] = None,
+    cancel_event: Optional[asyncio.Event] = None,
+) -> str:
+    """Laedt das gewuenschte Modell in den Standard-Cache der jeweiligen
+    Engine. Gibt den Ziel-Pfad zurueck. Progress wird aus der waehrend
+    des Downloads wachsenden Dateigroesse geschaetzt (gegen
+    MODEL_SIZE_ESTIMATE)."""
+    from app.services.job_service import CancelledByUser
+
+    if engine not in ("mlx-whisper", "faster-whisper", "openai-whisper"):
+        raise RuntimeError(f"Unbekannte Engine: {engine}")
+    if model not in WHISPER_SIZES:
+        raise RuntimeError(f"Unbekannte Modellgröße: {model}")
+
+    expected = MODEL_SIZE_ESTIMATE.get((engine, model), 1_000_000_000)
+
+    if engine in ("mlx-whisper", "faster-whisper"):
+        repo = _hf_repo_for(engine, model)
+        target = _hf_cache_dir_for(engine, model)
+
+        def _download_hf():
+            # huggingface_hub ist eine transitive Abhaengigkeit beider
+            # Whisper-Pakete -- kein zusaetzlicher Install noetig.
+            from huggingface_hub import snapshot_download  # type: ignore
+            snapshot_download(repo_id=repo)
+
+        task = asyncio.create_task(asyncio.to_thread(_download_hf))
+
+        # Progress-Polling: alle 500 ms die tatsaechliche Groesse checken
+        last = 0.0
+        while not task.done():
+            if cancel_event and cancel_event.is_set():
+                task.cancel()
+                raise CancelledByUser()
+            await asyncio.sleep(0.5)
+            now = _dir_size_bytes(target)
+            frac = min(0.99, now / expected) if expected > 0 else 0.0
+            if progress_cb and (frac - last) > 0.01:
+                last = frac
+                progress_cb(frac)
+
+        try:
+            await task
+        except asyncio.CancelledError:
+            raise CancelledByUser()
+        if progress_cb:
+            progress_cb(1.0)
+        return str(target)
+
+    # openai-whisper
+    target = _openai_cache_file_for(model)
+    target.parent.mkdir(parents=True, exist_ok=True)
+
+    def _download_openai():
+        import whisper  # type: ignore
+        # load_model() laedt auf den offiziellen Pfad in ~/.cache/whisper
+        whisper.load_model(model)
+
+    task = asyncio.create_task(asyncio.to_thread(_download_openai))
+    last = 0.0
+    while not task.done():
+        if cancel_event and cancel_event.is_set():
+            task.cancel()
+            raise CancelledByUser()
+        await asyncio.sleep(0.5)
+        now = target.stat().st_size if target.exists() else 0
+        frac = min(0.99, now / expected) if expected > 0 else 0.0
+        if progress_cb and (frac - last) > 0.01:
+            last = frac
+            progress_cb(frac)
+    try:
+        await task
+    except asyncio.CancelledError:
+        raise CancelledByUser()
+    if progress_cb:
+        progress_cb(1.0)
+    return str(target)
+
+
 async def run_transcription(
     audio_path: Path,
     engine: str,

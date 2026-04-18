@@ -28,7 +28,7 @@
   let audioMute      = $state(!!editor.edl?.output?.audio_mute);
 
   let codecInfo  = $state(null);
-  let activeTab  = $state('video');   // 'video' | 'audio'
+  let activeTab  = $state('video');   // 'video' | 'audio' | 'profile'
 
   onMount(async () => {
     try { codecInfo = await api.systemCodecs(); } catch {}
