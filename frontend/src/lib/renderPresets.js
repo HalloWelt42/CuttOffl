@@ -17,6 +17,11 @@ export const RENDER_PRESETS = [
     color: '#FF0033',
     title: 'YouTube 1080p',
     note: '1920x1080, H.264, 8 Mbit/s -- YouTube-Standard',
+    // Default-Preset: wird beim Anlegen eines neuen Projekts als
+    // OutputProfile uebernommen. Gute Allround-Wahl: 1080p H.264
+    // 8 Mbit/s trifft YouTube-Empfehlung, laeuft auf allen Plattformen
+    // und nutzt den HW-Encoder voll aus.
+    default: true,
     profile: {
       codec: 'h264', container: 'mp4', resolution: '1080p',
       bitrate: '8M', crf: null,
@@ -183,6 +188,54 @@ export function estimateFilesizeBytes(profile, totalSeconds) {
   // Container-Overhead: ~2 % für MP4, bisschen mehr für MKV/MOV.
   const overhead = profile.container === 'mp4' ? 1.02 : 1.04;
   return (totalKbits * 1000 / 8) * overhead;
+}
+
+// Spiegelt die Backend-Logik aus render_service._output_forces_reencode.
+// Bei true muessen alle Clips transkodiert werden, unabhaengig vom
+// User-gewaehlten Clip-Mode. Die Funktion ist hier doppelt, weil wir
+// das Ergebnis schon im Dialog anzeigen wollen (copy/reencode-Counter,
+// Hinweistext), bevor der Render tatsaechlich startet.
+//
+// file: optional -- wenn gesetzt, wird zusaetzlich der Codec-Wechsel
+// geprueft. Ohne file-Info koennen wir das nicht entscheiden und lassen
+// das als "keine Aenderung" durchgehen.
+function _normVideo(c) {
+  if (!c) return '';
+  const s = String(c).toLowerCase().trim();
+  if (s === 'hevc' || s === 'h265' || s === 'x265') return 'hevc';
+  if (s === 'h264' || s === 'avc' || s === 'avc1' || s === 'x264') return 'h264';
+  return s;
+}
+function _normAudio(c) {
+  return c ? String(c).toLowerCase().trim() : '';
+}
+
+export function profileForcesReencode(profile, file = null) {
+  if (!profile) return { forced: false, reason: '' };
+  if (profile.audio_mute || profile.audio_normalize || profile.audio_mono) {
+    return { forced: true, reason: 'Audio-Filter aktiv' };
+  }
+  if (profile.resolution && profile.resolution !== 'source') {
+    return { forced: true, reason: `Zielauflösung ${profile.resolution}` };
+  }
+  if (profile.bitrate) {
+    return { forced: true, reason: `Ziel-Bitrate ${profile.bitrate}` };
+  }
+  if (file) {
+    const srcV = _normVideo(file.video_codec);
+    const dstV = _normVideo(profile.codec);
+    if (srcV && dstV && srcV !== dstV) {
+      return { forced: true, reason: `Video-Codec ${srcV} → ${dstV}` };
+    }
+    if (profile.audio_codec !== 'copy') {
+      const srcA = _normAudio(file.audio_codec);
+      const dstA = _normAudio(profile.audio_codec);
+      if (srcA && dstA && srcA !== dstA) {
+        return { forced: true, reason: `Audio-Codec ${srcA} → ${dstA}` };
+      }
+    }
+  }
+  return { forced: false, reason: '' };
 }
 
 export function formatBytes(bytes) {
