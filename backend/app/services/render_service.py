@@ -298,7 +298,7 @@ async def _build_clip(
         ]
     else:
         # Reencode mit HW-Decode vor dem -i. Bei 4K HEVC spart das
-        # Faktor 5-20 Rechenzeit gegenueber Software-Decode.
+        # Faktor 5-20 Rechenzeit gegenüber Software-Decode.
         args = base + [
             *hw_flags,
             "-ss", f"{clip.src_start:.3f}",
@@ -365,7 +365,7 @@ async def render_edl(
     """Rendert die EDL gegen `source` und gibt den Pfad zum fertigen Video zurück.
 
     source_meta: {video_codec, audio_codec, width, height, fps} -- wird
-    benoetigt, um ehrlich zu entscheiden, ob der Copy-Mode reicht oder
+    benötigt, um ehrlich zu entscheiden, ob der Copy-Mode reicht oder
     das Ziel-Profil Transcoding erzwingt.
     """
     if not edl.timeline:
@@ -456,7 +456,7 @@ async def render_edl(
             progress_cb(
                 0.999, "merging",
                 {"clip_index": n_clips, "clip_total": n_clips,
-                 "step": "merging", "note": "Segmente zusammenfuehren"},
+                 "step": "merging", "note": "Segmente zusammenführen"},
             )
 
         EXPORTS_DIR.mkdir(parents=True, exist_ok=True)

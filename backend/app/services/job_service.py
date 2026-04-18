@@ -66,7 +66,7 @@ class Job:
     error: Optional[str] = None
     payload: dict = field(default_factory=dict)
     # cancel_event wird beim Anlegen erzeugt und kann vom Worker
-    # ueberprüft werden (event.is_set()). Der Cancel-Endpunkt setzt es.
+    # überprüft werden (event.is_set()). Der Cancel-Endpunkt setzt es.
     cancel_event: Optional[asyncio.Event] = None
 
 
@@ -166,7 +166,7 @@ class JobService:
                 self._active.cancel_event.set()
             return True
         # Wenn in der Queue: Status auf cancelled setzen. Der Worker
-        # ueberspringt Jobs mit status=cancelled.
+        # überspringt Jobs mit status=cancelled.
         await db.execute(
             "UPDATE jobs SET status='cancelled', updated_at=datetime('now') "
             "WHERE id = ? AND status IN ('pending','queued')",

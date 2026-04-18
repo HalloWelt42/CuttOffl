@@ -14,7 +14,7 @@ function uid() {
 // Default-Output beim Neuanlegen eines Projekts: unser "bestes"
 // Allround-Preset (YouTube 1080p, H.264 8 Mbit/s, HW-Encoder-tauglich).
 // Wenn kein default-Preset markiert ist, fallen wir auf einfache
-// Source-Defaults zurueck.
+// Source-Defaults zurück.
 function defaultOutput() {
   const def = RENDER_PRESETS.find((p) => p.default);
   if (def) {
@@ -83,7 +83,7 @@ export const editor = $state({
   transcribeJobId: null,
   rightTab: persisted('editor.rightTab', 'exports'),   // 'exports' | 'transcript'
   subtitlesOn: persisted('editor.subtitlesOn', true),
-  // Mitlaufen der Transkript-Liste: unabhaengig vom Timeline-Follow.
+  // Mitlaufen der Transkript-Liste: unabhängig vom Timeline-Follow.
   // Wenn an, wird das aktuell gesprochene Segment beim Playback
   // automatisch in den sichtbaren Bereich gescrollt.
   transcriptFollowOn: persisted('editor.transcriptFollowOn', true),
