@@ -170,8 +170,49 @@ export async function loadFile(fileId) {
     if (file.has_waveform) void loadWaveform(fileId);
     void loadTranscript(fileId);
   } catch (e) {
-    toast.error(`Projekt laden: ${e.message}`);
+    // Wenn die Datei nicht existiert (404) oder das Projekt nicht
+    // geladen werden kann, setzen wir den Editor auf sauberen Leerstand.
+    // Sonst bohrt der Player weiter auf einem toten Proxy -> 404-Spam.
+    const notFound = /\b404\b/.test(e.message);
+    resetEditorState();
+    if (notFound) {
+      toast.warn('Diese Datei existiert nicht mehr -- zurück zur Bibliothek');
+      try { window.location.hash = '#/library'; } catch {}
+    } else {
+      toast.error(`Projekt laden: ${e.message}`);
+    }
   }
+}
+
+// Editor-State leeren. Wird benutzt, wenn die aktive Datei geloescht
+// wurde oder beim Oeffnen nicht (mehr) existiert.
+function resetEditorState() {
+  Object.assign(editor, {
+    fileId: null,
+    file: null,
+    project: null,
+    projectId: null,
+    edl: null,
+    keyframes: [],
+    duration: 0,
+    playhead: 0,
+    isPlaying: false,
+    selectedClipId: null,
+    dirty: false,
+    history: [],
+    future: [],
+    rendering: false,
+    renderProgress: 0,
+    renderPhase: '',
+    renderJobId: null,
+    renderStartedAt: null,
+    renderHistory: [],
+    spriteMeta: null,
+    spriteImage: null,
+    waveform: null,
+    transcript: null,
+    liveSegments: [],
+  });
 }
 
 export async function loadProject(projectId) {
@@ -672,6 +713,20 @@ export function handleTranscribeEvent(msg) {
   if (msg.type === 'file_event' && msg.event === 'transcript_ready'
       && msg.file_id === editor.fileId) {
     void loadTranscript(editor.fileId);
+  }
+  // Wenn die aktuell im Editor offene Datei geloescht wurde (einzeln
+  // oder per bulk), setzen wir den Editor sauber zurueck und werfen
+  // den User zurueck in die Bibliothek. Ohne diesen Zweig bohrt der
+  // Player weiter auf dem toten Proxy und produziert 404-Spam.
+  if (msg.type === 'file_event' && editor.fileId) {
+    const ids = msg.event === 'deleted'
+      ? [msg.file_id]
+      : (msg.event === 'bulk_deleted' ? (msg.file_ids ?? []) : []);
+    if (ids.includes(editor.fileId)) {
+      resetEditorState();
+      toast.warn('Die aktive Datei wurde gelöscht');
+      try { window.location.hash = '#/library'; } catch {}
+    }
   }
 }
 
