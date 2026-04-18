@@ -10,7 +10,9 @@
 // aus der JSON an den jeweiligen Schritt gemerged.
 
 import { openInfo, closeInfo } from './panels.svelte.js';
-import { editor, addClipFromRange } from './editor.svelte.js';
+import {
+  editor, addClipFromRange, startRangePreview, stopPreview, seek,
+} from './editor.svelte.js';
 import { openInEditor, setSettingsTab } from './nav.svelte.js';
 import { api } from './api.js';
 import { library, toggleSelect, clearSelection } from './library.svelte.js';
@@ -36,7 +38,26 @@ const SKELETONS = {
       { view: 'library', selector: '[data-tour="lib-file-open"]',
         hint: 'Der Button ist erst aktiv, wenn die Proxy-Vorschau fertig ist.' },
       { view: 'editor', selector: '[data-tour="editor-timeline"]',
-        before: ensureEditorHasVideo },
+        // Während wir die Timeline erklären, läuft im Hintergrund ein
+        // kleiner Range-Preview -- so sieht der Nutzer den Abspielkopf
+        // sichtbar mitlaufen. Am Ende des Schrittes stoppen wir
+        // wieder, damit die nächsten Schritte ruhig weiterlaufen.
+        before: async () => {
+          await ensureEditorHasVideo();
+          // kurz warten, damit das Video geladen ist
+          for (let i = 0; i < 30 && !(editor.duration > 0); i++) {
+            await new Promise((r) => setTimeout(r, 150));
+          }
+          const dur = editor.duration || 0;
+          if (dur > DEMO_CLIP_END) {
+            // Range-Preview: spielt von DEMO_CLIP_START bis Ende der
+            // Tour-Box-Anzeige, dann stoppt es automatisch.
+            seek(DEMO_CLIP_START);
+            startRangePreview(DEMO_CLIP_START, DEMO_CLIP_START + 20);
+          }
+        },
+        after: () => { stopPreview(); },
+      },
       { view: 'editor', selector: '[data-tour="editor-addclip"]',
         // Damit die Demonstration echt ist: Tour legt einen 5 s
         // langen Clip an, der sichtbar in der Timeline landet.
@@ -258,11 +279,19 @@ function closeExportDialog() {
 function resetDemoTimeline() {
   if (!editor.edl) return;
   const tl = editor.edl.timeline ?? [];
-  if (tl.length === 1
-      && tl[0].src_start === 0
-      && tl[0].src_end <= 3.001) {
-    editor.edl.timeline = [];
-    editor.selectedClipId = null;
+  // Einzelner Demo-Clip passend zu DEMO_CLIP_START/END -> weg.
+  // Toleranz beim Vergleich, weil Keyframe-Snap die Grenzen leicht
+  // verschiebt.
+  if (tl.length === 1) {
+    const c = tl[0];
+    const plausibleDemo = (
+      Math.abs(c.src_start - DEMO_CLIP_START) < 5
+      && Math.abs(c.src_end - DEMO_CLIP_END) < 5
+    );
+    if (plausibleDemo) {
+      editor.edl.timeline = [];
+      editor.selectedClipId = null;
+    }
   }
 }
 
@@ -288,10 +317,13 @@ async function ensureEditorHasVideo() {
 }
 
 // Für die Renderer-Tour: Render-Button ist disabled solange die
-// Timeline leer ist. Wir legen einen kurzen Demo-Clip (0-3 Sekunden)
-// an, damit der Dialog sich öffnen lässt. Non-destruktiv: EDL wird
-// manipuliert, das Original-Video bleibt. Läuft nur, wenn die
-// Timeline tatsächlich leer ist.
+// Timeline leer ist. Wir legen einen 5-Sekunden-Demo-Clip an einer
+// visuell ergiebigen Stelle an (bei Big Buck Bunny verlässt der
+// Hase um ~20s die Höhle -- das zeigt mehr als die schwarzen
+// Anfangs-Sekunden). Non-destruktiv: EDL wird manipuliert, das
+// Original-Video bleibt. Läuft nur, wenn die Timeline leer ist.
+const DEMO_CLIP_START = 20;
+const DEMO_CLIP_END = 25;
 async function ensureEditorHasClip() {
   await ensureEditorHasVideo();
   // auf den Editor-Load warten, damit edl schon existiert
@@ -300,6 +332,12 @@ async function ensureEditorHasClip() {
   }
   if (!editor.edl) return;
   if ((editor.edl.timeline?.length ?? 0) > 0) return;
-  addClipFromRange(0, 3);
+  // Wenn das Video kürzer als DEMO_CLIP_END ist, fallen wir auf einen
+  // sicheren Bereich zurück (sollte nur bei exotischen Test-Videos
+  // passieren).
+  const dur = editor.duration || 0;
+  const end = dur > 0 && dur < DEMO_CLIP_END ? Math.max(0.5, dur - 0.5) : DEMO_CLIP_END;
+  const start = Math.max(0, Math.min(DEMO_CLIP_START, Math.max(0, end - 5)));
+  addClipFromRange(start, end);
   await new Promise((r) => setTimeout(r, 300));
 }

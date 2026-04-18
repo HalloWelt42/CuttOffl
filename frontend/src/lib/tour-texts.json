@@ -29,8 +29,8 @@
     },
     {
       "title": "Die Timeline",
-      "body": "Unten läuft die Timeline mit Frame-Streifen und Wellenform. Die blaue Linie ist der aktuelle Abspielkopf. Mit dem Mausrad zoomst du rein und raus.",
-      "audio_text": "Das Herz des Editors ist die Timeline ganz unten. Du siehst einen Streifen mit Video-Frames und darüber die Wellenform der Tonspur -- so erkennst du Sprache, Stille und laute Stellen auf einen Blick. Die senkrechte Linie ist dein aktueller Abspielkopf. Mit dem Mausrad zoomst du in die Timeline rein und raus, bis hin zu einzelnen Frames, wenn du ganz genau arbeiten willst."
+      "body": "Unten läuft die Timeline mit Frame-Streifen und Wellenform. Die blaue Linie ist der aktuelle Abspielkopf -- ich spiel dir kurz einen Abschnitt vor, damit du das Mitlaufen siehst. Mit dem Mausrad zoomst du rein und raus.",
+      "audio_text": "Das Herz des Editors ist die Timeline ganz unten. Du siehst einen Streifen mit Video-Frames und darüber die Wellenform der Tonspur -- so erkennst du Sprache, Stille und laute Stellen auf einen Blick. Ich spiel dir jetzt einen kurzen Abschnitt vor, damit du den Abspielkopf wandern siehst: Die senkrechte Linie läuft synchron zum Video nach rechts. Mit dem Mausrad zoomst du in die Timeline rein und raus, bis hin zu einzelnen Frames, wenn du ganz genau arbeiten willst."
     },
     {
       "title": "Clip hinzufügen",
