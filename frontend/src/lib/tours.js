@@ -38,13 +38,25 @@ const SKELETONS = {
       { view: 'editor', selector: '[data-tour="editor-timeline"]',
         before: ensureEditorHasVideo },
       { view: 'editor', selector: '[data-tour="editor-addclip"]',
+        // Damit die Demonstration echt ist: Tour legt einen 5 s
+        // langen Clip an, der sichtbar in der Timeline landet.
+        // Nach diesem Schritt bleibt er noch, damit der folgende
+        // Render-Button-Schritt klickbar ist; ganz am Ende der Tour
+        // räumt resetDemoTimeline ihn wieder weg.
+        before: ensureEditorHasClip,
         hint: 'Frame-genau schneiden: Keyframe-Magnet aus -- dann reencode, kostet Rechenzeit, ist dafür exakt.' },
       { view: 'editor', selector: '[data-tour="editor-render"]',
+        // Clip ist durch den vorigen Schritt schon da -- der
+        // Render-Button ist aktiv, der User sieht, wo der Export los geht.
         hint: 'Keine Sorge -- der Dialog öffnet sich nur, er startet nichts.' },
       { view: 'exports' },
       { view: 'dashboard',
         hint: 'Klick auf "Beenden" oder Escape, um die Tour zu schließen.',
-        demo_ms: 6500 },
+        demo_ms: 6500,
+        // Demo-Clip aus der Timeline räumen, damit der Editor wieder
+        // leer ist, wenn der User später selbst reinschaut.
+        after: () => resetDemoTimeline(),
+      },
     ],
   },
 
@@ -59,7 +71,11 @@ const SKELETONS = {
     runnable: true,
     steps: [
       { view: 'library' },
-      { view: 'library', selector: '[data-tour="lib-folders"]' },
+      { view: 'library',
+        // Bevorzugt auf einen sichtbaren Unterordner zeigen (Demo-
+        // Ordner liegt immer in der Basis). Fällt das weg, nehmen wir
+        // die Breadcrumb-Leiste.
+        selector: '.card.folder, [data-tour="lib-folders"]' },
       { view: 'library', selector: '[data-tour="lib-search"]' },
       { view: 'library',
         // Filter-Chips erscheinen nur, wenn tatsächlich ein Filter
@@ -82,7 +98,11 @@ const SKELETONS = {
         },
         after: () => { clearSelection(); },
         selector: '[data-tour="lib-bulk-bar"]' },
-      { demo_ms: 6000 },
+      { view: 'library',
+        // Hover-Scrub-Tipp -- Spotlight auf die erste Kachel, damit
+        // der User sieht, wo er die Maus überfahren darf.
+        selector: '[data-tour-first-tile] .thumb-btn, [data-tour-first-tile]',
+        demo_ms: 6000 },
     ],
   },
 
@@ -112,7 +132,9 @@ const SKELETONS = {
         before: () => clickIfExists('.modal [data-tour="render-tab-audio"]'),
         selector: '.modal [data-tour="render-tab-audio"]' },
       { view: 'editor', selector: '.modal [data-tour="render-estimate"]' },
-      { view: 'editor', demo_ms: 7000,
+      { view: 'editor',
+        selector: '.modal [data-tour="render-start-btn"]',
+        demo_ms: 7000,
         // Am Ende der Tour den Dialog wieder schließen und die
         // Timeline auf den Ursprungsstand bringen.
         after: () => {

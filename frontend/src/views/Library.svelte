@@ -864,9 +864,10 @@
 
           {#if library.view === 'grid'}
             <div class="grid">
-              {#each visibleFiles as f (f.id)}
+              {#each visibleFiles as f, i (f.id)}
                 {@const s = statusBadge(f)}
                 <article class="card file" class:selected={isSelected(f.id)}
+                         data-tour-first-tile={i === 0 ? 'true' : null}
                          draggable="true"
                          ondragstart={(e) => onFileDragStart(e, f)}
                          ondragend={onFileDragEnd}>

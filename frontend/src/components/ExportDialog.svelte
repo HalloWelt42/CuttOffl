@@ -642,7 +642,8 @@
 
       <footer>
         <button class="btn" onclick={() => (open = false)}>Abbrechen</button>
-        <button class="btn btn-primary" onclick={onStart} disabled={!stats.count}>
+        <button class="btn btn-primary" onclick={onStart} disabled={!stats.count}
+                data-tour="render-start-btn">
           <i class="fa-solid fa-play"></i> Render starten
         </button>
       </footer>

@@ -18,6 +18,7 @@
 
 import { persisted, persist } from './persist.svelte.js';
 import { go } from './nav.svelte.js';
+import { closeInfo, closeAbout } from './panels.svelte.js';
 
 export const tour = $state({
   activeId: null,        // id der laufenden Tour oder null
@@ -102,6 +103,11 @@ export async function startTour(id, mode = 'guided', queue = []) {
   }
   // vorherige Tour sauber beenden (ohne Zwischen-Nav auf Hilfe-Seite)
   stopTour({ navBack: false });
+  // Panels beim Start immer schließen -- das schwebende Info-Fenster
+  // aus einer früheren Sitzung liegt sonst über den Tour-Zielen und
+  // blockiert die Sicht. Einzelne Tour-Schritte öffnen das Panel
+  // explizit wieder (siehe Tastenkürzel-Tour).
+  try { closeInfo(); closeAbout(); } catch {}
   tour.activeId = id;
   tour.mode = mode;
   tour.stepIndex = 0;
@@ -299,12 +305,24 @@ async function runStep() {
   tour.target = el;
   tour.targetRect = el ? el.getBoundingClientRect() : null;
 
-  // Ins Blickfeld scrollen, falls nötig
-  if (el && !isInViewport(el)) {
+  // Ziel immer ins Zentrum scrollen, damit rund um den Spotlight
+  // Platz für die Hinweisbox bleibt. isCentered prüft grob, ob sich
+  // Zentrieren überhaupt lohnt -- bei kurzen Seiten würde ein harter
+  // Scroll unnötig ruckeln.
+  if (el && !isReasonablyCentered(el)) {
     el.scrollIntoView({ behavior: 'smooth', block: 'center' });
-    await wait(350);
+    await wait(400);
     tour.targetRect = el.getBoundingClientRect();
   }
+}
+
+function isReasonablyCentered(el) {
+  // "gut platziert" heißt: das Element liegt im mittleren Drittel des
+  // Viewports (vertikal). Am oberen/unteren Rand scrollen wir neu.
+  const r = el.getBoundingClientRect();
+  const vh = window.innerHeight;
+  const third = vh / 3;
+  return r.top >= third * 0.5 && r.bottom <= vh - third * 0.5;
 }
 
 function nextFrame() {
