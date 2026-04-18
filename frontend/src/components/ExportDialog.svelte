@@ -71,6 +71,27 @@
     });
   });
 
+  // Sobald codecInfo geladen ist UND noch kein Preset aktiv matcht,
+  // wenden wir das Default-Preset (Empfohlen) an -- dann steht beim
+  // ersten Öffnen die System-Empfehlung (HEVC auf Apple Silicon,
+  // H.264 auf Pi/Linux), nicht der hartcodierte YouTube-1080p-Satz.
+  // defaultApplied verhindert, dass der Effect den Default wieder
+  // aufzwingt, nachdem der User von Hand alles abgewählt hat.
+  let defaultApplied = $state(false);
+  $effect(() => {
+    if (!open) { defaultApplied = false; return; }
+    if (!codecInfo) return;
+    if (defaultApplied) return;
+    if (activePresetId) { defaultApplied = true; return; }
+    untrack(() => {
+      const def = RENDER_PRESETS.find((p) => p.default);
+      if (def) {
+        applyPreset(def);
+        defaultApplied = true;
+      }
+    });
+  });
+
   const hintForCodec = $derived.by(() => {
     if (!codecInfo?.recommendations) return null;
     return codecInfo.recommendations.find((r) => r.codec === codec) ?? null;
@@ -185,6 +206,26 @@
       audioNormalize = false;
       audioMono      = false;
       audioMute      = false;
+      activePresetId = preset.id;
+      return;
+    }
+    // Dynamic-Preset (Empfohlen): Codec aus der System-Empfehlung
+    // (codecInfo.recommendations mit default=true). Der Rest kommt
+    // aus preset.profile -- CRF 22, source-Auflösung, keine Bitrate.
+    if (preset.dynamic && codecInfo?.recommendations) {
+      const rec = codecInfo.recommendations.find((r) => r.default)
+               ?? codecInfo.recommendations[0];
+      codec = rec?.codec || p.codec;
+      container = p.container;
+      resolution = p.resolution;
+      bitrate = '';
+      crf = p.crf ?? 22;
+      qualityMode = 'crf';
+      audioCodec     = p.audio_codec;
+      audioBitrate   = p.audio_bitrate;
+      audioNormalize = p.audio_normalize;
+      audioMono      = p.audio_mono;
+      audioMute      = p.audio_mute;
       activePresetId = preset.id;
       return;
     }
@@ -546,6 +587,7 @@
             <label>Codec
               <select bind:value={codec}
                       title="Videocodec für den Export. Der empfohlene Codec hängt von deinem Gerät ab.">
+                <option value="source">Quelle beibehalten (kein Codec-Wechsel)</option>
                 <option value="h264">H.264 (weit kompatibel)</option>
                 <option value="hevc">HEVC / H.265 (effizienter)</option>
               </select>
@@ -623,6 +665,11 @@
                     title="Zielgröße -- passende Bitrate wird aus Dauer und Audio berechnet">
               Zielgröße
             </button>
+            <button class="seg" class:active={qualityMode === 'none'}
+                    onclick={() => (qualityMode = 'none')}
+                    title="Kein Qualitätsziel -- zusammen mit 'Auflösung: Quelle' und 'Codec: Quelle' läuft der Render im Copy-Mode">
+              Keine Vorgabe
+            </button>
           </div>
 
           {#if qualityMode === 'crf'}
@@ -637,7 +684,7 @@
               <input type="text" placeholder="z. B. 8M, 2500k" bind:value={bitrate} />
               <span class="dim small">Format: Zahl + K oder M (z. B. 8M = 8 Mbit/s)</span>
             </label>
-          {:else}
+          {:else if qualityMode === 'size'}
             <label>Zielgröße (MB)
               <input type="number" min="1" max="10000" step="1" bind:value={targetSizeMb} />
               <span class="dim small">
@@ -653,6 +700,13 @@
                 {/if}
               </span>
             </label>
+          {:else}
+            <div class="dim small" style="padding-top: 4px;">
+              Ohne Qualitätsziel: der Encoder nutzt Default-Werte. Kombiniert
+              mit <em>Auflösung: Quelle</em> und <em>Codec: Quelle</em> läuft
+              der Render komplett im Copy-Mode (keyframe-genau, kein
+              Transcoding).
+            </div>
           {/if}
 
         {:else if activeTab === 'audio'}

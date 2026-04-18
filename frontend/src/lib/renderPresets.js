@@ -12,16 +12,31 @@
 // ein deutlicher Wiedererkennungswert.
 export const RENDER_PRESETS = [
   {
+    id: 'recommended',
+    icon: 'fa-solid fa-star',
+    color: '#FFD166',
+    title: 'Empfohlen',
+    note: 'Beste Einstellung für dein System -- wird dynamisch gesetzt',
+    // Default-Preset: beim Öffnen des Dialogs (ohne User-Wahl) aktiv.
+    // dynamic: true sagt applyPreset, dass Codec aus der System-
+    // Empfehlung (codecInfo.recommendations) kommt: HEVC_videotoolbox
+    // auf Apple Silicon, H.264 libx264 auf Pi/Linux. Quell-Auflösung
+    // wird beibehalten, damit kein erzwungenes Downscaling passiert.
+    default: true,
+    dynamic: true,
+    profile: {
+      codec: 'h264', container: 'mp4', resolution: 'source',
+      bitrate: null, crf: 22,
+      audio_codec: 'aac', audio_bitrate: '192k',
+      audio_normalize: false, audio_mono: false, audio_mute: false,
+    },
+  },
+  {
     id: 'youtube-1080',
     icon: 'fa-brands fa-youtube',
     color: '#FF0033',
     title: 'YouTube 1080p',
     note: '1920x1080, H.264, 8 Mbit/s -- YouTube-Standard',
-    // Default-Preset: wird beim Anlegen eines neuen Projekts als
-    // OutputProfile übernommen. Gute Allround-Wahl: 1080p H.264
-    // 8 Mbit/s trifft YouTube-Empfehlung, läuft auf allen Plattformen
-    // und nutzt den HW-Encoder voll aus.
-    default: true,
     profile: {
       codec: 'h264', container: 'mp4', resolution: '1080p',
       bitrate: '8M', crf: null,
@@ -244,10 +259,13 @@ export function profileForcesReencode(profile, file = null) {
     return { forced: true, reason: `Ziel-Bitrate ${profile.bitrate}` };
   }
   if (file) {
-    const srcV = _normVideo(file.video_codec);
-    const dstV = _normVideo(profile.codec);
-    if (srcV && dstV && srcV !== dstV) {
-      return { forced: true, reason: `Video-Codec ${srcV} → ${dstV}` };
+    // 'source' bedeutet Quell-Codec übernehmen -- kein Wechsel, kein Zwang.
+    if (profile.codec !== 'source') {
+      const srcV = _normVideo(file.video_codec);
+      const dstV = _normVideo(profile.codec);
+      if (srcV && dstV && srcV !== dstV) {
+        return { forced: true, reason: `Video-Codec ${srcV} → ${dstV}` };
+      }
     }
     if (profile.audio_codec !== 'copy') {
       const srcA = _normAudio(file.audio_codec);
