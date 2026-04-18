@@ -20,25 +20,41 @@
   const stepTotal = $derived(activeTour?.steps?.length ?? 0);
   const hasTarget = $derived(!!tour.targetRect);
 
+  // Effektiver Viewport -- die JobsBar am unteren Rand und die
+  // Sidebar links sind reale Block-Elemente im Flow. Wenn die Tour-
+  // Box unten positioniert wird, darf sie nicht unter die JobsBar
+  // rutschen. Wir schneiden ihre bounding rect als "unteren Rand"
+  // raus (fallback: innerHeight). Tickt bei jedem Render, weil
+  // targetRect dort rein fließt -- reicht für unser Use-Case.
+  function effectiveBottom() {
+    const jb = document.querySelector('.bar')
+            || document.querySelector('.jobs-bar');
+    if (jb) {
+      const r = jb.getBoundingClientRect();
+      if (r.top > 0 && r.top < window.innerHeight) return r.top - 4;
+    }
+    return window.innerHeight;
+  }
+
   // Platzierung der Hinweisbox -- sucht die Seite des Ziel-Elements
   // mit dem meisten Platz und richtet die Box dort aus. Am Ende
-  // klemmen wir die Position hart in den Viewport, damit die Box
-  // auch in Grenzfällen (kleines Fenster, Ziel am Viewport-Rand)
-  // immer vollständig sichtbar bleibt.
+  // klemmen wir die Position hart in den sichtbaren Bereich, damit
+  // die Box auch in Grenzfällen (kleines Fenster, Ziel am Viewport-
+  // Rand, JobsBar unten) vollständig sichtbar bleibt.
   const boxStyle = $derived.by(() => {
     if (!tour.running) return '';
     const pad = 18;
     const boxW = 380;
     const boxH = 200;
     const vw = window.innerWidth;
-    const vh = window.innerHeight;
+    const vhEff = effectiveBottom();  // statt innerHeight
     const r = tour.targetRect;
     let left, top;
     if (!r) {
       left = (vw - boxW) / 2;
-      top  = (vh - boxH) / 2;
+      top  = (vhEff - boxH) / 2;
     } else {
-      const spaceBelow = vh - r.bottom;
+      const spaceBelow = vhEff - r.bottom;
       const spaceAbove = r.top;
       const spaceRight = vw - r.right;
       const spaceLeft  = r.left;
@@ -56,13 +72,13 @@
         top  = r.top + r.height / 2 - boxH / 2;
       } else {
         left = (vw - boxW) / 2;
-        top  = (vh - boxH) / 2;
+        top  = (vhEff - boxH) / 2;
       }
     }
-    // Harte Begrenzung in den Viewport -- die Box rutscht sonst
-    // teilweise unter JobsBar oder an den oberen Rand.
+    // Harte Begrenzung in den sichtbaren Bereich -- die Box rutscht
+    // sonst teilweise unter JobsBar oder an den oberen Rand.
     left = clamp(left, pad, Math.max(pad, vw - boxW - pad));
-    top  = clamp(top,  pad, Math.max(pad, vh - boxH - pad));
+    top  = clamp(top,  pad, Math.max(pad, vhEff - boxH - pad));
     return `left: ${left}px; top: ${top}px; width: ${boxW}px;`;
   });
 
