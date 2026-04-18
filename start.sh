@@ -5,10 +5,10 @@
 #   ./start.sh            -- beide Prozesse starten und Logs tailen
 #   ./start.sh backend    -- nur Backend
 #   ./start.sh frontend   -- nur Frontend
-#   ./start.sh stop       -- alle Prozesse beenden
-#   ./start.sh status     -- laufende Prozesse anzeigen
-#   ./start.sh logs       -- Logs live verfolgen
-#   ./start.sh restart    -- stop + start
+#   ./start.sh stop [backend|frontend]    -- Prozess(e) beenden (ohne Ziel: beide)
+#   ./start.sh status                     -- laufende Prozesse anzeigen
+#   ./start.sh logs                       -- Logs live verfolgen
+#   ./start.sh restart [backend|frontend] -- stop + start (ohne Ziel: beide)
 
 set -e
 cd "$(dirname "$0")"
@@ -64,7 +64,15 @@ start_frontend() {
 }
 
 stop_all() {
-  for name in backend frontend; do
+  local target="${1:-all}"
+  local names ports
+  case "$target" in
+    backend)  names=(backend);           ports=($BACKEND_PORT) ;;
+    frontend) names=(frontend);          ports=($FRONTEND_PORT) ;;
+    all)      names=(backend frontend);  ports=($BACKEND_PORT $FRONTEND_PORT) ;;
+    *) err "Unbekanntes Ziel: $target (erlaubt: backend | frontend | leer)"; exit 1 ;;
+  esac
+  for name in "${names[@]}"; do
     if [ -f "$LOG_DIR/$name.pid" ]; then
       pid=$(cat "$LOG_DIR/$name.pid")
       if kill -0 "$pid" 2>/dev/null; then
@@ -77,7 +85,7 @@ stop_all() {
     fi
   done
   # Fallback: noch auf den Ports haengende Prozesse beenden
-  for port in $BACKEND_PORT $FRONTEND_PORT; do
+  for port in "${ports[@]}"; do
     pid=$(lsof -ti:$port 2>/dev/null || true)
     [ -n "$pid" ] && { echo "[port $port] kille pid $pid"; kill "$pid" 2>/dev/null || true; }
   done
@@ -114,10 +122,20 @@ tail_logs() {
 case "${1:-all}" in
   backend)  start_backend ;;
   frontend) start_frontend ;;
-  stop)     stop_all ;;
+  stop)     stop_all "${2:-all}" ;;
   status)   show_status ;;
   logs)     tail_logs ;;
-  restart)  stop_all; sleep 1; start_backend; sleep 1; start_frontend; print_urls ;;
+  restart)
+    target="${2:-all}"
+    stop_all "$target"
+    sleep 1
+    case "$target" in
+      backend)  start_backend ;;
+      frontend) start_frontend ;;
+      all)      start_backend; sleep 1; start_frontend ;;
+    esac
+    print_urls
+    ;;
   all|"")
     start_backend
     sleep 1
@@ -126,7 +144,7 @@ case "${1:-all}" in
     ;;
   *)
     echo "Unbekannter Befehl: $1"
-    echo "Verfügbar: backend | frontend | stop | status | logs | restart | all"
+    echo "Verfügbar: backend | frontend | stop [ziel] | status | logs | restart [ziel] | all"
     exit 1
     ;;
 esac

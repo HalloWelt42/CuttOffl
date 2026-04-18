@@ -20,8 +20,23 @@ from app.models.schemas import (
     FileBulkDeleteBody, FileBulkMoveBody, FileMoveBody, FileOut,
     FileRenameBody, FileTagsBody,
 )
+from app.routers.ws import broadcaster as ws_broadcaster
 from app.services import transcribe_service as tx
 from app.services.folder_service import FolderError, normalize
+
+
+async def _emit_file_event(event: str, **extra) -> None:
+    """Kleiner Wrapper, damit die Routen nicht jedes Mal das dict-Gerüst
+    wiederholen. Events landen ueber den WS-Broadcaster bei allen
+    offenen Clients und triggern dort das automatische Refresh von
+    Library, Dashboard & Exports."""
+    msg = {"type": "file_event", "event": event}
+    msg.update(extra)
+    try:
+        await ws_broadcaster.broadcast(msg)
+    except Exception:
+        # Broadcast-Fehler dürfen die eigentliche DB-Op nicht kippen
+        pass
 
 
 TAG_MAX_LEN = 24
@@ -83,6 +98,11 @@ router = APIRouter(prefix="/api/files", tags=["files"])
 
 
 def _row_to_fileout(row) -> FileOut:
+    # has_transcript nur dann True, wenn die SRT-Datei auch tatsaechlich
+    # auf der Platte liegt. Andernfalls wuerde das Frontend Download-
+    # Buttons anbieten, die in einen 404 laufen.
+    tp = row["transcript_path"] if "transcript_path" in row.keys() else None
+    has_tx = bool(tp) and Path(tp).exists() if tp else False
     return FileOut(
         id=row["id"],
         original_name=row["original_name"],
@@ -103,7 +123,7 @@ def _row_to_fileout(row) -> FileOut:
         keyframe_count=row["keyframe_count"] if "keyframe_count" in row.keys() else None,
         folder_path=row["folder_path"] if "folder_path" in row.keys() else "",
         tags=_tags_from_row(row),
-        has_transcript=bool(row["transcript_path"]) if "transcript_path" in row.keys() else False,
+        has_transcript=has_tx,
         transcript_lang=row["transcript_lang"] if "transcript_lang" in row.keys() else None,
         transcript_model=row["transcript_model"] if "transcript_model" in row.keys() else None,
         created_at=row["created_at"],
@@ -195,6 +215,7 @@ async def bulk_delete(body: FileBulkDeleteBody) -> dict:
         await db.execute(
             f"DELETE FROM files WHERE id IN ({ph})", tuple(found_list)
         )
+        await _emit_file_event("bulk_deleted", file_ids=found_list)
     return {
         "deleted": len(found_ids),
         "missing": missing,
@@ -218,6 +239,7 @@ async def bulk_move(body: FileBulkMoveBody) -> dict:
         f"WHERE id IN ({placeholders})",
         (target, *ids),
     )
+    await _emit_file_event("bulk_moved", file_ids=ids, folder_path=target)
     return {"moved": len(ids), "folder_path": target}
 
 
@@ -236,6 +258,7 @@ async def move_file(file_id: str, body: FileMoveBody) -> FileOut:
         (target, file_id),
     )
     row = await db.fetch_one("SELECT * FROM files WHERE id = ?", (file_id,))
+    await _emit_file_event("moved", file_id=file_id, folder_path=target)
     return _row_to_fileout(row)
 
 
@@ -257,6 +280,7 @@ async def set_tags(file_id: str, body: FileTagsBody) -> dict:
         (json.dumps(accepted, ensure_ascii=False), file_id),
     )
     row = await db.fetch_one("SELECT * FROM files WHERE id = ?", (file_id,))
+    await _emit_file_event("tags_changed", file_id=file_id, tags=accepted)
     return {
         "file": _row_to_fileout(row).model_dump(),
         "accepted": accepted,
@@ -283,6 +307,7 @@ async def rename_file(file_id: str, body: FileRenameBody) -> FileOut:
         (new_name, file_id),
     )
     row = await db.fetch_one("SELECT * FROM files WHERE id = ?", (file_id,))
+    await _emit_file_event("renamed", file_id=file_id, original_name=new_name)
     return _row_to_fileout(row)
 
 
@@ -380,4 +405,5 @@ async def delete_file(file_id: str) -> dict:
         "DELETE FROM projects WHERE source_file_id = ?", (file_id,),
     )
     await db.execute("DELETE FROM files WHERE id = ?", (file_id,))
+    await _emit_file_event("deleted", file_id=file_id)
     return {"deleted": file_id}

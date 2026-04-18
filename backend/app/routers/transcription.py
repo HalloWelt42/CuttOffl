@@ -25,6 +25,7 @@ from fastapi.responses import FileResponse, PlainTextResponse
 from pydantic import BaseModel
 
 from app.db import db
+from app.routers.ws import broadcaster as ws_broadcaster
 from app.services import transcribe_service as tx
 from app.services.job_service import job_service
 
@@ -176,34 +177,13 @@ async def start_transcription(file_id: str, body: GenerateRequest) -> dict:
     return {"job_id": job_id, "engine": engine, "model": model}
 
 
-@router.get("/transcript/{file_id}")
-async def get_transcript(file_id: str) -> dict:
-    """Liefert geparste Segmente + Metadaten. Gibt 204-ish (leere Liste)
-    zurueck, wenn noch kein Transkript da ist -- damit das Frontend
-    einfach reagieren kann ohne 404-Toast."""
-    row = await _file_or_404(file_id)
-    p = row["transcript_path"]
-    if not p or not Path(p).exists():
-        return {
-            "file_id": file_id,
-            "has_transcript": False,
-            "lang": row["transcript_lang"],
-            "model": row["transcript_model"],
-            "segments": [],
-        }
-    try:
-        content = Path(p).read_text(encoding="utf-8")
-    except OSError as e:
-        raise HTTPException(status_code=500, detail=f"SRT nicht lesbar: {e}")
-    segs = tx.parse_srt(content)
-    return {
-        "file_id": file_id,
-        "has_transcript": True,
-        "lang": row["transcript_lang"],
-        "model": row["transcript_model"],
-        "segments": segs,
-    }
-
+# WICHTIG: Die spezifischeren .srt/.vtt-Routen MUESSEN vor der
+# generischen /transcript/{file_id}-Route stehen. FastAPI matcht
+# Routen in Deklarationsreihenfolge und der {file_id}-Parameter ist
+# standardmaessig greedy (matcht auch Punkte). Wuerde die generische
+# Route zuerst deklariert, faengt sie "/transcript/abc.srt" mit
+# file_id="abc.srt" ab -- die DB-Suche schlaegt dann fehl und der
+# Client bekommt 404 statt der SRT-Datei.
 
 @router.get("/transcript/{file_id}.srt")
 async def get_transcript_srt(file_id: str):
@@ -242,6 +222,35 @@ async def get_transcript_vtt(file_id: str):
     )
 
 
+@router.get("/transcript/{file_id}")
+async def get_transcript(file_id: str) -> dict:
+    """Liefert geparste Segmente + Metadaten. Gibt 204-ish (leere Liste)
+    zurueck, wenn noch kein Transkript da ist -- damit das Frontend
+    einfach reagieren kann ohne 404-Toast."""
+    row = await _file_or_404(file_id)
+    p = row["transcript_path"]
+    if not p or not Path(p).exists():
+        return {
+            "file_id": file_id,
+            "has_transcript": False,
+            "lang": row["transcript_lang"],
+            "model": row["transcript_model"],
+            "segments": [],
+        }
+    try:
+        content = Path(p).read_text(encoding="utf-8")
+    except OSError as e:
+        raise HTTPException(status_code=500, detail=f"SRT nicht lesbar: {e}")
+    segs = tx.parse_srt(content)
+    return {
+        "file_id": file_id,
+        "has_transcript": True,
+        "lang": row["transcript_lang"],
+        "model": row["transcript_model"],
+        "segments": segs,
+    }
+
+
 @router.delete("/transcript/{file_id}")
 async def delete_transcript(file_id: str) -> dict:
     row = await _file_or_404(file_id)
@@ -256,4 +265,14 @@ async def delete_transcript(file_id: str) -> dict:
         "transcript_model=NULL, updated_at=datetime('now') WHERE id = ?",
         (file_id,),
     )
+    # Live-Event: Library, Dashboard und Editor-TranscriptPanel reagieren
+    # darauf, blenden CC-Download-Buttons aus und leeren die Segment-Liste.
+    try:
+        await ws_broadcaster.broadcast({
+            "type": "file_event",
+            "event": "transcript_deleted",
+            "file_id": file_id,
+        })
+    except Exception:
+        pass
     return {"deleted": file_id}
