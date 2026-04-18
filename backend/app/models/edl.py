@@ -15,7 +15,9 @@ from pydantic import BaseModel, Field, field_validator
 
 
 ClipMode = Literal["copy", "reencode"]
-Codec = Literal["h264", "hevc"]
+# 'source' heißt: Quell-Codec beim Rendern übernehmen. Wird im
+# Render-Service aufgeloest, sobald die Quell-Metadaten bekannt sind.
+Codec = Literal["h264", "hevc", "source"]
 Container = Literal["mp4", "mkv", "mov"]
 
 # Erlaubte Bitrate-Formate: 500k, 2M, 8M, 800K, 1500000

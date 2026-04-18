@@ -47,21 +47,29 @@ _RE_KV = re.compile(r"^([a-zA-Z_]+)=(.*)$")
 # Encoder-Wahl
 # ---------------------------------------------------------------------------
 
-async def _pick_video_encoder(codec: str) -> tuple[str, list[str]]:
-    """Gibt (Encoder-Name, zusätzliche Codec-Flags) zurück."""
+async def _pick_video_encoder(
+    codec: str, source_codec: Optional[str] = None
+) -> tuple[str, list[str], str]:
+    """Gibt (Encoder-Name, zusätzliche Codec-Flags, aufgelöster Codec)
+    zurück. Wenn codec == 'source', wird der Codec aus source_codec
+    übernommen (h264 bleibt h264, hevc bleibt hevc). Das ermöglicht
+    UI-seitig die Option 'Wie Quelle' ohne Backend-Doppelarbeit."""
     hw = await detect_hw_encoder()
-    codec = codec.lower()
+    codec = (codec or "h264").lower()
+    if codec == "source":
+        src = _norm_vcodec(source_codec)
+        codec = src if src in ("h264", "hevc") else "h264"
     if codec == "h264":
         if hw == "h264_videotoolbox":
-            return "h264_videotoolbox", ["-allow_sw", "1"]
+            return "h264_videotoolbox", ["-allow_sw", "1"], codec
         if hw == "h264_v4l2m2m":
-            return "h264_v4l2m2m", []
-        return "libx264", ["-preset", "medium"]
+            return "h264_v4l2m2m", [], codec
+        return "libx264", ["-preset", "medium"], codec
     if codec == "hevc":
         if hw == "h264_videotoolbox":
-            return "hevc_videotoolbox", []
-        return "libx265", ["-preset", "medium"]
-    return "libx264", ["-preset", "medium"]
+            return "hevc_videotoolbox", [], codec
+        return "libx265", ["-preset", "medium"], codec
+    return "libx264", ["-preset", "medium"], codec
 
 
 async def _hw_decode_flags(source_codec: Optional[str]) -> list[str]:
@@ -208,10 +216,13 @@ def _output_forces_reencode(
     if output.bitrate:
         return True, f"Ziel-Bitrate {output.bitrate}"
     if source_meta is not None:
-        src_v = _norm_vcodec(source_meta.get("video_codec"))
-        dst_v = _norm_vcodec(output.codec)
-        if src_v and dst_v and src_v != dst_v:
-            return True, f"Video-Codec-Wechsel {src_v}->{dst_v}"
+        # Codec 'source' heißt: wir übernehmen den Quell-Codec -- kein
+        # Wechsel, daher auch kein Transcoding-Zwang.
+        if output.codec != "source":
+            src_v = _norm_vcodec(source_meta.get("video_codec"))
+            dst_v = _norm_vcodec(output.codec)
+            if src_v and dst_v and src_v != dst_v:
+                return True, f"Video-Codec-Wechsel {src_v}->{dst_v}"
         # Audio: "copy" in den Audio-Codec-Einstellungen umgeht jeden
         # Wechsel; sonst vergleichen wir die Codec-Namen.
         if output.audio_codec != "copy":
@@ -382,7 +393,10 @@ async def render_edl(
 
     output = edl.output
     container = output.container
-    encoder, encoder_flags = await _pick_video_encoder(output.codec)
+    encoder, encoder_flags, _resolved_codec = await _pick_video_encoder(
+        output.codec,
+        source_codec=(source_meta or {}).get("video_codec"),
+    )
     scale_vf = _scale_filter(output.resolution)
 
     # Profil-Ebene: erzwingt das Ziel-Profil ein Re-Encode (Skalierung,
