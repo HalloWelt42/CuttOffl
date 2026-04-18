@@ -66,3 +66,26 @@ export async function markTourEnd() {
   await post({ t_ms, kind: 'tour_end' });
   console.info('[tour-recorder] tour_end');
 }
+
+/** Video-Start loggen: im Editor laeuft waehrend der Tour auch das
+ *  Demo-Video. Dessen Tonspur soll in der finalen Audio-Mischung an
+ *  der richtigen Stelle erscheinen.
+ *    file_id:  die CuttOffl-File-ID der Quelldatei
+ *    start_s:  Position im Video (Sekunden), ab der abgespielt wird
+ */
+export async function markVideoPlay(file_id, start_s) {
+  if (!ENABLED) return;
+  if (t0 == null) t0 = now();
+  const t_ms = now() - t0;
+  await post({ t_ms, kind: 'video_play', file_id, start_s });
+}
+
+/** Video-Stop loggen (Pause, Seek, Ende). stop_s = Abspielposition
+ *  zum Stopp-Zeitpunkt, damit das Tool den richtigen Audio-Ausschnitt
+ *  aus der Quelle extrahiert. */
+export async function markVideoStop(stop_s) {
+  if (!ENABLED) return;
+  if (t0 == null) return;
+  const t_ms = now() - t0;
+  await post({ t_ms, kind: 'video_stop', stop_s });
+}

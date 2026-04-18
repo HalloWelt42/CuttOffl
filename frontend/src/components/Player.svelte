@@ -2,6 +2,7 @@
   import { onMount, onDestroy } from 'svelte';
   import { api } from '../lib/api.js';
   import { editor, seek, tickPreview } from '../lib/editor.svelte.js';
+  import { markVideoPlay, markVideoStop } from '../lib/tourRecorder.js';
 
   // Bewusst KEINE $state() -- das sind DOM-Refs aus bind:this und
   // werden nicht von der UI reaktiv gelesen; $state() hier triggert
@@ -80,10 +81,14 @@
   function onPlay()  {
     editor.isPlaying = true;
     if (!smoothRaf) smoothRaf = requestAnimationFrame(smoothTick);
+    // Tour-Recorder (no-op ausserhalb ?tour_record=1): Video-Abspielung
+    // loggen, damit die Quell-Audio-Spur spaeter ins Mix-Tool eingeht.
+    if (editor.fileId) void markVideoPlay(editor.fileId, videoEl?.currentTime ?? 0);
   }
   function onPause() {
     editor.isPlaying = false;
     if (smoothRaf) { cancelAnimationFrame(smoothRaf); smoothRaf = 0; }
+    if (editor.fileId) void markVideoStop(videoEl?.currentTime ?? 0);
   }
 
   export function togglePlay() {

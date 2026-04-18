@@ -33,7 +33,11 @@ LOG_PATH = DATA_DIR / "tmp" / "tour-recording.json"
 class RecorderEvent(BaseModel):
     t_ms: float
     kind: str                    # 'tour_start' | 'audio_start' | 'tour_end'
-    text: Optional[str] = None   # nur bei audio_start
+                                 # | 'video_play' | 'video_stop'
+    text: Optional[str] = None   # bei audio_start
+    file_id: Optional[str] = None  # bei video_play
+    start_s: Optional[float] = None  # bei video_play (Position im Video)
+    stop_s: Optional[float] = None   # bei video_stop
 
 
 def _read_all() -> list[dict]:

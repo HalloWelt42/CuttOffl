@@ -19,7 +19,12 @@
 import { persisted, persist } from './persist.svelte.js';
 import { go } from './nav.svelte.js';
 import { closeInfo, closeAbout } from './panels.svelte.js';
-import { markTourStart, markTourEnd } from './tourRecorder.js';
+import { markTourStart, markTourEnd, recorderActive } from './tourRecorder.js';
+
+// Nur aktiv bei ?tour_record=1 -- zeigt jeden Tour-Wechsel in der
+// Browser-Console, damit man bei einer abbrechenden Tour den Punkt
+// sieht.
+function dbg(...a) { if (recorderActive()) console.info('[tour]', ...a); }
 
 export const tour = $state({
   activeId: null,        // id der laufenden Tour oder null
@@ -102,6 +107,7 @@ export async function startTour(id, mode = 'guided', queue = []) {
     console.warn(`[tour] Tour unbekannt: ${id}`);
     return;
   }
+  dbg(`startTour id=${id} mode=${mode} queue=[${queue.join(',')}]`);
   // vorherige Tour sauber beenden (ohne Zwischen-Nav auf Hilfe-Seite)
   stopTour({ navBack: false });
   // Panels beim Start immer schließen -- das schwebende Info-Fenster
@@ -130,12 +136,14 @@ export async function startAllTours(mode = 'demo') {
   // No-op ausserhalb des Aufnahme-Modus (?tour_record=1).
   await markTourStart();
   const ids = TOURS.map((t) => t.id);
+  dbg(`startAllTours count=${ids.length} ids=[${ids.join(',')}]`);
   const first = ids[0];
   const rest = ids.slice(1);
   await startTour(first, mode, rest);
 }
 
 export function stopTour(opts = {}) {
+  if (tour.running) dbg(`stopTour activeId=${tour.activeId} navBack=${opts.navBack !== false}`);
   // Am Ende einer Tour (oder beim manuellen Abbruch) landet der User
   // wieder auf der Hilfe-Seite -- sonst bliebe er z. B. im Editor
   // mit offenem Info-Panel stehen, ohne klaren Kontext. Das Nav wird
@@ -180,6 +188,7 @@ export async function nextStep() {
   // Demo-Filter entfernen, Panels schließen).
   await runAfter();
   if (tour.stepIndex >= t.steps.length - 1) {
+    dbg(`endOfTour id=${t.id} queueLen=${tour.queue.length}`);
     markCompleted(t.id);
     // Gibt es noch weitere Touren in der Queue? -> nahtlos weiter,
     // OHNE zwischendurch zur Hilfe-Seite zu navigieren.
@@ -187,6 +196,7 @@ export async function nextStep() {
       const nextId = tour.queue.shift();
       const rest = [...tour.queue];
       const keepMode = tour.mode;
+      dbg(`queueJump -> next=${nextId} rest=[${rest.join(',')}] keepMode=${keepMode}`);
       stopTour({ navBack: false });
       await startTour(nextId, keepMode, rest);
       return;
@@ -196,6 +206,7 @@ export async function nextStep() {
     // könnte.
     // Tour-Recorder: letzter Timestamp fuer die Aufnahme. No-op
     // ausserhalb des Aufnahme-Modus.
+    dbg('lastTourEnd -> stop + markTourEnd');
     await markTourEnd();
     stopTour();
     return;
@@ -258,10 +269,14 @@ export function resumeTour() {
  *  Ist die Tour pausiert oder nicht im Demo-Modus, passiert nichts. */
 export function scheduleAdvance(delayMs, totalMs = null) {
   clearAdvance();
-  if (!tour.running || tour.mode !== 'demo' || tour.paused) return;
+  if (!tour.running || tour.mode !== 'demo' || tour.paused) {
+    dbg(`scheduleAdvance skipped (running=${tour.running} mode=${tour.mode} paused=${tour.paused})`);
+    return;
+  }
   const total = totalMs ?? delayMs;
   tour.advanceAt = Date.now() + delayMs;
   tour.advanceTotal = total;
+  dbg(`scheduleAdvance delay=${Math.round(delayMs)}ms step=${tour.stepIndex} (${tour.activeId})`);
   advanceTimer = setTimeout(() => {
     advanceTimer = null;
     tour.advanceAt = 0;
