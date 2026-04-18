@@ -11,7 +11,18 @@ async function request(path, opts = {}) {
     let detail = '';
     try {
       const j = await res.json();
-      detail = j?.detail ? `: ${j.detail}` : '';
+      // Pydantic-Validation-Fehler kommen als Array von Objekten zurück
+      // ({ loc, msg, type }). Auf einen kompakten String reduzieren,
+      // damit die Toast-Meldung lesbar bleibt.
+      if (Array.isArray(j?.detail)) {
+        const parts = j.detail.map((d) => {
+          const loc = Array.isArray(d?.loc) ? d.loc.slice(1).join('.') : '';
+          return loc ? `${loc}: ${d.msg}` : (d.msg ?? JSON.stringify(d));
+        });
+        detail = `: ${parts.join('; ')}`;
+      } else if (typeof j?.detail === 'string') {
+        detail = `: ${j.detail}`;
+      }
     } catch {}
     throw new Error(`${res.status} ${res.statusText}${detail}`);
   }

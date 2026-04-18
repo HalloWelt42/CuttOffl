@@ -19,8 +19,10 @@ from __future__ import annotations
 import logging
 from contextlib import asynccontextmanager
 
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
+from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
 
 from app.config import (
     APP_NAME, CORS_ALLOW_CREDENTIALS, CORS_ORIGINS, HOST, LOG_LEVEL,
@@ -110,6 +112,48 @@ app.add_middleware(
                     "Content-Disposition"],
     max_age=600,
 )
+
+@app.exception_handler(RequestValidationError)
+async def _log_422(request: Request, exc: RequestValidationError) -> JSONResponse:
+    """422-Antworten in den Server-Log schreiben, inklusive Pfad und
+    dem ersten Fehler-Stück. Ohne diesen Handler sieht man nur den
+    Status-Code -- Pydantic-Detail verschwindet zwischen den Zeilen.
+
+    WICHTIG: Pydantic packt bei value_error-Fehlern gelegentlich ein
+    echtes Exception-Objekt nach `ctx.error`. Das ist nicht JSON-
+    serialisierbar, darum müssen wir es vor dem Response-Build
+    durch seinen String-Repr ersetzen -- sonst wird aus dem 422 ein 500.
+    """
+    errors = exc.errors()
+    try:
+        first = errors[0] if errors else {}
+        loc = ".".join(str(x) for x in first.get("loc", [])[1:]) or "?"
+        msg = first.get("msg", "?")
+        logger.warning(
+            f"422 {request.method} {request.url.path} -- {loc}: {msg} "
+            f"({len(errors)} Fehler insgesamt)"
+        )
+    except Exception:
+        logger.warning(f"422 {request.method} {request.url.path}")
+
+    safe_errors = []
+    for e in errors:
+        item = {}
+        for k, v in e.items():
+            if k == "ctx" and isinstance(v, dict):
+                item[k] = {ck: (str(cv) if isinstance(cv, BaseException) else cv)
+                           for ck, cv in v.items()}
+            elif isinstance(v, BaseException):
+                item[k] = str(v)
+            else:
+                item[k] = v
+        safe_errors.append(item)
+
+    return JSONResponse(
+        status_code=422,
+        content={"detail": safe_errors},
+    )
+
 
 app.include_router(system.router)
 app.include_router(upload.router)

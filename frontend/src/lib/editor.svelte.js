@@ -90,11 +90,32 @@ function scheduleSave() {
   saveTimer = setTimeout(() => void persist(), 600);
 }
 
+// Vor dem PUT: EDL auf gültige Clips filtern und Zahlen auf sinnvolle
+// Präzision bringen. Pydantic verwirft src_end <= src_start (422),
+// und src_start < 0 ebenfalls. Zwischenzustände aus Drag-Operationen
+// oder Tour-Animationen können sonst die Speicherung killen.
+function sanitizeEdlForSave(edl) {
+  if (!edl) return edl;
+  const tl = (edl.timeline ?? [])
+    .filter((c) => {
+      const s = Number(c?.src_start);
+      const e = Number(c?.src_end);
+      return Number.isFinite(s) && Number.isFinite(e) && s >= 0 && e > s;
+    })
+    .map((c) => ({
+      ...c,
+      src_start: Number(Math.max(0, c.src_start).toFixed(3)),
+      src_end: Number(Math.max(c.src_start + 0.001, c.src_end).toFixed(3)),
+    }));
+  return { ...edl, timeline: tl };
+}
+
 async function persist() {
   if (!editor.projectId || !editor.edl || editor.saving) return;
   editor.saving = true;
   try {
-    await api.updateProject(editor.projectId, { edl: editor.edl });
+    const safe = sanitizeEdlForSave(editor.edl);
+    await api.updateProject(editor.projectId, { edl: safe });
     editor.dirty = false;
   } catch (e) {
     toast.error(`EDL-Speichern: ${e.message}`);
