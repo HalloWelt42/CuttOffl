@@ -56,6 +56,17 @@ Schriftarten & Icons:
 | Chakra Petch (via @fontsource) | OFL-1.1    | https://fonts.google.com/specimen/Chakra+Petch |
 | JetBrains Mono (via @fontsource) | OFL-1.1  | https://www.jetbrains.com/lp/mono |
 | Font Awesome Free      | CC BY 4.0 · OFL-1.1 · MIT | https://fontawesome.com/license/free |
+| Gnome Nuvola "Help"-Icon (Lifebelt, David Vignoni) | LGPL-2.1-or-later | https://commons.wikimedia.org/wiki/File:Gnome-help.svg |
+
+Hinweis zum Nuvola-Icon: Die Datei `frontend/public/tour-help-icon.svg`
+wird unverändert ausgeliefert. Als LGPL-Asset ist das kompatibel mit
+unserer NC-Bindung -- die LGPL greift auf das Icon selbst, nicht auf
+den umgebenden Code.
+
+Die Audio-Dateien unter `frontend/public/tour-audio/` wurden mit
+einer lokalen, individuell geklonten Qwen3-TTS-Stimme synthetisiert
+(via des Schwester-Projekts txt2voice). Sie werden als Teil von
+CuttOffl verteilt und stehen unter derselben Lizenz wie die App.
 
 ---
 

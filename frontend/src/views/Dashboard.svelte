@@ -310,7 +310,7 @@
   <div class="firstrun-backdrop" onclick={dismissFirstRun} role="presentation">
     <div class="firstrun-card" onclick={(e) => e.stopPropagation()} role="dialog" aria-modal="true" tabindex="-1">
       <div class="fr-icon">
-        <i class="fa-solid fa-life-ring"></i>
+        <img src="/tour-help-icon.svg" alt="" aria-hidden="true" />
       </div>
       <h2>Willkommen bei CuttOffl</h2>
       <p>
@@ -527,14 +527,14 @@
     to   { transform: scale(1);    opacity: 1; }
   }
   .fr-icon {
-    width: 72px; height: 72px;
+    width: 80px; height: 80px;
     margin: 0 auto 14px;
-    border-radius: 50%;
     display: grid; place-items: center;
-    background: var(--accent-soft);
-    color: var(--accent);
-    font-size: 32px;
-    border: 1px solid color-mix(in oklab, var(--accent) 40%, var(--border));
+  }
+  .fr-icon img {
+    width: 72px; height: 72px;
+    object-fit: contain;
+    filter: drop-shadow(0 2px 8px rgba(0, 0, 0, 0.35));
   }
   .firstrun-card h2 {
     margin: 0 0 8px;

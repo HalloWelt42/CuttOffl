@@ -10,7 +10,10 @@
   import {
     tour, currentStep, nextStep, prevStep, stopTour,
     toggleMode, getTour, tourAudio, toggleTourAudio,
+    pauseTour, resumeTour, scheduleAdvance, clearAdvance,
+    DEMO_AUDIO_BUFFER_MS, DEMO_FALLBACK_MS,
   } from '../lib/tour.svelte.js';
+  import { onDestroy } from 'svelte';
 
   const activeTour = $derived(tour.activeId ? getTour(tour.activeId) : null);
   const step = $derived(tour.running ? currentStep() : null);
@@ -93,6 +96,9 @@
   // unter /tour-audio/<tour-id>-<idx>.mp3. Wenn die Datei fehlt
   // (404) oder der Nutzer Audio abgeschaltet hat, bleibt es still.
   let audioEl = $state(null);
+  // Merker, ob für den aktuellen Schritt der Auto-Advance bereits
+  // eingeplant wurde (vermeidet doppelte Scheduling-Aufrufe).
+  let advanceScheduledFor = -1;
 
   $effect(() => {
     const src = step?.audio_src;
@@ -104,18 +110,24 @@
     // Quelle wechseln, wenn nötig
     try {
       const abs = new URL(src, window.location.origin).href;
-      if (audioEl.src !== abs) audioEl.src = src;
-    } catch { audioEl.src = src; }
-    if (tourAudio.enabled) {
+      if (audioEl.src !== abs) {
+        audioEl.src = src;
+        advanceScheduledFor = -1;
+      }
+    } catch { audioEl.src = src; advanceScheduledFor = -1; }
+    if (tourAudio.enabled && !tour.paused) {
       const p = audioEl.play();
       if (p && typeof p.catch === 'function') {
         p.catch(() => {
           // Autoplay-Block: kein Fehler, User muss ggf. den Lautsprecher-
           // Toggle einmal anfassen, damit der Browser Audio erlaubt.
+          scheduleFallbackAdvance();
         });
       }
     } else {
       audioEl.pause();
+      // Kein Audio aktiv -> Auto-Advance per Fallback-Zeit einplanen
+      scheduleFallbackAdvance();
     }
   });
 
@@ -124,13 +136,85 @@
   $effect(() => {
     if (!audioEl) return;
     if (!tour.running) return;
-    if (tourAudio.enabled) {
+    if (tourAudio.enabled && !tour.paused) {
       if (audioEl.paused && audioEl.src) {
-        audioEl.play().catch(() => {});
+        audioEl.play().catch(() => scheduleFallbackAdvance());
       }
     } else {
       audioEl.pause();
+      if (!tourAudio.enabled) scheduleFallbackAdvance();
     }
+  });
+
+  // Pause-Zustand der Tour spiegelt sich auf Audio: pausieren /
+  // fortsetzen. Im Demo-Modus greift das auch auf den Advance-Timer.
+  $effect(() => {
+    if (!audioEl) return;
+    if (tour.paused) {
+      audioEl.pause();
+    } else if (tour.running && tourAudio.enabled && audioEl.src) {
+      if (audioEl.paused) audioEl.play().catch(() => {});
+    }
+  });
+
+  function scheduleFallbackAdvance() {
+    if (tour.mode !== 'demo' || tour.paused || !tour.running) return;
+    if (advanceScheduledFor === tour.stepIndex) return;
+    advanceScheduledFor = tour.stepIndex;
+    const fallback = step?.demo_ms ?? DEMO_FALLBACK_MS;
+    scheduleAdvance(fallback, fallback);
+  }
+
+  function onAudioLoaded() {
+    // Ab jetzt steht duration fest -- wir planen den Advance erst
+    // nach dem Audio-Ende + Puffer ein, nicht gleich beim Start.
+    if (tour.mode !== 'demo' || tour.paused || !tour.running) return;
+    // Audio-Ende triggert onAudioEnded; hier nur sicherstellen, dass
+    // kein Fallback-Timer aus einem früheren State noch läuft.
+    clearAdvance();
+    advanceScheduledFor = -1;
+  }
+
+  function onAudioEnded() {
+    if (tour.mode !== 'demo' || tour.paused || !tour.running) return;
+    if (advanceScheduledFor === tour.stepIndex) return;
+    advanceScheduledFor = tour.stepIndex;
+    // Puffer zum Nachlesen, dann nextStep
+    scheduleAdvance(DEMO_AUDIO_BUFFER_MS, DEMO_AUDIO_BUFFER_MS);
+  }
+
+  function onAudioError() {
+    // MP3 fehlt oder kaputt -> sofort Fallback-Zeit verwenden
+    scheduleFallbackAdvance();
+  }
+
+  // Countdown-Anzeige: läuft via requestAnimationFrame, aktualisiert
+  // einen lokalen $state, damit die UI smooth tickt.
+  let countdownMs = $state(0);
+  let countdownRaf = null;
+  function tickCountdown() {
+    if (tour.advanceAt > 0) {
+      countdownMs = Math.max(0, tour.advanceAt - Date.now());
+    } else {
+      countdownMs = 0;
+    }
+    countdownRaf = requestAnimationFrame(tickCountdown);
+  }
+  $effect(() => {
+    if (tour.running && tour.mode === 'demo') {
+      if (!countdownRaf) countdownRaf = requestAnimationFrame(tickCountdown);
+    } else {
+      if (countdownRaf) { cancelAnimationFrame(countdownRaf); countdownRaf = null; }
+      countdownMs = 0;
+    }
+  });
+  onDestroy(() => {
+    if (countdownRaf) cancelAnimationFrame(countdownRaf);
+  });
+
+  const countdownPct = $derived.by(() => {
+    if (!tour.advanceTotal || !countdownMs) return 0;
+    return Math.min(100, (countdownMs / tour.advanceTotal) * 100);
   });
 </script>
 
@@ -194,6 +278,36 @@
         {/if}
       </button>
 
+      {#if tour.mode === 'demo'}
+        <!-- Countdown + Pause/Play im Demo-Modus. Zeigt, wie lang es
+             bis zum nächsten Schritt dauert und lässt den User die
+             Tour jederzeit anhalten. -->
+        <div class="countdown" class:is-paused={tour.paused}
+             title={tour.paused
+               ? 'Tour pausiert -- Klick auf Play setzt fort'
+               : (countdownMs > 0
+                   ? `Nächster Schritt in ${Math.ceil(countdownMs / 1000)}s`
+                   : 'Erklärung läuft')}>
+          <button class="tour-btn playpause"
+                  onclick={() => (tour.paused ? resumeTour() : pauseTour())}
+                  aria-label={tour.paused ? 'Fortsetzen' : 'Pause'}>
+            <i class="fa-solid {tour.paused ? 'fa-play' : 'fa-pause'}"></i>
+          </button>
+          <div class="countdown-bar">
+            <div class="cd-fill" style="width: {countdownPct}%"></div>
+          </div>
+          <span class="cd-num mono">
+            {#if tour.paused}
+              <i class="fa-solid fa-pause"></i>
+            {:else if countdownMs > 0}
+              {Math.ceil(countdownMs / 1000)}s
+            {:else}
+              <i class="fa-solid fa-circle-notch fa-spin"></i>
+            {/if}
+          </span>
+        </div>
+      {/if}
+
       <div class="tour-nav">
         <button class="tour-btn"
                 onclick={prevStep}
@@ -204,7 +318,7 @@
         <button class="tour-btn primary"
                 onclick={nextStep}
                 title="Nächster Schritt (Pfeil rechts oder Enter)">
-          {#if tour.stepIndex >= stepTotal - 1}
+          {#if tour.stepIndex >= stepTotal - 1 && tour.queue.length === 0}
             <i class="fa-solid fa-check"></i> Fertig
           {:else}
             Weiter <i class="fa-solid fa-arrow-right"></i>
@@ -219,13 +333,23 @@
            style="width: {((tour.stepIndex + 1) / stepTotal * 100).toFixed(1)}%"></div>
     </div>
 
+    <!-- Queue-Indikator, wenn weitere Touren nachkommen (Präsentation) -->
+    {#if tour.queue.length > 0 && tour.stepIndex >= stepTotal - 1}
+      <div class="queue-hint mono">
+        <i class="fa-solid fa-forward"></i>
+        Gleich weiter: nächste Tour ({tour.queue.length} verbleiben)
+      </div>
+    {/if}
+
     <!-- Vorgelesene Erklärung: einmalig synthetisiert, liegt als MP3
          unter /tour-audio/<id>-<idx>.mp3. Fehlt die Datei, läuft die
-         Tour geräuschlos weiter. Autoplay wird vom Browser eventuell
-         blockiert, bis der Nutzer einmal interagiert hat -- deshalb
-         stecken wir auf error/ended schlicht ignorieren. -->
+         Tour geräuschlos weiter. Der Advance zum nächsten Schritt
+         hängt im Demo-Modus am `ended`-Event -- so wird nie mitten
+         im Satz abgebrochen. -->
     <audio bind:this={audioEl} preload="auto"
-           onerror={() => { /* fehlende MP3 ist ok */ }}></audio>
+           onloadedmetadata={onAudioLoaded}
+           onended={onAudioEnded}
+           onerror={onAudioError}></audio>
   </div>
 {/if}
 
@@ -441,11 +565,10 @@
   .mode-btn i { color: var(--accent); }
 
   .tour-progress {
-    margin: 10px -16px -10px;
+    margin: 10px -16px 0;
     height: 3px;
     background: var(--bg-sink);
     border-top: 1px solid var(--border);
-    border-radius: 0 0 10px 10px;
     overflow: hidden;
   }
   .tour-progress .fill {
@@ -453,6 +576,66 @@
     background: var(--accent);
     transition: width 200ms ease-out;
   }
+
+  /* Countdown + Pause/Play im Demo-Modus */
+  .countdown {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 4px 8px 4px 4px;
+    background: var(--bg-elev);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    min-width: 140px;
+  }
+  .countdown.is-paused {
+    background: color-mix(in oklab, var(--warning) 14%, var(--bg-elev));
+    border-color: color-mix(in oklab, var(--warning) 40%, var(--border));
+  }
+  .tour-btn.playpause {
+    padding: 4px 8px;
+    font-size: 11px;
+    background: transparent;
+    border: none;
+  }
+  .tour-btn.playpause:hover {
+    background: transparent;
+    color: var(--accent);
+  }
+  .countdown-bar {
+    flex: 1;
+    height: 4px;
+    background: var(--bg-sink);
+    border-radius: 2px;
+    overflow: hidden;
+  }
+  .cd-fill {
+    height: 100%;
+    background: var(--accent);
+    transition: width 120ms linear;
+  }
+  .is-paused .cd-fill { background: var(--warning); }
+  .cd-num {
+    font-size: 11px;
+    color: var(--fg-muted);
+    min-width: 28px;
+    text-align: right;
+  }
+  .is-paused .cd-num { color: var(--warning); }
+
+  .queue-hint {
+    margin: 6px -16px -10px;
+    padding: 6px 12px;
+    font-size: 11px;
+    color: var(--accent);
+    background: var(--accent-soft);
+    border-top: 1px solid color-mix(in oklab, var(--accent) 30%, var(--border));
+    border-radius: 0 0 10px 10px;
+    display: flex;
+    gap: 8px;
+    align-items: center;
+  }
+  .queue-hint i { color: var(--accent); }
 
   /* Responsive: kleine Viewports -> Box füllt untere Hälfte */
   @media (max-width: 640px) {

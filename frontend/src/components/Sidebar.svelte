@@ -72,7 +72,15 @@
           title={collapsed ? it.label : ''}
           data-tour={it.tour}
         >
-          <i class="fa-solid {it.icon}"></i>
+          {#if it.id === 'help'}
+            <!-- Rettungsring als SVG (Gnome Nuvola Icon Set, LGPL) --
+                 die Font-Awesome-Variante wirkte an der Stelle zu
+                 klein und hatte wenig Wiedererkennung. -->
+            <img class="sidebar-icon-img" src="/tour-help-icon.svg"
+                 alt="" aria-hidden="true" />
+          {:else}
+            <i class="fa-solid {it.icon}"></i>
+          {/if}
           {#if !collapsed}<span>{it.label}</span>{/if}
         </button>
       {/each}
@@ -212,6 +220,13 @@
   .item:hover { background: var(--bg-elev); color: var(--fg-primary); }
   .item.active { background: var(--bg-elev); color: var(--accent); }
   .item i { width: 18px; text-align: center; font-size: 14px; }
+  .sidebar-icon-img {
+    /* Bildform-Icon -- passt sich dem Item-Rhythmus der fa-solid-Glyphen an */
+    width: 18px;
+    height: 18px;
+    object-fit: contain;
+    flex-shrink: 0;
+  }
 
   /* Hilfe-Panel-Eintraege: Icon dauerhaft in Akzent-Blau, damit sie
      klar als "Info-Ebene" erkennbar sind. Beim Hover wird auch der Text

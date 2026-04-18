@@ -1,10 +1,18 @@
 <script>
-  let { icon = null, title, subtitle = null, children } = $props();
+  let {
+    icon = null,
+    iconImg = null,   // Alternative zu fa-Icon: SVG/PNG-Pfad (aus /public)
+    title, subtitle = null, children,
+  } = $props();
 </script>
 
 <header class="ph">
   <div class="left">
-    {#if icon}<i class="fa-solid {icon}"></i>{/if}
+    {#if iconImg}
+      <img class="ph-img" src={iconImg} alt="" aria-hidden="true" />
+    {:else if icon}
+      <i class="fa-solid {icon}"></i>
+    {/if}
     <div class="titles">
       <span class="title">{title}</span>
       {#if subtitle}<span class="subtitle soft">{subtitle}</span>{/if}
@@ -28,6 +36,7 @@
   }
   .left { display: flex; align-items: center; gap: 10px; }
   .left i { color: var(--accent); }
+  .ph-img { width: 22px; height: 22px; object-fit: contain; flex-shrink: 0; }
   .titles { display: flex; flex-direction: column; line-height: 1.1; }
   .title { font-weight: 600; letter-spacing: 0.2px; }
   .subtitle { font-size: 11px; color: var(--fg-muted); }

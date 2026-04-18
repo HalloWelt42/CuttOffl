@@ -1,7 +1,7 @@
 <script>
   import { TOURS } from '../lib/tours.js';
   import {
-    tour, startTour, tourCompleted, registerTours,
+    tour, startTour, startAllTours, tourCompleted, registerTours,
   } from '../lib/tour.svelte.js';
   import PanelHeader from '../components/PanelHeader.svelte';
 
@@ -11,10 +11,19 @@
   function hasBeenDone(id) {
     return tourCompleted.set.has(id);
   }
+
+  // Gesamte Schritte + geschätzte Laufzeit über alle Touren (grobe
+  // Summe der Audio-Annahme: im Schnitt ~25 s pro Schritt + 2 s
+  // Puffer = 27 s; für Schritte ohne Audio wird DEMO_FALLBACK_MS
+  // benutzt). Wir nehmen hier einen einfachen Mittelwert von 28 s
+  // pro Schritt für die Anzeige.
+  const totalSteps = TOURS.reduce((s, t) => s + t.steps.length, 0);
+  const totalSecs = totalSteps * 28;
+  const totalMinutes = Math.round(totalSecs / 60);
 </script>
 
 <section class="wrap">
-  <PanelHeader icon="fa-life-ring" title="Hilfe & Touren"
+  <PanelHeader iconImg="/tour-help-icon.svg" title="Hilfe & Touren"
                subtitle="Geführte Rundgänge durch die Funktionen" />
 
   <div class="body">
@@ -31,6 +40,35 @@
         verändert deine Daten -- es wird nur geklickt und erklärt.
       </p>
     </div>
+
+    <!-- Präsentations-Modus: alle fünf Touren nacheinander, komplett
+         autoplayend mit Audio-gesteuertem Advance und Play/Pause. -->
+    <article class="tour-card presentation">
+      <header>
+        <i class="fa-solid fa-circle-play"></i>
+        <div class="hd">
+          <h3>Kompletter Rundgang</h3>
+          <div class="meta mono">
+            {TOURS.length} Touren · {totalSteps} Schritte · ca. {totalMinutes} Min
+          </div>
+        </div>
+      </header>
+      <p class="desc">
+        Spielt alle fünf Touren direkt hintereinander ab, mit
+        vollständiger Audio-Begleitung. Die Tour wartet, bis die
+        Erklärung zu Ende gesprochen ist, und lässt dir noch einen
+        Moment zum Nachlesen -- kein Satz wird abgeschnitten. Mit
+        Pause kannst du jederzeit anhalten, mit Play weiterlaufen.
+        Perfekt als Präsentation oder als Hintergrund-Demo.
+      </p>
+      <footer>
+        <button class="btn btn-primary" onclick={() => startAllTours('demo')}
+                title="Alle Touren nacheinander automatisch abspielen">
+          <i class="fa-solid fa-circle-play"></i>
+          Kompletten Rundgang starten
+        </button>
+      </footer>
+    </article>
 
     <div class="tours-grid">
       {#each TOURS as t (t.id)}
@@ -155,5 +193,24 @@
     display: flex;
     gap: 8px;
     margin-top: 8px;
+  }
+
+  /* Präsentations-Karte: prominenter, volle Breite */
+  .tour-card.presentation {
+    margin-bottom: 18px;
+    max-width: 1100px;
+    background: linear-gradient(
+      135deg,
+      color-mix(in oklab, var(--accent) 18%, var(--bg-panel)) 0%,
+      var(--bg-panel) 60%
+    );
+    border-color: color-mix(in oklab, var(--accent) 45%, var(--border));
+  }
+  .tour-card.presentation header > i {
+    color: var(--accent);
+    font-size: 30px;
+  }
+  .tour-card.presentation .desc {
+    max-width: 720px;
   }
 </style>
