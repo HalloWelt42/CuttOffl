@@ -188,33 +188,68 @@
     scheduleFallbackAdvance();
   }
 
-  // Countdown-Anzeige: läuft via requestAnimationFrame, aktualisiert
-  // einen lokalen $state, damit die UI smooth tickt.
+  // Fortschrittsanzeige im Demo-Modus -- zwei Phasen:
+  //   1. Audio läuft  -> Balken füllt sich entlang audio.currentTime
+  //   2. Audio fertig -> Puffer-Countdown (tour.advanceAt), Balken
+  //                      leert sich
+  // Statt Spinner gibt es also immer eine echte, ablesbare Zeit.
   let countdownMs = $state(0);
-  let countdownRaf = null;
-  function tickCountdown() {
+  let audioCurrent = $state(0);
+  let audioDuration = $state(0);
+  let audioPlaying = $state(false);
+  let tickRaf = null;
+
+  function tick() {
     if (tour.advanceAt > 0) {
       countdownMs = Math.max(0, tour.advanceAt - Date.now());
     } else {
       countdownMs = 0;
     }
-    countdownRaf = requestAnimationFrame(tickCountdown);
+    if (audioEl) {
+      audioCurrent = audioEl.currentTime || 0;
+      audioDuration = audioEl.duration || 0;
+      audioPlaying = !audioEl.paused && audioDuration > 0
+                     && audioCurrent < audioDuration;
+    }
+    tickRaf = requestAnimationFrame(tick);
   }
   $effect(() => {
     if (tour.running && tour.mode === 'demo') {
-      if (!countdownRaf) countdownRaf = requestAnimationFrame(tickCountdown);
+      if (!tickRaf) tickRaf = requestAnimationFrame(tick);
     } else {
-      if (countdownRaf) { cancelAnimationFrame(countdownRaf); countdownRaf = null; }
+      if (tickRaf) { cancelAnimationFrame(tickRaf); tickRaf = null; }
       countdownMs = 0;
+      audioPlaying = false;
     }
   });
   onDestroy(() => {
-    if (countdownRaf) cancelAnimationFrame(countdownRaf);
+    if (tickRaf) cancelAnimationFrame(tickRaf);
   });
 
-  const countdownPct = $derived.by(() => {
-    if (!tour.advanceTotal || !countdownMs) return 0;
-    return Math.min(100, (countdownMs / tour.advanceTotal) * 100);
+  // Was zeigen wir im Progress-Balken?
+  //   - audioPlaying          -> Audio-Position (aufsteigend 0->100 %)
+  //   - countdownMs > 0       -> Puffer (absteigend 100->0 %)
+  //   - sonst (Fallback-Timer z.B. bei fehlendem Audio)
+  //                           -> Fallback-Countdown (100->0 %)
+  const progressPct = $derived.by(() => {
+    if (audioPlaying && audioDuration > 0) {
+      return Math.min(100, (audioCurrent / audioDuration) * 100);
+    }
+    if (countdownMs > 0 && tour.advanceTotal > 0) {
+      return Math.min(100, (countdownMs / tour.advanceTotal) * 100);
+    }
+    return 0;
+  });
+
+  // Sekunden-Anzeige rechts neben dem Balken
+  const timerLabel = $derived.by(() => {
+    if (tour.paused) return '⏸';
+    if (audioPlaying) {
+      const remain = Math.max(0, audioDuration - audioCurrent);
+      return `${Math.ceil(remain)}s`;
+    }
+    if (countdownMs > 0) return `${Math.ceil(countdownMs / 1000)}s`;
+    return '';
   });
 </script>
 
@@ -265,46 +300,39 @@
     {/if}
 
     <div class="tour-foot">
-      <button class="tour-btn mode-btn" onclick={toggleMode}
+      <!-- Kompakter Icon-Toggle Guided/Demo. Spart Platz und macht
+           Raum für Pause/Play + Progress. Tooltip erklärt die Funktion. -->
+      <button class="tour-icon-btn" onclick={toggleMode}
               title={tour.mode === 'demo'
-                ? 'Auf manuelles Weiterklicken zurückschalten'
-                : 'Für mich vorführen -- wechselt automatisch weiter'}>
-        {#if tour.mode === 'demo'}
-          <i class="fa-solid fa-hand-pointer"></i>
-          Ich klick selber
-        {:else}
-          <i class="fa-solid fa-play"></i>
-          Zeig es mir
-        {/if}
+                ? 'Tour läuft automatisch -- klicken für manuelles Weiterklicken'
+                : 'Manuelles Weiterklicken -- klicken für automatischen Demo-Modus'}
+              aria-label={tour.mode === 'demo'
+                ? 'Auf manuell umschalten'
+                : 'Auf Demo umschalten'}>
+        <i class="fa-solid {tour.mode === 'demo'
+                             ? 'fa-hand-pointer'
+                             : 'fa-play'}"></i>
       </button>
 
       {#if tour.mode === 'demo'}
-        <!-- Countdown + Pause/Play im Demo-Modus. Zeigt, wie lang es
-             bis zum nächsten Schritt dauert und lässt den User die
-             Tour jederzeit anhalten. -->
-        <div class="countdown" class:is-paused={tour.paused}
-             title={tour.paused
-               ? 'Tour pausiert -- Klick auf Play setzt fort'
-               : (countdownMs > 0
-                   ? `Nächster Schritt in ${Math.ceil(countdownMs / 1000)}s`
-                   : 'Erklärung läuft')}>
-          <button class="tour-btn playpause"
-                  onclick={() => (tour.paused ? resumeTour() : pauseTour())}
-                  aria-label={tour.paused ? 'Fortsetzen' : 'Pause'}>
-            <i class="fa-solid {tour.paused ? 'fa-play' : 'fa-pause'}"></i>
-          </button>
-          <div class="countdown-bar">
-            <div class="cd-fill" style="width: {countdownPct}%"></div>
+        <!-- Pause/Play -- eigener Button, klar abgetrennt -->
+        <button class="tour-icon-btn pp-btn"
+                class:is-paused={tour.paused}
+                onclick={() => (tour.paused ? resumeTour() : pauseTour())}
+                aria-label={tour.paused ? 'Fortsetzen' : 'Pause'}
+                title={tour.paused
+                  ? 'Tour pausiert -- klicken zum Fortsetzen'
+                  : 'Tour pausieren'}>
+          <i class="fa-solid {tour.paused ? 'fa-play' : 'fa-pause'}"></i>
+        </button>
+
+        <!-- Einheitlicher Progress-Balken: zeigt während des Vorlesens
+             die Audio-Position, danach den Nachlese-Countdown. -->
+        <div class="progress-box" class:is-paused={tour.paused}>
+          <div class="progress-track">
+            <div class="progress-fill" style="width: {progressPct}%"></div>
           </div>
-          <span class="cd-num mono">
-            {#if tour.paused}
-              <i class="fa-solid fa-pause"></i>
-            {:else if countdownMs > 0}
-              {Math.ceil(countdownMs / 1000)}s
-            {:else}
-              <i class="fa-solid fa-circle-notch fa-spin"></i>
-            {/if}
-          </span>
+          <span class="progress-label mono">{timerLabel}</span>
         </div>
       {/if}
 
@@ -313,7 +341,7 @@
                 onclick={prevStep}
                 disabled={tour.stepIndex === 0}
                 title="Einen Schritt zurück (Pfeil links)">
-          <i class="fa-solid fa-arrow-left"></i> Zurück
+          <i class="fa-solid fa-arrow-left"></i>
         </button>
         <button class="tour-btn primary"
                 onclick={nextStep}
@@ -354,17 +382,19 @@
 {/if}
 
 <style>
-  /* Backdrop ohne Ziel -- voller Viewport halbtransparent */
+  /* Backdrop ohne Ziel -- voller Viewport halbtransparent.
+     Kein backdrop-filter/blur: der verwischt im Tour-Spotlight
+     sichtbar auch das freigestellte Ziel-Element. Nur Abdunklung. */
   .tour-backdrop.solid {
     position: fixed; inset: 0;
-    background: rgba(5, 8, 12, 0.72);
+    background: rgba(5, 8, 12, 0.78);
     z-index: 9000;
-    backdrop-filter: blur(1.5px);
     pointer-events: auto;
   }
 
-  /* Backdrop mit Loch: wir rendern zwei CSS-Boxen um das Loch herum,
-     sodass die ausgesparte Fläche klickbar bleibt. */
+  /* Backdrop mit Loch: wir rendern vier Streifen um das Loch herum,
+     sodass die ausgesparte Fläche klickbar und vor allem gestochen
+     scharf bleibt. */
   .tour-backdrop.has-hole {
     position: fixed; inset: 0;
     z-index: 9000;
@@ -375,7 +405,6 @@
     content: "";
     position: fixed;
     background: rgba(5, 8, 12, 0.78);
-    backdrop-filter: blur(1.5px);
     pointer-events: auto;
   }
   /* Oberer und unterer Streifen (volle Breite) */
@@ -393,7 +422,6 @@
     content: "";
     position: fixed;
     background: rgba(5, 8, 12, 0.78);
-    backdrop-filter: blur(1.5px);
     pointer-events: auto;
     top: var(--hy1);
     height: calc(var(--hy2) - var(--hy1));
@@ -559,10 +587,6 @@
     background: var(--accent-hover);
     border-color: var(--accent-hover);
   }
-  .mode-btn {
-    color: var(--fg-muted);
-  }
-  .mode-btn i { color: var(--accent); }
 
   .tour-progress {
     margin: 10px -16px 0;
@@ -577,51 +601,64 @@
     transition: width 200ms ease-out;
   }
 
-  /* Countdown + Pause/Play im Demo-Modus */
-  .countdown {
-    display: inline-flex;
-    align-items: center;
-    gap: 8px;
-    padding: 4px 8px 4px 4px;
+  /* Kompakte Icon-Buttons im Footer (Mode-Toggle, Pause/Play) */
+  .tour-icon-btn {
+    width: 30px; height: 30px;
+    display: grid; place-items: center;
     background: var(--bg-elev);
     border: 1px solid var(--border);
-    border-radius: 8px;
-    min-width: 140px;
+    border-radius: 6px;
+    color: var(--fg-muted);
+    cursor: pointer;
+    font-size: 12px;
+    transition: background 120ms, color 120ms, border-color 120ms;
+    flex-shrink: 0;
   }
-  .countdown.is-paused {
-    background: color-mix(in oklab, var(--warning) 14%, var(--bg-elev));
-    border-color: color-mix(in oklab, var(--warning) 40%, var(--border));
-  }
-  .tour-btn.playpause {
-    padding: 4px 8px;
-    font-size: 11px;
-    background: transparent;
-    border: none;
-  }
-  .tour-btn.playpause:hover {
-    background: transparent;
+  .tour-icon-btn:hover {
+    background: var(--bg-panel);
     color: var(--accent);
+    border-color: var(--border-strong);
   }
-  .countdown-bar {
+  .tour-icon-btn.pp-btn {
+    color: var(--accent);
+    border-color: color-mix(in oklab, var(--accent) 40%, var(--border));
+    background: var(--accent-soft);
+  }
+  .tour-icon-btn.pp-btn.is-paused {
+    color: var(--warning);
+    border-color: color-mix(in oklab, var(--warning) 40%, var(--border));
+    background: color-mix(in oklab, var(--warning) 14%, var(--bg-elev));
+  }
+
+  /* Fortschritts-Balken + Sekunden-Label */
+  .progress-box {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .progress-track {
     flex: 1;
     height: 4px;
     background: var(--bg-sink);
-    border-radius: 2px;
+    border: 1px solid var(--border);
+    border-radius: 3px;
     overflow: hidden;
   }
-  .cd-fill {
+  .progress-fill {
     height: 100%;
     background: var(--accent);
-    transition: width 120ms linear;
+    transition: width 150ms linear;
   }
-  .is-paused .cd-fill { background: var(--warning); }
-  .cd-num {
+  .progress-box.is-paused .progress-fill { background: var(--warning); }
+  .progress-label {
     font-size: 11px;
     color: var(--fg-muted);
     min-width: 28px;
     text-align: right;
   }
-  .is-paused .cd-num { color: var(--warning); }
+  .progress-box.is-paused .progress-label { color: var(--warning); }
 
   .queue-hint {
     margin: 6px -16px -10px;

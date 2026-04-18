@@ -100,8 +100,8 @@ export async function startTour(id, mode = 'guided', queue = []) {
     console.warn(`[tour] Tour unbekannt: ${id}`);
     return;
   }
-  // vorherige Tour sauber beenden
-  stopTour();
+  // vorherige Tour sauber beenden (ohne Zwischen-Nav auf Hilfe-Seite)
+  stopTour({ navBack: false });
   tour.activeId = id;
   tour.mode = mode;
   tour.stepIndex = 0;
@@ -125,7 +125,14 @@ export async function startAllTours(mode = 'demo') {
   await startTour(first, mode, rest);
 }
 
-export function stopTour() {
+export function stopTour(opts = {}) {
+  // Am Ende einer Tour (oder beim manuellen Abbruch) landet der User
+  // wieder auf der Hilfe-Seite -- sonst bliebe er z. B. im Editor
+  // mit offenem Info-Panel stehen, ohne klaren Kontext. Das Nav wird
+  // nur ausgelöst, wenn vorher tatsächlich eine Tour lief; interne
+  // Reset-Aufrufe (z. B. aus startTour) setzen navBack=false.
+  const wasRunning = tour.running;
+  const navBack = opts.navBack !== false;
   clearAdvance();
   tour.activeId = null;
   tour.stepIndex = 0;
@@ -134,6 +141,9 @@ export function stopTour() {
   tour.running = false;
   tour.paused = false;
   tour.queue = [];
+  if (wasRunning && navBack) {
+    try { go('help'); } catch {}
+  }
 }
 
 export async function nextStep() {
@@ -142,15 +152,19 @@ export async function nextStep() {
   clearAdvance();
   if (tour.stepIndex >= t.steps.length - 1) {
     markCompleted(t.id);
-    // Gibt es noch weitere Touren in der Queue? -> nahtlos weiter.
+    // Gibt es noch weitere Touren in der Queue? -> nahtlos weiter,
+    // OHNE zwischendurch zur Hilfe-Seite zu navigieren.
     if (tour.queue.length > 0) {
       const nextId = tour.queue.shift();
       const rest = [...tour.queue];
       const keepMode = tour.mode;
-      stopTour();
+      stopTour({ navBack: false });
       await startTour(nextId, keepMode, rest);
       return;
     }
+    // Letzte Tour fertig -> stopTour navigiert standardmäßig auf die
+    // Hilfe-Seite zurück, damit der User sieht, was er als nächstes tun
+    // könnte.
     stopTour();
     return;
   }
