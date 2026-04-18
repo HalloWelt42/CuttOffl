@@ -167,11 +167,25 @@ export const RENDER_PRESETS = [
 // Mittel über Alltagsmaterial (sprechender Kopf, bisschen Bewegung).
 // Kein Referenzwert für Action-Filme -- bei 4K-Animation wirds
 // deutlich mehr. Für die UI reicht das allemal als Hausnummer.
-export function estimateVideoBitrateKbps(profile) {
+export function estimateVideoBitrateKbps(profile, file = null) {
   if (profile.bitrate) {
     return parseBitrateKbps(profile.bitrate);
   }
-  const crf = Number(profile.crf ?? 23);
+  // Explizit null/undefined abfangen -- sonst wird Number(null) zu 0
+  // und die Formel liefert verlustfrei-Werte (~1,27 Mio kbps).
+  const crfRaw = profile.crf;
+  if (crfRaw === null || crfRaw === undefined) {
+    // Kein Qualitätstarget. Bei Passthrough mit Quell-Datei: echte
+    // Bitrate aus Dateigrösse / Dauer ableiten. Sonst konservative
+    // Hausnummer (1080p H.264 CRF 23).
+    if (file && file.size_bytes && file.duration_s && file.duration_s > 0) {
+      const totalKbps = (file.size_bytes * 8) / file.duration_s / 1000;
+      const audioKbps = parseBitrateKbps(file.audio_bitrate || '') || 160;
+      return Math.max(200, totalKbps - audioKbps);
+    }
+    return 6000;
+  }
+  const crf = Number(crfRaw);
   // Basis: 1080p H.264. Formel so gewählt, dass CRF 14 -> ~50 Mbps,
   // CRF 23 -> ~6 Mbps, CRF 32 -> ~0.8 Mbps ergibt.
   let kbps = 50_000 / Math.pow(2, (crf - 14) / 3);
@@ -215,11 +229,34 @@ export function parseBitrateKbps(s) {
   return n / 1000;
 }
 
+// Passthrough-Erkennung: kein Ziel-Target (weder Bitrate noch CRF)
+// UND Quell-Auflösung/Quell-Codec -- dann wird 1:1 durchgereicht und
+// die Grösse entspricht proportional der Quell-Datei.
+export function isPassthroughProfile(profile) {
+  if (!profile) return false;
+  const noBitrate = !profile.bitrate;
+  const noCrf = profile.crf === null || profile.crf === undefined;
+  const srcRes = !profile.resolution || profile.resolution === 'source';
+  const srcCodec = profile.codec === 'source';
+  const audioCopy = profile.audio_codec === 'copy';
+  const noFilters = !profile.audio_normalize && !profile.audio_mono && !profile.audio_mute;
+  return noBitrate && noCrf && srcRes && (srcCodec || audioCopy) && noFilters;
+}
+
 // Schätzt die resultierende Dateigröße in Bytes. Sehr bewusst als
 // "circa"-Wert -- die echte Größe hängt vom Material ab.
-export function estimateFilesizeBytes(profile, totalSeconds) {
+//
+// Bei Passthrough/Copy-Mode: Quell-Grösse proportional zur ausgewählten
+// Gesamt-Clip-Länge. Das ist viel näher an der Wahrheit als die
+// CRF-Heuristik, die bei crf=null absurde 762 Mbit/s produziert.
+export function estimateFilesizeBytes(profile, totalSeconds, file = null) {
   if (!totalSeconds || totalSeconds <= 0) return 0;
-  const videoKbps = estimateVideoBitrateKbps(profile);
+  if (file && isPassthroughProfile(profile)
+      && file.size_bytes && file.duration_s && file.duration_s > 0) {
+    const ratio = Math.min(1, totalSeconds / file.duration_s);
+    return Math.round(file.size_bytes * ratio);
+  }
+  const videoKbps = estimateVideoBitrateKbps(profile, file);
   const audioKbps = profile.audio_mute ? 0 : parseBitrateKbps(profile.audio_bitrate);
   const totalKbits = (videoKbps + audioKbps) * totalSeconds;
   // Container-Overhead: ~2 % für MP4, bisschen mehr für MKV/MOV.

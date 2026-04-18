@@ -148,14 +148,16 @@
     audio_mute:      audioMute,
   });
 
-  // Größe schätzen -- Hausnummer, keine Messung.
+  // Größe schätzen -- Hausnummer, keine Messung. Bei Passthrough/Copy-Mode
+  // nimmt estimateFilesizeBytes die Quell-Datei proportional zur
+  // Clip-Länge, statt eine (unsinnige) Bitrate-Heuristik zu rechnen.
   const estimatedBytes = $derived(
-    estimateFilesizeBytes(currentProfile, stats.total),
+    estimateFilesizeBytes(currentProfile, stats.total, editor.file),
   );
   const estimatedLabel = $derived(formatBytes(estimatedBytes));
   const videoMbps = $derived(
-    (estimateVideoBitrateKbps(currentProfile) / 1000).toFixed(
-      estimateVideoBitrateKbps(currentProfile) >= 10_000 ? 0 : 1
+    (estimateVideoBitrateKbps(currentProfile, editor.file) / 1000).toFixed(
+      estimateVideoBitrateKbps(currentProfile, editor.file) >= 10_000 ? 0 : 1
     )
   );
   const audioKbps = $derived(
@@ -193,15 +195,18 @@
     // tatsächlich -c copy nutzen kann (keyframe-genauer Schnitt
     // ohne Transcoding).
     if (preset.passthrough) {
-      const f = editor.file || {};
-      const srcCodec = (f.video_codec || 'h264').toLowerCase();
-      codec = (srcCodec === 'hevc' || srcCodec === 'h265') ? 'hevc' : 'h264';
+      // Echtes Durchreichen: Codec 'source' (Backend löst zur Laufzeit
+      // auf), Audio-Codec 'copy', keine Bitrate, kein CRF, kein Filter.
+      // qualityMode 'none', damit currentProfile.bitrate UND .crf sauber
+      // null sind -- sonst stuft die Grössen-Schätzung das als
+      // verlustfrei ein und zeigt 79 GB.
+      codec = 'source';
       container = p.container || 'mp4';
       resolution = 'source';
       bitrate = '';
       crf = null;
-      qualityMode = 'crf';  // CRF-Feld aktiv, aber Wert null → kein Reencode-Trigger
-      audioCodec     = (f.audio_codec || 'aac').toLowerCase();
+      qualityMode = 'none';
+      audioCodec     = 'copy';
       audioBitrate   = p.audio_bitrate || '160k';
       audioNormalize = false;
       audioMono      = false;
