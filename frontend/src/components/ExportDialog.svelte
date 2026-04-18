@@ -14,6 +14,7 @@
     estimateVideoBitrateKbps,
     parseBitrateKbps,
     formatBytes,
+    profileForcesReencode,
   } from '../lib/renderPresets.js';
 
   let { open = $bindable(false) } = $props();
@@ -79,12 +80,23 @@
     codecInfo?.recommendations?.find((r) => r.default) ?? null
   );
 
+  // stats spiegelt den EFFEKTIVEN Modus wider, nicht den User-gesetzten
+  // clip.mode. Wenn das Output-Profil einen Reencode erzwingt (andere
+  // Aufloesung, andere Bitrate, Codec-Wechsel, Audio-Filter), werden
+  // beim Render alle Clips transkodiert -- die Anzeige muss das auch
+  // so zeigen, sonst luegt sie ("copy: 1" bei de facto reencode).
   const stats = $derived.by(() => {
     const tl = editor.edl?.timeline ?? [];
     const total = tl.reduce((s, c) => s + (c.src_end - c.src_start), 0);
-    const copyN = tl.filter((c) => c.mode === 'copy').length;
-    const reN   = tl.filter((c) => c.mode === 'reencode').length;
-    return { total, copyN, reN, count: tl.length };
+    const forced = profileForcesReencode(currentProfile, editor.file);
+    const isReenc = (c) => c.mode === 'reencode' || forced.forced;
+    const copyN = tl.filter((c) => !isReenc(c)).length;
+    const reN   = tl.filter((c) => isReenc(c)).length;
+    return {
+      total, copyN, reN, count: tl.length,
+      forcedReason: forced.reason,
+      forcedByProfile: forced.forced,
+    };
   });
 
   // Wenn Zielgrößen-Modus aktiv: Bitrate aus (MB - Audio) / Dauer
@@ -268,10 +280,37 @@
     await cancelRender();
   }
 
+  // Nach einem abgeschlossenen/gescheiterten/abgebrochenen Render
+  // zurueck zur Konfig-Ansicht schalten, ohne den Dialog zu schliessen.
+  // Gibt dem User einen klaren Weg "nochmal, aber anderes Profil".
+  function resetToConfig() {
+    editor.renderPhase = '';
+    editor.renderProgress = 0;
+    editor.renderHistory = [];
+    editor.renderInfo = null;
+    editor.renderLastStep = null;
+    editor.renderJobId = null;
+    editor.renderStartedAt = null;
+  }
+
   function onClose() {
     // Dialog schließen -- wenn ein Render noch läuft, läuft der im
     // Hintergrund weiter. Das ist Absicht; der Render-Status bleibt
     // im Footer-Fortschrittsbalken sichtbar.
+    //
+    // Wenn der Render bereits beendet ist (done/failed/cancelled),
+    // setzen wir den Render-State zurück. Sonst bleibt der Dialog
+    // beim naechsten Oeffnen in der Rendering-View kleben und der
+    // User kann keinen neuen Render starten.
+    if (!editor.rendering) {
+      editor.renderPhase = '';
+      editor.renderProgress = 0;
+      editor.renderHistory = [];
+      editor.renderInfo = null;
+      editor.renderLastStep = null;
+      editor.renderJobId = null;
+      editor.renderStartedAt = null;
+    }
     open = false;
   }
 
@@ -388,6 +427,10 @@
               Schließen
             </button>
           {:else}
+            <button class="btn" onclick={resetToConfig}
+                    title="Zurueck zur Profil-Auswahl, ohne den Dialog zu schliessen">
+              <i class="fa-solid fa-rotate-right"></i> Neu rendern
+            </button>
             <button class="btn btn-primary" onclick={onClose}>
               <i class="fa-solid fa-check"></i> Schließen
             </button>
@@ -396,7 +439,9 @@
       {:else}
         <div class="summary mono">
           <div><b>{stats.count}</b> Clips · <b>{stats.total.toFixed(2)}</b> s gesamt</div>
-          <div class="dim">copy: {stats.copyN} · reencode: {stats.reN}{filtersForceReencode ? ' (Audio-Filter aktiv → alles re-encodes)' : ''}</div>
+          <div class="dim">
+            copy: {stats.copyN} · reencode: {stats.reN}{#if stats.forcedByProfile} ({stats.forcedReason} → alles reencode){/if}
+          </div>
         </div>
 
       <!-- Tab-Leiste -->
