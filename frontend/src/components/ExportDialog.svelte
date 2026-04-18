@@ -361,7 +361,7 @@
   <div class="backdrop" onclick={onClose} role="presentation">
     <div class="modal" onclick={(e) => e.stopPropagation()} role="dialog" aria-modal="true" tabindex="-1">
       <header>
-        <i class="fa-solid {editor.rendering ? 'fa-circle-notch fa-spin' : 'fa-film'}"></i>
+        <i class="fa-solid fa-film"></i>
         <h2>
           {#if editor.rendering}
             Rendern läuft
@@ -410,7 +410,7 @@
             <i class="fa-solid {editor.renderPhase === 'done' ? 'fa-circle-check'
                               : editor.renderPhase === 'failed' ? 'fa-circle-exclamation'
                               : editor.renderPhase === 'cancelled' ? 'fa-ban'
-                              : 'fa-gears fa-spin'}"></i>
+                              : 'fa-gears'}"></i>
             <div class="current-text">
               <div class="current-title">
                 {#if editor.renderInfo?.step}
