@@ -363,7 +363,7 @@
             <div class="pipeline">
               <div class="pipeline-label">Pipeline</div>
               <ul class="pipeline-list mono">
-                {#each editor.renderHistory as h (h.t)}
+                {#each editor.renderHistory as h (h.id ?? h.t)}
                   <li>
                     <span class="p-time">
                       {#if editor.renderStartedAt}

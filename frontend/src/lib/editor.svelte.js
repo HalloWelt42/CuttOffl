@@ -485,13 +485,20 @@ export function handleJobEvent(msg) {
         note: msg.info.note ?? null,
       };
       // Letzte N Pipeline-Schritte merken, damit der Dialog eine History
-      // mit Zeitstempeln zeigen kann.
+      // mit Zeitstempeln zeigen kann. Eigene id pro Eintrag, weil
+      // Date.now() bei schneller Pipeline mehrfach den gleichen Wert
+      // liefern kann und Svelte dann über Duplicate-Keys meckert.
       const step = msg.info.step;
       if (step && step !== editor.renderLastStep) {
         editor.renderLastStep = step;
         editor.renderHistory = [
           ...editor.renderHistory,
-          { step, note: msg.info.note ?? '', t: Date.now() },
+          {
+            id: `${Date.now()}-${editor.renderHistory.length}`,
+            step,
+            note: msg.info.note ?? '',
+            t: Date.now(),
+          },
         ].slice(-20);
       }
     }
@@ -506,7 +513,12 @@ export function handleJobEvent(msg) {
       editor.renderPhase = 'done';
       editor.renderHistory = [
         ...editor.renderHistory,
-        { step: 'done', note: 'Fertig', t: Date.now() },
+        {
+          id: `${Date.now()}-${editor.renderHistory.length}-done`,
+          step: 'done',
+          note: 'Fertig',
+          t: Date.now(),
+        },
       ].slice(-20);
       toast.success('Render fertig');
     } else if (msg.event === 'failed') {
@@ -514,7 +526,12 @@ export function handleJobEvent(msg) {
       editor.renderPhase = 'failed';
       editor.renderHistory = [
         ...editor.renderHistory,
-        { step: 'failed', note: msg.job.error || 'fehlgeschlagen', t: Date.now() },
+        {
+          id: `${Date.now()}-${editor.renderHistory.length}-failed`,
+          step: 'failed',
+          note: msg.job.error || 'fehlgeschlagen',
+          t: Date.now(),
+        },
       ].slice(-20);
       toast.error(`Render: ${msg.job.error || 'fehlgeschlagen'}`);
     } else if (msg.event === 'cancelled') {
@@ -522,7 +539,12 @@ export function handleJobEvent(msg) {
       editor.renderPhase = 'cancelled';
       editor.renderHistory = [
         ...editor.renderHistory,
-        { step: 'cancelled', note: 'Abgebrochen', t: Date.now() },
+        {
+          id: `${Date.now()}-${editor.renderHistory.length}-cancelled`,
+          step: 'cancelled',
+          note: 'Abgebrochen',
+          t: Date.now(),
+        },
       ].slice(-20);
     }
   }
