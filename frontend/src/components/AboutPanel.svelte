@@ -4,6 +4,7 @@
   // Inhalt. Sidebar-Eintrag "Ueber" öffnet dieses Fenster.
 
   import FloatingPanel from './FloatingPanel.svelte';
+  import SpeakButton from './SpeakButton.svelte';
   import { aboutPanel, closeAbout, persistAboutGeometry } from '../lib/panels.svelte.js';
   import { REPO_URL } from '../lib/meta.js';
   import { openThanks } from '../lib/ui.svelte.js';
@@ -18,7 +19,10 @@
   onPersist={persistAboutGeometry}
 >
   <section class="intro">
-    <h2>CuttOffl</h2>
+    <h2>
+      CuttOffl
+      <SpeakButton text="CuttOffl. Offline-first Video-Cutter für große Dateien und zügiges Schneiden. Läuft lokal, ohne Cloud und ohne Konto. Fokus auf Keyframe-genaues verlustfreies Schneiden, mit Option auf frame-genaue Clips bei Bedarf." />
+    </h2>
     <p>
       Offline-first Video-Cutter für große Dateien und zügiges Schneiden.
       Läuft lokal, ohne Cloud und ohne Konto. Fokus auf Keyframe-genaues

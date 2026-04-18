@@ -11,6 +11,7 @@
   } from '../lib/tour.svelte.js';
   import { registerTours } from '../lib/tour.svelte.js';
   import { TOURS } from '../lib/tours.js';
+  import SpeakButton from '../components/SpeakButton.svelte';
 
   // Tour-Registry sicherstellen (idempotent, falls der User noch nie
   // auf Hilfe war, aber die erste Tour direkt vom Dashboard aus startet).
@@ -317,7 +318,10 @@
       <div class="fr-icon">
         <img src="/tour-help-icon.svg" alt="" aria-hidden="true" />
       </div>
-      <h2>Willkommen bei CuttOffl</h2>
+      <h2>
+        Willkommen bei CuttOffl
+        <SpeakButton size="md" text="Willkommen bei CuttOffl. Soll ich dir in 2 bis 3 Minuten zeigen, wie der Workflow aussieht? Upload, Editor, Schnitt, Export -- einmal durch, ohne dass irgendwas gerendert oder gelöscht wird." />
+      </h2>
       <p>
         Soll ich dir in 2-3 Minuten zeigen, wie der Workflow aussieht?
         Upload, Editor, Schnitt, Export -- einmal durch, ohne dass

@@ -25,6 +25,7 @@ data/transcripts/*
 data/tmp/*
 data/db/*
 data/demo/*
+data/tts-cache/*
 !data/**/.gitkeep
 
 # Laufzeit

@@ -4,6 +4,7 @@
     tour, startTour, startAllTours, tourCompleted, registerTours,
   } from '../lib/tour.svelte.js';
   import PanelHeader from '../components/PanelHeader.svelte';
+  import SpeakButton from '../components/SpeakButton.svelte';
 
   // Touren im Registry registrieren (idempotent)
   registerTours(TOURS);
@@ -28,13 +29,17 @@
 
   <div class="body">
     <div class="intro">
-      <p>
-        Du bist neu oder willst einen bestimmten Bereich noch einmal
-        gezeigt bekommen? Die Touren hier führen dich Schritt für
-        Schritt durch die App. Du kannst jederzeit mit
-        <kbd>Esc</kbd> abbrechen oder mit den Pfeiltasten vor- und
-        zurückspringen.
-      </p>
+      <div class="intro-head">
+        <SpeakButton size="md"
+          text="Du bist neu oder willst einen bestimmten Bereich noch einmal gezeigt bekommen? Die Touren hier führen dich Schritt für Schritt durch die App. Du kannst jederzeit mit Escape abbrechen oder mit den Pfeiltasten vor- und zurückspringen. Kein Tour-Schritt löscht etwas, startet einen Render oder verändert deine Daten -- es wird nur geklickt und erklärt." />
+        <p>
+          Du bist neu oder willst einen bestimmten Bereich noch einmal
+          gezeigt bekommen? Die Touren hier führen dich Schritt für
+          Schritt durch die App. Du kannst jederzeit mit
+          <kbd>Esc</kbd> abbrechen oder mit den Pfeiltasten vor- und
+          zurückspringen.
+        </p>
+      </div>
       <p class="dim">
         Kein Tour-Schritt löscht etwas, startet einen Render oder
         verändert deine Daten -- es wird nur geklickt und erklärt.
@@ -54,6 +59,7 @@
         </div>
       </header>
       <p class="desc">
+        <SpeakButton text="Spielt alle fünf Touren direkt hintereinander ab, mit vollständiger Audio-Begleitung. Die Tour wartet, bis die Erklärung zu Ende gesprochen ist, und lässt dir noch einen Moment zum Nachlesen -- kein Satz wird abgeschnitten. Mit Pause kannst du jederzeit anhalten, mit Play weiterlaufen. Perfekt als Präsentation oder als Hintergrund-Demo." />
         Spielt alle fünf Touren direkt hintereinander ab, mit
         vollständiger Audio-Begleitung. Die Tour wartet, bis die
         Erklärung zu Ende gesprochen ist, und lässt dir noch einen
@@ -87,7 +93,10 @@
               </div>
             </div>
           </header>
-          <p class="desc">{t.description}</p>
+          <p class="desc">
+            <SpeakButton text={t.description} />
+            {t.description}
+          </p>
           <footer>
             {#if t.runnable}
               <button class="btn" onclick={() => startTour(t.id, 'guided')}
@@ -122,7 +131,17 @@
     margin-bottom: 20px;
     line-height: 1.6;
   }
+  .intro-head {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+  }
+  .intro-head p { flex: 1; }
   .intro p { margin: 0 0 8px; }
+  .desc :global(.speak-btn) {
+    margin-right: 4px;
+    vertical-align: baseline;
+  }
   .intro .dim { color: var(--fg-muted); font-size: 13px; }
   .intro kbd {
     background: var(--bg-elev);

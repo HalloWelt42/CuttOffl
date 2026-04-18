@@ -9,7 +9,7 @@ from pathlib import Path
 
 
 APP_NAME = "CuttOffl"
-VERSION = "0.22.3"
+VERSION = "0.23.0"
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 DATA_DIR = Path(os.getenv("CUTTOFFL_DATA_DIR", str(BASE_DIR.parent / "data"))).resolve()
@@ -83,8 +83,24 @@ ALLOWED_EXTENSIONS = {
     ".mts", ".ts", ".mpg", ".mpeg", ".flv", ".wmv",
 }
 
+# Vorlese-Proxy -- leitet /api/speak an das txt2voice-Schwesterprojekt
+# weiter, damit Texte in der App per Klick vorgelesen werden können.
+# Nur lokal, rein als Komfort-Feature. Wenn txt2voice nicht läuft,
+# antwortet die Route mit 503 und das Frontend blendet die Buttons
+# still aus.
+TTS_BASE_URL = os.getenv("CUTTOFFL_TTS_URL", "http://127.0.0.1:10031")
+TTS_VOICE_ID = os.getenv(
+    "CUTTOFFL_TTS_VOICE_ID",
+    "8d6cfa8841bb408d9da44520889deb54",  # "Zeit Stimme"
+)
+TTS_CACHE_DIR = DATA_DIR / "tts-cache"
+# Max-Länge des vorzulesenden Textes (Zeichen), Schutz vor Missbrauch
+# und langen Synthese-Laufzeiten.
+TTS_MAX_CHARS = int(os.getenv("CUTTOFFL_TTS_MAX_CHARS", "2000"))
+
 
 def ensure_directories() -> None:
     for d in (ORIGINALS_DIR, PROXIES_DIR, EXPORTS_DIR, THUMBS_DIR,
-              SPRITES_DIR, WAVEFORMS_DIR, TRANSCRIPTS_DIR, TMP_DIR, DB_DIR):
+              SPRITES_DIR, WAVEFORMS_DIR, TRANSCRIPTS_DIR, TMP_DIR, DB_DIR,
+              TTS_CACHE_DIR):
         d.mkdir(parents=True, exist_ok=True)

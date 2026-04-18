@@ -62,9 +62,18 @@ const SKELETONS = {
         // Echter, sichtbarer Schnittprozess: Playhead auf Start,
         // In-Punkt setzen, Playhead auf Ende, Out-Punkt setzen,
         // Clip übernehmen -- alles mit kleinen Pausen, damit der
-        // Betrachter jeden Schritt wahrnimmt. Am Tour-Ende räumt
-        // resetDemoTimeline den Clip wieder weg.
-        before: demonstrateCut,
+        // Betrachter jeden Schritt wahrnimmt.
+        //
+        // Wichtig: Die Animation startet im Hintergrund (setTimeout),
+        // NICHT als awaited before-Callback -- sonst läuft der Cut
+        // ab, bevor Spotlight und Audio überhaupt angezeigt sind.
+        // So sieht der User parallel die Tour-Box mit der Erklärung
+        // und unten die Timeline, wo Playhead springt, In/Out
+        // erscheinen und schließlich der Clip in die Timeline
+        // fällt.
+        before: () => {
+          setTimeout(() => { void demonstrateCut(); }, 150);
+        },
         hint: 'Frame-genau schneiden: Keyframe-Magnet aus -- dann reencode, kostet Rechenzeit, ist dafür exakt.' },
       { view: 'editor', selector: '[data-tour="editor-render"]',
         // Clip ist durch den vorigen Schritt schon da -- der
