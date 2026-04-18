@@ -30,7 +30,7 @@ from app.config import (
 )
 from app.db import db
 from app.routers import (
-    exports, files, folders, jobs, probe, projects, proxy,
+    exports, files, folders, jobs, probe, projects, proxy, recorder,
     render_analysis, speak, sprite, system, thumbnail, transcription,
     upload, ws,
 )
@@ -166,6 +166,7 @@ app.include_router(thumbnail.router)
 app.include_router(sprite.router)
 app.include_router(projects.router)
 app.include_router(render_analysis.router)
+app.include_router(recorder.router)
 app.include_router(exports.router)
 app.include_router(transcription.router)
 app.include_router(speak.router)

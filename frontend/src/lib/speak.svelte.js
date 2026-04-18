@@ -7,6 +7,7 @@
 // stoppt den vorigen sauber.
 
 import { persisted, persist } from './persist.svelte.js';
+import { markAudioStart } from './tourRecorder.js';
 
 // Einmaliges Hinweis-Flag fuer "Vorlese-Dienst offline" -- damit
 // wir den User nicht bei jedem Klick mit dem gleichen Toast
@@ -120,6 +121,10 @@ export async function speakText(text, opts = {}) {
   try {
     await audio.play();
     speak.status = 'playing';
+    // Tour-Recorder: nur aktiv bei ?tour_record=1. Der cleaned Text
+    // wird gespeichert, das Backend-Tool findet die passende MP3 im
+    // TTS-Cache ueber cache_path_for(text).
+    void markAudioStart(cleaned);
   } catch (e) {
     // Autoplay-Block -- der Klick selbst ist allerdings User-Gesture,
     // das sollte normalerweise reichen. Wenn nicht: Error-State.

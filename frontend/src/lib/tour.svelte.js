@@ -19,6 +19,7 @@
 import { persisted, persist } from './persist.svelte.js';
 import { go } from './nav.svelte.js';
 import { closeInfo, closeAbout } from './panels.svelte.js';
+import { markTourStart, markTourEnd } from './tourRecorder.js';
 
 export const tour = $state({
   activeId: null,        // id der laufenden Tour oder null
@@ -125,6 +126,9 @@ export async function startTour(id, mode = 'guided', queue = []) {
  *  Warteschlange werden alle Schritte der jeweiligen Tour gespielt. */
 export async function startAllTours(mode = 'demo') {
   if (!TOURS.length) return;
+  // Tour-Recorder: markiert t_ms=0 und leert eine bestehende Aufnahme.
+  // No-op ausserhalb des Aufnahme-Modus (?tour_record=1).
+  await markTourStart();
   const ids = TOURS.map((t) => t.id);
   const first = ids[0];
   const rest = ids.slice(1);
@@ -190,6 +194,9 @@ export async function nextStep() {
     // Letzte Tour fertig -> stopTour navigiert standardmäßig auf die
     // Hilfe-Seite zurück, damit der User sieht, was er als nächstes tun
     // könnte.
+    // Tour-Recorder: letzter Timestamp fuer die Aufnahme. No-op
+    // ausserhalb des Aufnahme-Modus.
+    await markTourEnd();
     stopTour();
     return;
   }
