@@ -59,12 +59,12 @@ const SKELETONS = {
         after: () => { stopPreview(); },
       },
       { view: 'editor', selector: '[data-tour="editor-addclip"]',
-        // Damit die Demonstration echt ist: Tour legt einen 5 s
-        // langen Clip an, der sichtbar in der Timeline landet.
-        // Nach diesem Schritt bleibt er noch, damit der folgende
-        // Render-Button-Schritt klickbar ist; ganz am Ende der Tour
-        // räumt resetDemoTimeline ihn wieder weg.
-        before: ensureEditorHasClip,
+        // Echter, sichtbarer Schnittprozess: Playhead auf Start,
+        // In-Punkt setzen, Playhead auf Ende, Out-Punkt setzen,
+        // Clip übernehmen -- alles mit kleinen Pausen, damit der
+        // Betrachter jeden Schritt wahrnimmt. Am Tour-Ende räumt
+        // resetDemoTimeline den Clip wieder weg.
+        before: demonstrateCut,
         hint: 'Frame-genau schneiden: Keyframe-Magnet aus -- dann reencode, kostet Rechenzeit, ist dafür exakt.' },
       { view: 'editor', selector: '[data-tour="editor-render"]',
         // Clip ist durch den vorigen Schritt schon da -- der
@@ -344,4 +344,40 @@ async function ensureEditorHasClip() {
   const start = Math.max(0, Math.min(DEMO_CLIP_START, Math.max(0, end - 5)));
   addClipFromRange(start, end);
   await new Promise((r) => setTimeout(r, 300));
+}
+
+// Inszenierter Cut: Playhead bewegen, In-Punkt setzen, Playhead
+// weiter, Out-Punkt setzen, "Clip übernehmen" klicken. Damit sieht
+// der Betrachter den kompletten Schnitt-Workflow als echten
+// Prozess, nicht als fertigen Clip. Läuft nur wenn Timeline leer
+// ist -- sonst kein doppelter Clip.
+async function demonstrateCut() {
+  await ensureEditorHasVideo();
+  for (let i = 0; i < 20 && !editor.edl; i++) {
+    await new Promise((r) => setTimeout(r, 150));
+  }
+  if (!editor.edl || (editor.edl.timeline?.length ?? 0) > 0) return;
+  const dur = editor.duration || 0;
+  if (dur === 0) return;
+  const end = dur < DEMO_CLIP_END ? Math.max(0.5, dur - 0.5) : DEMO_CLIP_END;
+  const start = Math.max(0, Math.min(DEMO_CLIP_START, Math.max(0, end - 5)));
+
+  // Phase 1: Playhead an den gewünschten Start, damit man im Video
+  // die interessante Szene sieht.
+  seek(start);
+  await new Promise((r) => setTimeout(r, 700));
+  // Phase 2: Start-Button (In-Point) klicken
+  document.querySelector('[data-tour="editor-setin"]')?.click();
+  await new Promise((r) => setTimeout(r, 800));
+  // Phase 3: Playhead an Ende fahren
+  seek(end);
+  await new Promise((r) => setTimeout(r, 700));
+  // Phase 4: Ende-Button (Out-Point)
+  document.querySelector('[data-tour="editor-setout"]')?.click();
+  await new Promise((r) => setTimeout(r, 800));
+  // Phase 5: Clip übernehmen (der eigentliche Commit). Wir nutzen
+  // den data-tour-Button, damit die Geste auch visuell im Spotlight
+  // sichtbar ist (falls die Tour dort steht).
+  document.querySelector('[data-tour="editor-addclip"]')?.click();
+  await new Promise((r) => setTimeout(r, 400));
 }

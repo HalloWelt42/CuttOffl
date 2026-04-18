@@ -398,11 +398,13 @@
           <!-- Schnitt-Aktionen: warm-Orange (.btn-cut), damit klar ist,
                dass diese Gruppe die EDL veraendert. -->
           <button class="btn btn-cut" onclick={setIn}
+                  data-tour="editor-setin"
                   title="Startpunkt (In-Punkt) der Auswahl auf die aktuelle Playhead-Position setzen (Taste I)">
             <i class="fa-solid fa-angle-right"></i> Start
             {#if inPoint != null}<span class="mono t">{fmt(inPoint)}</span>{/if}
           </button>
           <button class="btn btn-cut" onclick={setOut}
+                  data-tour="editor-setout"
                   title="Endpunkt (Out-Punkt) der Auswahl auf die aktuelle Playhead-Position setzen (Taste O)">
             <i class="fa-solid fa-angle-left"></i> Ende
             {#if outPoint != null}<span class="mono t">{fmt(outPoint)}</span>{/if}
