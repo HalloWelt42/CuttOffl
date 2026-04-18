@@ -82,7 +82,7 @@
 
   // stats spiegelt den EFFEKTIVEN Modus wider, nicht den User-gesetzten
   // clip.mode. Wenn das Output-Profil einen Reencode erzwingt (andere
-  // Aufloesung, andere Bitrate, Codec-Wechsel, Audio-Filter), werden
+  // Auflösung, andere Bitrate, Codec-Wechsel, Audio-Filter), werden
   // beim Render alle Clips transkodiert -- die Anzeige muss das auch
   // so zeigen, sonst luegt sie ("copy: 1" bei de facto reencode).
   const stats = $derived.by(() => {
@@ -167,6 +167,27 @@
 
   function applyPreset(preset) {
     const p = preset.profile;
+    // Passthrough-Preset: Quell-Metadaten übernehmen, damit
+    // _output_forces_reencode() nichts triggert und der Renderer
+    // tatsächlich -c copy nutzen kann (keyframe-genauer Schnitt
+    // ohne Transcoding).
+    if (preset.passthrough) {
+      const f = editor.file || {};
+      const srcCodec = (f.video_codec || 'h264').toLowerCase();
+      codec = (srcCodec === 'hevc' || srcCodec === 'h265') ? 'hevc' : 'h264';
+      container = p.container || 'mp4';
+      resolution = 'source';
+      bitrate = '';
+      crf = null;
+      qualityMode = 'crf';  // CRF-Feld aktiv, aber Wert null → kein Reencode-Trigger
+      audioCodec     = (f.audio_codec || 'aac').toLowerCase();
+      audioBitrate   = p.audio_bitrate || '160k';
+      audioNormalize = false;
+      audioMono      = false;
+      audioMute      = false;
+      activePresetId = preset.id;
+      return;
+    }
     codec = p.codec;
     container = p.container;
     resolution = p.resolution;
@@ -281,7 +302,7 @@
   }
 
   // Nach einem abgeschlossenen/gescheiterten/abgebrochenen Render
-  // zurueck zur Konfig-Ansicht schalten, ohne den Dialog zu schliessen.
+  // zurück zur Konfig-Ansicht schalten, ohne den Dialog zu schließen.
   // Gibt dem User einen klaren Weg "nochmal, aber anderes Profil".
   function resetToConfig() {
     editor.renderPhase = '';
@@ -300,7 +321,7 @@
     //
     // Wenn der Render bereits beendet ist (done/failed/cancelled),
     // setzen wir den Render-State zurück. Sonst bleibt der Dialog
-    // beim naechsten Oeffnen in der Rendering-View kleben und der
+    // beim nächsten Öffnen in der Rendering-View kleben und der
     // User kann keinen neuen Render starten.
     if (!editor.rendering) {
       editor.renderPhase = '';
@@ -428,7 +449,7 @@
             </button>
           {:else}
             <button class="btn" onclick={resetToConfig}
-                    title="Zurueck zur Profil-Auswahl, ohne den Dialog zu schliessen">
+                    title="Zurück zur Profil-Auswahl, ohne den Dialog zu schließen">
               <i class="fa-solid fa-rotate-right"></i> Neu rendern
             </button>
             <button class="btn btn-primary" onclick={onClose}>
@@ -444,6 +465,18 @@
           </div>
         </div>
 
+        {#if activePresetId === 'passthrough'}
+          <div class="passthrough-banner" role="note">
+            <i class="fa-solid fa-scissors"></i>
+            <div>
+              <strong>Durchreichen aktiv.</strong> Das Video wird
+              keyframe-genau geschnitten und 1:1 übernommen. Einstellungen
+              in den Tabs <em>Video</em> und <em>Audio</em> werden dabei
+              ignoriert.
+            </div>
+          </div>
+        {/if}
+
       <!-- Tab-Leiste -->
       <div class="tabs" role="tablist">
         <button class="tab" role="tab" aria-selected={activeTab === 'profile'}
@@ -454,13 +487,21 @@
         </button>
         <button class="tab" role="tab" aria-selected={activeTab === 'video'}
                 class:active={activeTab === 'video'}
+                class:is-disabled={activePresetId === 'passthrough'}
                 data-tour="render-tab-video"
+                title={activePresetId === 'passthrough'
+                  ? 'Durchreichen aktiv -- Video-Einstellungen werden ignoriert'
+                  : null}
                 onclick={() => (activeTab = 'video')}>
           <i class="fa-solid fa-film"></i> Video
         </button>
         <button class="tab" role="tab" aria-selected={activeTab === 'audio'}
                 class:active={activeTab === 'audio'}
+                class:is-disabled={activePresetId === 'passthrough'}
                 data-tour="render-tab-audio"
+                title={activePresetId === 'passthrough'
+                  ? 'Durchreichen aktiv -- Audio-Einstellungen werden ignoriert'
+                  : null}
                 onclick={() => (activeTab = 'audio')}>
           <i class="fa-solid fa-volume-high"></i> Audio
         </button>
@@ -736,6 +777,25 @@
   .summary b { color: var(--fg-primary); }
   .dim { color: var(--fg-muted); }
 
+  /* Hinweis-Banner, wenn das Durchreichen-Preset aktiv ist. Signalisiert
+     klar, dass die Video-/Audio-Tabs gerade keinen Einfluss haben. */
+  .passthrough-banner {
+    display: flex; align-items: flex-start; gap: 10px;
+    padding: 10px 16px;
+    font-size: 13px;
+    color: var(--fg-primary);
+    background: color-mix(in srgb, var(--accent) 10%, var(--bg-panel));
+    border-bottom: 1px solid var(--border);
+  }
+  .passthrough-banner > i {
+    color: var(--accent);
+    font-size: 15px;
+    margin-top: 2px;
+    flex: 0 0 auto;
+  }
+  .passthrough-banner strong { color: var(--fg-primary); }
+  .passthrough-banner em { font-style: normal; color: var(--accent); }
+
   /* Tabs */
   .tabs {
     display: flex;
@@ -762,6 +822,11 @@
     background: var(--bg-elev);
     border-bottom-color: var(--accent);
   }
+  /* Im Durchreichen-Modus sind Video/Audio-Tabs erreichbar, aber
+     visuell als wirkungslos markiert -- der User merkt, dass die
+     Einstellungen dort gerade ignoriert werden. */
+  .tab.is-disabled { opacity: 0.45; }
+  .tab.is-disabled:hover { background: transparent; color: var(--fg-muted); }
   .tab i { font-size: 13px; }
 
   .body {

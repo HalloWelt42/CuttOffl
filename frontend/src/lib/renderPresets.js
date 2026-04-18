@@ -18,8 +18,8 @@ export const RENDER_PRESETS = [
     title: 'YouTube 1080p',
     note: '1920x1080, H.264, 8 Mbit/s -- YouTube-Standard',
     // Default-Preset: wird beim Anlegen eines neuen Projekts als
-    // OutputProfile uebernommen. Gute Allround-Wahl: 1080p H.264
-    // 8 Mbit/s trifft YouTube-Empfehlung, laeuft auf allen Plattformen
+    // OutputProfile übernommen. Gute Allround-Wahl: 1080p H.264
+    // 8 Mbit/s trifft YouTube-Empfehlung, läuft auf allen Plattformen
     // und nutzt den HW-Encoder voll aus.
     default: true,
     profile: {
@@ -122,6 +122,28 @@ export const RENDER_PRESETS = [
       audio_normalize: false, audio_mono: false, audio_mute: false,
     },
   },
+  {
+    id: 'passthrough',
+    icon: 'fa-solid fa-scissors',
+    color: '#94A3B8',
+    title: 'Nur schneiden',
+    note: 'Quelle unverändert durchreichen -- keyframe-genau, kein Reencode',
+    // Passthrough-Flag: applyPreset übernimmt Quell-Codec/-Audio aus
+    // editor.file, damit der Backend-Check _output_forces_reencode
+    // NICHT triggert und ffmpeg tatsächlich -c copy laufen kann.
+    passthrough: true,
+    profile: {
+      // Nur Fallbacks, falls keine Quell-Metadaten verfügbar sind.
+      codec: 'h264', container: 'mp4', resolution: 'source',
+      bitrate: null, crf: null,
+      audio_codec: 'aac', audio_bitrate: '160k',
+      audio_normalize: false, audio_mono: false, audio_mute: false,
+    },
+    hint: 'Schneidet nur an Keyframes. Kein Qualitätsverlust, '
+        + 'sekundenschneller Export. Videobitrate, Auflösung, Codec '
+        + 'und Audio-Filter werden dabei IGNORIERT -- das Video '
+        + 'bleibt 1:1 wie die Quelle.',
+  },
 ];
 
 
@@ -191,14 +213,14 @@ export function estimateFilesizeBytes(profile, totalSeconds) {
 }
 
 // Spiegelt die Backend-Logik aus render_service._output_forces_reencode.
-// Bei true muessen alle Clips transkodiert werden, unabhaengig vom
+// Bei true müssen alle Clips transkodiert werden, unabhängig vom
 // User-gewaehlten Clip-Mode. Die Funktion ist hier doppelt, weil wir
 // das Ergebnis schon im Dialog anzeigen wollen (copy/reencode-Counter,
 // Hinweistext), bevor der Render tatsaechlich startet.
 //
 // file: optional -- wenn gesetzt, wird zusaetzlich der Codec-Wechsel
-// geprueft. Ohne file-Info koennen wir das nicht entscheiden und lassen
-// das als "keine Aenderung" durchgehen.
+// geprüft. Ohne file-Info können wir das nicht entscheiden und lassen
+// das als "keine Änderung" durchgehen.
 function _normVideo(c) {
   if (!c) return '';
   const s = String(c).toLowerCase().trim();
