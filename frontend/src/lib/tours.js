@@ -16,6 +16,7 @@ import {
 import { openInEditor, setSettingsTab } from './nav.svelte.js';
 import { api } from './api.js';
 import { library, toggleSelect, clearSelection } from './library.svelte.js';
+import { tour } from './tour.svelte.js';
 import texts from './tour-texts.json';
 
 // Skelett je Tour: alles Strukturelle, aber keine Texte.
@@ -335,8 +336,12 @@ async function ensureEditorHasVideo() {
 // Hase um ~20s die Höhle -- das zeigt mehr als die schwarzen
 // Anfangs-Sekunden). Non-destruktiv: EDL wird manipuliert, das
 // Original-Video bleibt. Läuft nur, wenn die Timeline leer ist.
+// Großzügiger Demo-Clip: ab Sekunde 20 bis ~45 des Big-Buck-Bunny
+// Demos. Lang genug, dass der User den Cut in der Timeline wirklich
+// sieht (mehrere Frame-Kacheln statt eines Pixelstreifens), aber
+// kurz genug, dass der Render-Dialog noch sinnvolle Größen zeigt.
 const DEMO_CLIP_START = 20;
-const DEMO_CLIP_END = 25;
+const DEMO_CLIP_END = 45;
 async function ensureEditorHasClip() {
   await ensureEditorHasVideo();
   // auf den Editor-Load warten, damit edl schon existiert
@@ -355,11 +360,12 @@ async function ensureEditorHasClip() {
   await new Promise((r) => setTimeout(r, 300));
 }
 
-// Inszenierter Cut: Playhead bewegen, In-Punkt setzen, Playhead
-// weiter, Out-Punkt setzen, "Clip übernehmen" klicken. Damit sieht
-// der Betrachter den kompletten Schnitt-Workflow als echten
-// Prozess, nicht als fertigen Clip. Läuft nur wenn Timeline leer
-// ist -- sonst kein doppelter Clip.
+// Inszenierter Cut: mehrstufige Choreografie, damit der komplette
+// Workflow (Playhead positionieren, In-Punkt, durchfahren, Out-Punkt,
+// commit) als eigenständig sichtbarer Prozess wahrnehmbar ist, nicht
+// nur als Klick-Klick-Fertig. Dauer grob 14 Sekunden -- passt zum
+// gesprochenen Erklärtext des Schritts. Läuft nur wenn Timeline
+// leer ist (sonst kein doppelter Clip).
 async function demonstrateCut() {
   await ensureEditorHasVideo();
   for (let i = 0; i < 20 && !editor.edl; i++) {
@@ -370,23 +376,45 @@ async function demonstrateCut() {
   if (dur === 0) return;
   const end = dur < DEMO_CLIP_END ? Math.max(0.5, dur - 0.5) : DEMO_CLIP_END;
   const start = Math.max(0, Math.min(DEMO_CLIP_START, Math.max(0, end - 5)));
+  const w = (ms) => new Promise((r) => setTimeout(r, ms));
 
-  // Phase 1: Playhead an den gewünschten Start, damit man im Video
-  // die interessante Szene sieht.
+  // Phase 1: Playhead auf die Start-Stelle fahren, kurz stehen lassen
+  // -- der Betrachter sieht erst das Start-Bild der Szene.
   seek(start);
-  await new Promise((r) => setTimeout(r, 700));
-  // Phase 2: Start-Button (In-Point) klicken
+  await w(1600);
+
+  // Phase 2: Start-Button (In-Point) klicken. Zeit zum Wahrnehmen.
   document.querySelector('[data-tour="editor-setin"]')?.click();
-  await new Promise((r) => setTimeout(r, 800));
-  // Phase 3: Playhead an Ende fahren
-  seek(end);
-  await new Promise((r) => setTimeout(r, 700));
-  // Phase 4: Ende-Button (Out-Point)
+  await w(1400);
+
+  // Phase 3: Playhead animiert in mehreren Sprüngen zum Ende fahren.
+  // So sieht der User die Timeline sichtbar wandern, nicht einen
+  // harten Sprung.
+  const steps = 5;
+  const stepDur = (end - start) / steps;
+  for (let i = 1; i <= steps; i++) {
+    seek(start + stepDur * i);
+    await w(700);
+  }
+
+  // Phase 4: Ende-Button (Out-Point) -- nochmal sichtbar wahrnehmbar.
   document.querySelector('[data-tour="editor-setout"]')?.click();
-  await new Promise((r) => setTimeout(r, 800));
-  // Phase 5: Clip übernehmen (der eigentliche Commit). Wir nutzen
-  // den data-tour-Button, damit die Geste auch visuell im Spotlight
-  // sichtbar ist (falls die Tour dort steht).
+  await w(1400);
+
+  // Phase 5: Clip übernehmen. Der Clip landet in der Timeline, der
+  // Tour-Spotlight steht noch auf dem "+ Clip übernehmen"-Button.
   document.querySelector('[data-tour="editor-addclip"]')?.click();
-  await new Promise((r) => setTimeout(r, 400));
+  await w(900);
+
+  // Phase 6: Spotlight weicht auf den neu entstandenen Clip in der
+  // Timeline aus, damit der User sieht "so schön breit erscheint dein
+  // Schnitt jetzt auf der Zeitleiste". Wir suchen das Clip-Element
+  // in der Timeline -- fallback auf den Timeline-Container.
+  const clipEl = document.querySelector(
+    '[data-tour="editor-timeline"] .tl-clip, [data-tour="editor-timeline"] [class*="clip"], [data-tour="editor-timeline"]',
+  );
+  if (clipEl) {
+    tour.target = clipEl;
+    tour.targetRect = clipEl.getBoundingClientRect();
+  }
 }

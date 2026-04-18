@@ -6,6 +6,7 @@
   // schaltbar über den Sidebar-Eintrag "Info".
 
   import FloatingPanel from './FloatingPanel.svelte';
+  import SpeakButton from './SpeakButton.svelte';
   import { infoPanel, closeInfo, persistInfoGeometry } from '../lib/panels.svelte.js';
   import { nav } from '../lib/nav.svelte.js';
 
@@ -48,6 +49,7 @@
 >
   {#if nav.view === 'editor'}
     <p class="lead">
+      <SpeakButton text="Mit der Tastatur läuft der Schnitt am schnellsten. Die wichtigsten Tasten bleiben auch beim Bewegen dieses Fensters erreichbar -- Escape schließt nur den Hinweis, nicht die Vorschau." />
       Mit der Tastatur läuft der Schnitt am schnellsten. Die wichtigsten
       Tasten bleiben auch beim Bewegen dieses Fensters erreichbar -- Esc
       schließt nur den Hinweis, nicht die Vorschau.
@@ -61,6 +63,7 @@
 
   {:else if nav.view === 'library'}
     <p class="lead">
+      <SpeakButton text="Die Bibliothek verwaltet alle hochgeladenen Videos. Ordner sind virtuell -- Dateien bleiben flach im Originale-Verzeichnis, die Baumstruktur lebt nur im Anzeigenamen." />
       Die Bibliothek verwaltet alle hochgeladenen Videos. Ordner sind
       virtuell -- Dateien bleiben flach im Originale-Verzeichnis, die
       Baumstruktur lebt nur im Anzeigenamen.
