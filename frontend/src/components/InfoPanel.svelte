@@ -41,6 +41,7 @@
   geometry={infoPanel}
   title={currentTitle}
   icon="fa-circle-info"
+  dataPanel="info"
   onClose={closeInfo}
   onChange={(p) => Object.assign(infoPanel, p)}
   onPersist={persistInfoGeometry}

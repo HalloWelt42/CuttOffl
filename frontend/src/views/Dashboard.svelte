@@ -5,6 +5,18 @@
   import PanelHeader from '../components/PanelHeader.svelte';
   import { wsOn, wsStart } from '../lib/ws.svelte.js';
   import { toast } from '../lib/toast.svelte.js';
+  import {
+    startTour, shouldOfferFirstTour, markFirstTourOffered,
+  } from '../lib/tour.svelte.js';
+  import { registerTours } from '../lib/tour.svelte.js';
+  import { TOURS } from '../lib/tours.js';
+
+  // Tour-Registry sicherstellen (idempotent, falls der User noch nie
+  // auf Hilfe war, aber die erste Tour direkt vom Dashboard aus startet).
+  registerTours(TOURS);
+
+  // Einmalige Einladung beim allerersten Start
+  let showFirstRun = $state(false);
 
   let overview = $state(null);
   let storage = $state(null);
@@ -26,10 +38,26 @@
   onMount(() => {
     wsStart();
     refresh();
+    // Wenn der User noch nie eine Tour angeboten bekommen hat und keine
+    // Videos in der Bibliothek sind, Tour einmal prominent anbieten.
+    if (shouldOfferFirstTour()) {
+      setTimeout(() => { showFirstRun = true; }, 500);
+    }
     return wsOn((m) => {
       if (m.type === 'file_event' || m.type === 'job_event') refresh();
     });
   });
+
+  function startFirstTour() {
+    markFirstTourOffered();
+    showFirstRun = false;
+    startTour('erste-schritte', 'guided');
+  }
+
+  function dismissFirstRun() {
+    markFirstTourOffered();
+    showFirstRun = false;
+  }
 
   async function clearFailed() {
     try {
@@ -276,6 +304,40 @@
   </div>
 </section>
 
+{#if showFirstRun}
+  <!-- svelte-ignore a11y_click_events_have_key_events -->
+  <!-- svelte-ignore a11y_no_static_element_interactions -->
+  <div class="firstrun-backdrop" onclick={dismissFirstRun} role="presentation">
+    <div class="firstrun-card" onclick={(e) => e.stopPropagation()} role="dialog" aria-modal="true" tabindex="-1">
+      <div class="fr-icon">
+        <i class="fa-solid fa-life-ring"></i>
+      </div>
+      <h2>Willkommen bei CuttOffl</h2>
+      <p>
+        Soll ich dir in 2-3 Minuten zeigen, wie der Workflow aussieht?
+        Upload, Editor, Schnitt, Export -- einmal durch, ohne dass
+        irgendwas gerendert oder gelöscht wird.
+      </p>
+      <div class="fr-actions">
+        <button class="btn" onclick={dismissFirstRun}>
+          Später vielleicht
+        </button>
+        <button class="btn btn-primary" onclick={startFirstTour}>
+          <i class="fa-solid fa-play"></i>
+          Tour starten
+        </button>
+      </div>
+      <div class="fr-foot">
+        Du findest alle Touren später jederzeit unter
+        <button class="linklike" onclick={() => { markFirstTourOffered(); showFirstRun = false; go('help'); }}>
+          <i class="fa-solid fa-life-ring"></i> Hilfe &amp; Touren
+        </button>
+        im Menü.
+      </div>
+    </div>
+  </div>
+{/if}
+
 <style>
   .wrap { display: flex; flex-direction: column; height: 100%; }
   .body { padding: 20px; overflow: auto; display: flex; flex-direction: column; gap: 16px; max-width: 1200px; }
@@ -436,4 +498,71 @@
   .file-info { min-width: 0; }
   .file .name { font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .file .meta { display: flex; gap: 10px; font-size: 11px; color: var(--fg-muted); margin-top: 3px; }
+
+  /* First-Run-Einladung */
+  .firstrun-backdrop {
+    position: fixed; inset: 0;
+    background: rgba(0, 0, 0, 0.6);
+    backdrop-filter: blur(3px);
+    display: grid; place-items: center;
+    z-index: 8500;
+    animation: fr-fade-in 160ms ease-out;
+  }
+  @keyframes fr-fade-in {
+    from { opacity: 0; }
+    to   { opacity: 1; }
+  }
+  .firstrun-card {
+    width: min(520px, 94vw);
+    background: var(--bg-panel);
+    border: 1px solid var(--border-strong);
+    border-radius: 12px;
+    box-shadow: 0 18px 48px rgba(0, 0, 0, 0.6);
+    padding: 26px 28px 22px;
+    text-align: center;
+    animation: fr-pop-in 220ms cubic-bezier(.2, .9, .3, 1.2);
+  }
+  @keyframes fr-pop-in {
+    from { transform: scale(0.92); opacity: 0; }
+    to   { transform: scale(1);    opacity: 1; }
+  }
+  .fr-icon {
+    width: 72px; height: 72px;
+    margin: 0 auto 14px;
+    border-radius: 50%;
+    display: grid; place-items: center;
+    background: var(--accent-soft);
+    color: var(--accent);
+    font-size: 32px;
+    border: 1px solid color-mix(in oklab, var(--accent) 40%, var(--border));
+  }
+  .firstrun-card h2 {
+    margin: 0 0 8px;
+    font-size: 20px;
+  }
+  .firstrun-card > p {
+    margin: 0 auto 22px;
+    max-width: 420px;
+    line-height: 1.6;
+    color: var(--fg-muted);
+  }
+  .fr-actions {
+    display: flex;
+    justify-content: center;
+    gap: 10px;
+    margin-bottom: 16px;
+  }
+  .fr-foot {
+    font-size: 12px;
+    color: var(--fg-faint);
+    border-top: 1px solid var(--border);
+    padding-top: 12px;
+    margin: 0 -10px;
+  }
+  .fr-foot .linklike {
+    background: transparent; border: none; padding: 0 2px;
+    color: var(--accent); cursor: pointer; font: inherit;
+    text-decoration: underline;
+  }
+  .fr-foot .linklike i { margin-right: 2px; }
 </style>

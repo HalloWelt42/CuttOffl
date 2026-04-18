@@ -10,6 +10,7 @@
 //   /editor/project/<id>            Editor mit gespeichertem Projekt
 //   /exports                        Fertige Videos
 //   /settings                       Einstellungen
+//   /help                           Hilfe & interaktive Touren
 //
 // Back/Forward-Buttons des Browsers funktionieren über popstate.
 // Für die Ordner-Tiefe in der Bibliothek wird der folder_path aus
@@ -18,7 +19,7 @@
 import { persisted, persist } from './persist.svelte.js';
 import { library } from './library.svelte.js';
 
-export const VIEWS = ['dashboard', 'library', 'editor', 'exports', 'settings'];
+export const VIEWS = ['dashboard', 'library', 'editor', 'exports', 'settings', 'help'];
 // Erlaubte Tabs pro View (nur Settings hat welche). Die Reihenfolge hier
 // bestimmt auch die Defaults.
 export const SETTINGS_TABS = ['pfade', 'transkription', 'system'];

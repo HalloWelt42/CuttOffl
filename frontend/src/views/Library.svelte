@@ -570,6 +570,7 @@
       Ordner
     </button>
     <label class="btn btn-primary" class:busy={uploading}
+           data-tour="lib-upload"
            title="Eine Video-Datei vom Rechner hochladen. Unterstützte Formate: MP4, MOV, MKV, WebM, AVI, M4V.">
       <i class="fa-solid fa-upload"></i>
       <span>{uploading ? `Hochladen ${Math.round(uploadPct * 100)} %` : 'Video hochladen'}</span>
@@ -591,7 +592,8 @@
 
   <!-- Toolbar: Ansicht + Sortierung -->
   <div class="toolbar">
-    <div class="group view-switch" role="group" aria-label="Ansicht wählen">
+    <div class="group view-switch" role="group" aria-label="Ansicht wählen"
+         data-tour="lib-view-switch">
       <button class="seg" class:active={library.view === 'grid'}
               onclick={() => setView('grid')}
               title="Kachelansicht mit großen Vorschaubildern">
@@ -632,7 +634,7 @@
       </button>
     </div>
 
-    <div class="group search-group">
+    <div class="group search-group" data-tour="lib-search">
       <i class="fa-solid fa-magnifying-glass search-icon"></i>
       <input type="search" class="search-input"
              placeholder="Name oder Tag suchen..."
@@ -903,6 +905,7 @@
                     <div class="actions">
                       <button class="btn btn-primary" onclick={() => openInEditor(f.id)}
                               disabled={!f.has_proxy}
+                              data-tour="lib-file-open"
                               title={f.has_proxy
                                 ? 'Dieses Video im Schnitt-Editor öffnen'
                                 : 'Bitte warten bis die Proxy-Vorschau fertig ist'}>

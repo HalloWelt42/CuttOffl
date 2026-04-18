@@ -17,6 +17,7 @@
     onClose = () => {},
     onChange = () => {},
     onPersist = () => {},
+    dataPanel = null,  // optional: identifiziert das Panel (z. B. für Tour-Spotlight)
     children,
   } = $props();
 
@@ -113,6 +114,7 @@
 {#if geometry.open}
   <div class="fp"
        role="dialog" aria-modal="false" aria-label={title}
+       data-panel={dataPanel}
        style:left="{geometry.x}px"
        style:top="{geometry.y}px"
        style:width="{geometry.width}px"

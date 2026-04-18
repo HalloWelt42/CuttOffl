@@ -24,15 +24,22 @@
   // Einträge für reguläre Views (werden über go() aufgerufen)
   const GROUPS = [
     { label: null, items: [
-      { id: 'dashboard', icon: 'fa-gauge-high',  label: 'Dashboard' },
-      { id: 'library',   icon: 'fa-folder-tree', label: 'Bibliothek' },
+      { id: 'dashboard', icon: 'fa-gauge-high',  label: 'Dashboard',
+        tour: 'nav-dashboard' },
+      { id: 'library',   icon: 'fa-folder-tree', label: 'Bibliothek',
+        tour: 'nav-library' },
     ]},
     { label: 'Arbeitsplatz', items: [
-      { id: 'editor',    icon: 'fa-scissors',     label: 'Editor' },
-      { id: 'exports',   icon: 'fa-box-archive',  label: 'Fertige Videos' },
+      { id: 'editor',    icon: 'fa-scissors',     label: 'Editor',
+        tour: 'nav-editor' },
+      { id: 'exports',   icon: 'fa-box-archive',  label: 'Fertige Videos',
+        tour: 'nav-exports' },
     ]},
     { label: 'System', items: [
-      { id: 'settings',  icon: 'fa-gear',         label: 'Einstellungen' },
+      { id: 'settings',  icon: 'fa-gear',         label: 'Einstellungen',
+        tour: 'nav-settings' },
+      { id: 'help',      icon: 'fa-life-ring',    label: 'Hilfe & Touren',
+        tour: 'nav-help' },
     ]},
   ];
 
@@ -63,6 +70,7 @@
           class:active={nav.view === it.id}
           onclick={() => go(it.id)}
           title={collapsed ? it.label : ''}
+          data-tour={it.tour}
         >
           <i class="fa-solid {it.icon}"></i>
           {#if !collapsed}<span>{it.label}</span>{/if}

@@ -283,6 +283,7 @@
       </button>
       <button class="btn btn-primary" onclick={() => (exportOpen = true)}
               disabled={!stats().count || editor.rendering}
+              data-tour="editor-render"
               title="Render-Dialog öffnen und fertiges Video erzeugen">
         <i class="fa-solid fa-film"></i>
         {editor.rendering ? `Rendern ${Math.round(editor.renderProgress * 100)} %` : 'Rendern'}
@@ -413,6 +414,7 @@
           </button>
           <button class="btn btn-primary" onclick={commitInOut}
                   disabled={inPoint == null || outPoint == null}
+                  data-tour="editor-addclip"
                   title="Aus Start/Ende einen Clip in die Timeline übernehmen (Eingabetaste)">
             <i class="fa-solid fa-plus"></i> Clip übernehmen
             {#if inPoint != null && outPoint != null}
@@ -531,7 +533,9 @@
         </div>
       </div>
 
-      <Timeline />
+      <div data-tour="editor-timeline">
+        <Timeline />
+      </div>
 
     </div>
   {/if}

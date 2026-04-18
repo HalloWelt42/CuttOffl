@@ -403,16 +403,19 @@
       <div class="tabs" role="tablist">
         <button class="tab" role="tab" aria-selected={activeTab === 'profile'}
                 class:active={activeTab === 'profile'}
+                data-tour="render-tab-profile"
                 onclick={() => (activeTab = 'profile')}>
           <i class="fa-solid fa-sliders"></i> Profil
         </button>
         <button class="tab" role="tab" aria-selected={activeTab === 'video'}
                 class:active={activeTab === 'video'}
+                data-tour="render-tab-video"
                 onclick={() => (activeTab = 'video')}>
           <i class="fa-solid fa-film"></i> Video
         </button>
         <button class="tab" role="tab" aria-selected={activeTab === 'audio'}
                 class:active={activeTab === 'audio'}
+                data-tour="render-tab-audio"
                 onclick={() => (activeTab = 'audio')}>
           <i class="fa-solid fa-volume-high"></i> Audio
         </button>
@@ -622,7 +625,8 @@
       </div>
 
       <!-- Abschätzung direkt über dem Footer -->
-      <div class="estimate mono" title="Grobschätzung der Dateigröße. Je nach Bildmaterial kann das Ergebnis 20-30 % abweichen.">
+      <div class="estimate mono" data-tour="render-estimate"
+           title="Grobschätzung der Dateigröße. Je nach Bildmaterial kann das Ergebnis 20-30 % abweichen.">
         <i class="fa-solid fa-weight-hanging"></i>
         <span class="est-label">Circa</span>
         <span class="est-size">{estimatedLabel}</span>

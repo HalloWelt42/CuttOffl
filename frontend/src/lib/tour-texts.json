@@ -1,0 +1,178 @@
+{
+  "_comment": "Tour-Texte. Quelle der Wahrheit sowohl für die UI-Anzeige (title, body, hint) als auch für die TTS-Synthese (audio_text). audio_text darf weiter ausholen als body -- er wird nur vorgelesen, nicht angezeigt.",
+
+  "erste-schritte": [
+    {
+      "title": "Willkommen bei CuttOffl",
+      "body": "Ich führe dich einmal komplett durch: vom Video-Import über den Schnitt bis zum fertigen Export. Nichts wird gelöscht oder gerendert -- alles bleibt, wie es ist.",
+      "audio_text": "Willkommen bei CuttOffl. Ich zeig dir in den nächsten zwei bis drei Minuten, wie der Workflow aussieht. Wir gehen vom Video in der Bibliothek über den Schnitt-Editor bis zum fertigen Export -- einmal komplett durch. Versprochen: Während dieser Tour wird nichts gelöscht, nichts gerendert und nichts an deinen Daten verändert. Ich klicke nur und erkläre."
+    },
+    {
+      "title": "Zur Bibliothek",
+      "body": "Die Bibliothek ist deine Ablage. Jedes Video, das du einmal importiert hast, liegt hier und ist direkt schnittbar. Neue Videos kommen per Hochladen-Button oder per Drag und Drop aus dem Finder rein.",
+      "audio_text": "Der zentrale Ort für deine Videos ist die Bibliothek. Alles, was du einmal importiert hast, liegt dort und ist sofort schnittbar. Neue Videos bringst du über den Hochladen-Knopf rein, oder du ziehst sie direkt aus dem Finder in die Kachelansicht. CuttOffl erzeugt im Hintergrund automatisch eine schnelle Vorschau-Datei, ein Thumbnail, einen Frame-Streifen für die Timeline und die Wellenform -- du musst dich um nichts davon kümmern."
+    },
+    {
+      "title": "Finden statt Suchen",
+      "body": "Über die Suche filterst du nach Dateinamen und Tags, über die Filter rechts nach Ordnern, Dauer und Format. Bei größeren Sammlungen spart das viel Zeit.",
+      "audio_text": "Die Suchleiste oben durchforstet gleichzeitig Dateinamen und Tags, während du tippst. Wenn du zusätzlich noch nach Ordner, Dauer oder Codec filtern willst, helfen die Dropdowns rechts daneben. Die aktiven Filter erscheinen als kleine Chips -- ein Klick aufs X entfernt einen einzelnen Filter, und wenn die Filter-Kombi ins Leere läuft, bietet die App sogar selbst an, alles zurückzusetzen."
+    },
+    {
+      "title": "Drei Ansichten",
+      "body": "Kacheln, Liste und Kompakt -- je nach dem, was dir wichtiger ist. Kachel zeigt Thumbnails groß, Liste zeigt Metadaten im Überblick, Kompakt passt maximal viel aufs Display.",
+      "audio_text": "Je nach Situation hilft eine andere Ansicht. Kacheln sind ideal, wenn du visuell nach einem Video suchst -- die Thumbnails sind groß und du kannst sogar mit der Maus über ein Thumbnail fahren, um durch das Video zu scrubben. Die Liste zeigt alle Metadaten kompakt nebeneinander: Dauer, Auflösung, Codec, Größe. Die Kompakt-Ansicht packt dann noch mehr Einträge auf einen Bildschirm, falls du viele Dateien hast."
+    },
+    {
+      "title": "Ins Schnittstudio",
+      "body": "Klick auf Öffnen bei einem Video bringt dich in den Editor. Dort machst du den eigentlichen Schnitt -- das Original bleibt dabei unverändert, also non-destruktiv.",
+      "audio_text": "Mit einem Klick auf Öffnen landest du im Schnitt-Editor. Das Wichtige: CuttOffl schneidet nicht-destruktiv. Das heißt, dein Original-Video bleibt auf der Platte unverändert. Alle Schnitte, Trimmungen und Arrangements landen in einer Edit Decision List, also einer Liste von Anweisungen, und werden erst beim Render in ein neues Video übersetzt. Du kannst also bedenkenlos experimentieren -- kaputt machen kannst du nichts."
+    },
+    {
+      "title": "Die Timeline",
+      "body": "Unten läuft die Timeline mit Frame-Streifen und Wellenform. Die blaue Linie ist der aktuelle Abspielkopf. Mit dem Mausrad zoomst du rein und raus.",
+      "audio_text": "Das Herz des Editors ist die Timeline ganz unten. Du siehst einen Streifen mit Video-Frames und darüber die Wellenform der Tonspur -- so erkennst du Sprache, Stille und laute Stellen auf einen Blick. Die senkrechte Linie ist dein aktueller Abspielkopf. Mit dem Mausrad zoomst du in die Timeline rein und raus, bis hin zu einzelnen Frames, wenn du ganz genau arbeiten willst."
+    },
+    {
+      "title": "Clip hinzufügen",
+      "body": "Spring zu einer Stelle, klick Clip übernehmen -- CuttOffl findet den nächstgelegenen Keyframe und snappt dahin. Schnitt bleibt so verlustfrei, also copy-Mode.",
+      "audio_text": "So fügst du einen Clip zur Timeline hinzu: Du setzt erst einen In-Punkt an der Start-Stelle und einen Out-Punkt am Ende, dann klickst du auf Clip übernehmen. Wenn der Keyframe-Magnet aktiv ist, rasten die Schnittmarken automatisch auf den nächstliegenden Keyframe ein -- das sorgt dafür, dass der Clip beim Export verlustfrei kopiert werden kann, ohne dass er neu kodiert werden muss. Willst du frame-genau schneiden, schaltest du den Magneten einfach aus. Dann läuft der Clip später im Reencode-Modus, kostet etwas Rechenzeit, ist dafür aber exakt."
+    },
+    {
+      "title": "Rendern und Exportieren",
+      "body": "Wenn die Timeline steht, öffnet der Render-Button den Export-Dialog mit Profil-Schnellwahl, Video- und Audio-Tabs und Live-Größen-Abschätzung.",
+      "audio_text": "Sobald deine Timeline steht, führt der Render-Button dich zum zentralen Export-Dialog. Dort findest du acht fertige Profile für YouTube, TikTok, Instagram und mehr -- ein Klick setzt alle passenden Video- und Audio-Werte. Willst du feinjustieren, gibt es eigene Tabs für Video und Audio, einen Qualitäts-Schalter mit drei Modi -- konstante Qualität, feste Bitrate oder Zielgröße in Megabyte -- und eine Live-Abschätzung der Dateigröße. Keine Sorge: Der Dialog öffnet sich nur, gestartet wird nichts, solange du nicht selbst auf Render starten drückst."
+    },
+    {
+      "title": "Fertige Videos",
+      "body": "Hier landen alle gerenderten Schnitte. Du kannst sie abspielen, herunterladen, als ZIP mit Untertiteln exportieren oder zurück in die Bibliothek übernehmen.",
+      "audio_text": "Alle fertig gerenderten Videos sammelt CuttOffl hier. Du kannst sie abspielen, einzeln herunterladen oder als ZIP-Paket mit passenden Untertiteln exportieren. Und wenn du aus einem gerenderten Ergebnis wieder etwas anderes schneiden willst, bringt ein Klick das Video zurück in die Bibliothek -- inklusive neuer Proxy-Vorschau. So kannst du auch mehrere Schnitt-Runden stapeln."
+    },
+    {
+      "title": "Das war der Rundflug",
+      "body": "Mehr Touren findest du unter Hilfe im Menü -- dort gibt es Detail-Rundgänge für Bibliothek, Renderer, KI-Untertitel und Tastenkürzel.",
+      "audio_text": "Das war der Rundflug durch CuttOffl. Wenn du bestimmte Bereiche tiefer erkunden willst, findest du unter Hilfe und Touren im Menü vier weitere Rundgänge: einen ausführlichen Bibliotheks-Guide, den Renderer-Tiefenblick, eine Tour durch die KI-Untertitel und eine Übersicht der Tastenkürzel. Zum Beenden dieser Tour klick einfach auf das X oder drück Escape."
+    }
+  ],
+
+  "bibliothek": [
+    {
+      "title": "Deine Ablage",
+      "body": "In der Bibliothek kannst du deine Videos strukturieren wie im Finder -- inklusive Mehrfachauswahl, Massen-Verschieben und Tags zum Queren.",
+      "audio_text": "Die Bibliothek ist nicht einfach nur eine flache Liste, sondern funktioniert wie ein ordentlicher Dateimanager. Du kannst Ordner verschachteln, Videos per Mehrfachauswahl gleichzeitig verschieben oder löschen, und Tags quer über die Ordnerstruktur vergeben. Das hilft, wenn du Videos gleichzeitig nach Projekt und nach Kategorie wie zum Beispiel Interview oder B-Roll sortieren willst."
+    },
+    {
+      "title": "Ordner links",
+      "body": "Die Ordnerliste ist ein Baum. Per Drag und Drop kannst du Ordner verschieben, umbenennen oder neu anlegen. Rechtsklick gibt dir alle Aktionen.",
+      "audio_text": "Der Ordner-Baum links zeigt deine Struktur. Neue Ordner legst du entweder per Button oder per Rechtsklick an -- beliebig tief verschachtelt. Du kannst Ordner per Drag und Drop verschieben, umbenennen oder löschen. Videos ziehst du einfach auf den Zielordner, um sie zu verschieben. Ein Rechtsklick auf einen Ordner zeigt dir alle verfügbaren Aktionen übersichtlich im Kontextmenü."
+    },
+    {
+      "title": "Volltextsuche",
+      "body": "Die Suche durchsucht Dateinamen und Tags gleichzeitig. Tippe einfach los -- die Trefferliste aktualisiert sich während du tippst.",
+      "audio_text": "Die Suche greift gleichzeitig auf Dateinamen und Tags zu. Während du tippst, wird die Trefferliste live gefiltert -- keine Enter-Taste nötig. Groß- und Kleinschreibung sind egal, Teilstrings reichen. Ein Klick auf das X im Suchfeld setzt die Suche zurück, oder du tippst alles weg."
+    },
+    {
+      "title": "Filter-Chips",
+      "body": "Aktive Filter erscheinen als Chips. Ein Klick aufs X entfernt einzelne Filter, Alle zurücksetzen räumt sauber auf. Läuft ein Filter ins Leere, bietet die App automatisch den Reset an.",
+      "audio_text": "Jeder aktive Filter -- ob Suche, Ordner, Dauer oder Codec -- erscheint als kleiner Chip in einer Leiste. Das ist hilfreich, weil du sofort siehst, welche Filter gerade deine Ergebnisse beschränken. Einzelne Filter entfernst du per Klick aufs X, oder du räumst mit einem Schlag alles mit Alle zurücksetzen weg. Eine Besonderheit: Wenn deine Filter-Kombination null Treffer liefert, blendet CuttOffl automatisch einen Reset-Button ein -- damit verwaisen keine Ansichten."
+    },
+    {
+      "title": "Mehrfachauswahl",
+      "body": "Haken an den Kacheln setzen und dann gleich mehrere Dateien verschieben, taggen oder löschen -- spart Zeit bei großen Importen.",
+      "audio_text": "Wenn du viele Videos auf einmal verarbeiten willst, setzt du einfach die Haken an den Kacheln oder Listeneinträgen. Sobald eine Auswahl besteht, erscheint oben eine Aktionsleiste, mit der du alle markierten Dateien gleichzeitig verschieben, taggen oder löschen kannst. Gerade nach einem großen Import spart das richtig Zeit."
+    },
+    {
+      "title": "Fertig -- Bibliothek beherrscht",
+      "body": "Tipp: Über die Kachel-Thumbnails bewegst du die Maus horizontal und siehst ein Vorschau-Scrubbing durchs ganze Video -- ohne das Video tatsächlich zu öffnen.",
+      "audio_text": "Zum Abschluss noch ein Tipp, den viele übersehen: Wenn du mit der Maus über ein Kachel-Thumbnail fährst und horizontal bewegst, scrubbed CuttOffl durchs komplette Video. Du siehst also eine fliegende Vorschau, ohne das Video tatsächlich zu öffnen. Super, um schnell zu erkennen, ob ein Clip der richtige ist."
+    }
+  ],
+
+  "renderer": [
+    {
+      "title": "Den Renderer öffnen",
+      "body": "Der Render-Button öffnet den zentralen Export-Dialog. Dort stecken alle Profile, Codec-Optionen, Audio-Filter und die Prozess-Transparenz beim Rendern.",
+      "audio_text": "Im Editor führt der Render-Button zum zentralen Export-Dialog. In diesem einen Fenster findest du alle Profile für Social Media, die Codec- und Auflösungs-Optionen, Audio-Filter wie Lautheit-Normalisierung und auch die komplette Prozess-Anzeige beim tatsächlichen Render. Für diese Tour mache ich den Dialog gleich selbst auf, damit wir die Bereiche nacheinander durchgehen können. Nichts wird gestartet."
+    },
+    {
+      "title": "Profil-Schnellwahl",
+      "body": "Im Profil-Tab findest du fertige Presets für YouTube, TikTok und Reel, Instagram, X, Podcast und mehr. Ein Klick setzt alle Video- und Audio-Werte passend.",
+      "audio_text": "Der Profil-Tab ist der schnellste Einstieg. Acht Presets decken die häufigsten Zielplattformen ab: YouTube 1080p und 4K, TikTok und Reels, Instagram Feed, X beziehungsweise Twitter, ein Podcast-Preset mit Mono-Stimme und Lautheits-Normalisierung, ein schlankes Web-Preset und ein Archiv-Preset in maximaler Qualität. Jedes Preset setzt mit einem Klick Codec, Auflösung, Bitrate und alle Audio-Einstellungen passend. Wenn du danach noch etwas änderst, geht die Preset-Markierung aus -- so weißt du, dass du vom Standard abweichst."
+    },
+    {
+      "title": "Video-Feintuning",
+      "body": "Im Video-Tab wählst du Codec, Container und Auflösung. Der Qualitäts-Schalter hat drei Modi: konstante Qualität, feste Bitrate und Zielgröße.",
+      "audio_text": "Im Video-Tab stellst du das Detaillierte ein: H264 oder H265, den Container -- meistens MP4 -- und die Ziel-Auflösung von 480p bis 4K oder eben die Quelle so lassen, wie sie ist. Der Qualitäts-Schalter bietet drei Modi. CRF für konstante Qualität mit variabler Bitrate. Feste Bitrate, wenn du planbar dieselbe Menge Daten pro Sekunde willst. Und Zielgröße -- da gibst du Megabyte an und CuttOffl rechnet die nötige Bitrate rückwärts aus. Praktisch, wenn du dich an die Upload-Limits bestimmter Plattformen halten musst."
+    },
+    {
+      "title": "Audio-Filter",
+      "body": "Im Audio-Tab gibt es drei Toggle-Buttons: Lautheit normalisieren, Mono-Downmix und komplett Stumm. Jeder Filter zwingt die Clips auf Reencode.",
+      "audio_text": "Der Audio-Tab hat neben Codec und Bitrate drei Filter-Toggles. Lautheit normalisieren nach EBU R128 -- gleicht den Pegel auf das übliche Social-Media-Lautheits-Ziel an, damit dein Video nicht leiser als die Umgebung ist. Mono-Downmix macht aus Stereo eine einzige Spur, ideal für Sprache und spart Platz. Und der Stumm-Schalter entfernt die Tonspur komplett, falls du zum Beispiel ein reines Bild-Video brauchst. Sobald einer dieser Filter an ist, kann CuttOffl die Clips nicht mehr verlustfrei kopieren, sondern muss sie neu kodieren -- du siehst das auch als Hinweis im Dialog."
+    },
+    {
+      "title": "Größen-Abschätzung",
+      "body": "Ganz unten siehst du live die geschätzte Dateigröße -- eine Hausnummer, aber ziemlich nah an der Realität.",
+      "audio_text": "Am unteren Rand des Dialogs steht jederzeit eine Live-Abschätzung: circa 84 Megabyte zum Beispiel, mit der Video-Bitrate und der Audio-Bitrate daneben. Das ist eine Heuristik, keine exakte Messung, aber sie kommt der echten Datei-Größe meistens erstaunlich nah. Spiel mal mit Codec, Qualität und Auflösung -- du siehst den Wert direkt mitspringen. So kannst du eine Bitrate oder ein Preset finden, das deinen Platz-Vorgaben entspricht, ohne erst einen kompletten Render abzuwarten."
+    },
+    {
+      "title": "Prozess-Transparenz",
+      "body": "Sobald du auf Render starten drückst, zeigt der Dialog die komplette Pipeline: Vorbereiten, Clip X von N kodieren, Zusammenfügen, Fertig -- mit Zeitstempel, Clip-Zähler und ETA.",
+      "audio_text": "Das ist mein Lieblings-Feature. Sobald du wirklich auf Render starten drückst, schließt sich der Dialog nicht mehr heimlich, sondern bleibt offen und zeigt dir die komplette Pipeline in Echtzeit. Du siehst den aktuellen Schritt groß hervorgehoben: Vorbereiten, Clip drei von fünf kodieren, Zusammenfügen, Fertig. Darüber ein Fortschrittsbalken, Clip-Zähler, die bisher verstrichene Zeit und eine Schätzung, wie lange es noch dauert. Darunter eine History mit Zeitstempel pro Schritt. Willst du abbrechen, stoppt der Abbrechen-Button sauber nach dem aktuellen Clip -- keine halben Dateien."
+    }
+  ],
+
+  "tastenkuerzel": [
+    {
+      "title": "Info-Panel öffnen",
+      "body": "Im Editor öffnet der Hilfe-Eintrag ein schwebendes Info-Panel mit allen Tastenkürzeln. Das Panel kannst du verschieben und in der Größe anpassen.",
+      "audio_text": "Im Editor gibt es ein schwebendes Info-Panel, das du über den Hilfe-Eintrag öffnest. Darin stehen alle Tastenkürzel gruppiert nach Thema. Das Panel ist frei verschiebbar und in der Größe anpassbar -- Position und Größe merkt sich CuttOffl beim nächsten Öffnen. So hast du die Kürzel immer in der Ecke deiner Wahl, ohne dass sie deinen Editor-Platz blockieren."
+    },
+    {
+      "title": "Playback-Kürzel",
+      "body": "Space spielt ab und pausiert. Pfeiltasten springen ein Bild vor und zurück. Shift plus Pfeil springt eine Sekunde, Alt plus Pfeil zum nächsten Keyframe.",
+      "audio_text": "Die Playback-Steuerung läuft komplett über die Tastatur. Die Leertaste ist dein Play-Pause-Schalter. Die Pfeiltasten springen frame-genau -- also ein einzelnes Bild nach vorn oder zurück, ideal für millimetergenaue Schnitte. Shift plus Pfeil macht einen Sprung von einer Sekunde, und Alt plus Pfeil springt zum nächsten oder vorigen Keyframe im Video. Das ist extrem nützlich, weil Schnitte an Keyframes verlustfrei bleiben."
+    },
+    {
+      "title": "Schnitt-Kürzel",
+      "body": "I setzt den In-Point an der aktuellen Position, O den Out-Point. C fügt den aktuellen Bereich als Clip zur Timeline hinzu.",
+      "audio_text": "Für den eigentlichen Schnitt reichen drei Tasten. I setzt den In-Punkt an der aktuellen Abspielposition, O den Out-Punkt, und C übernimmt den gewählten Bereich als Clip in die Timeline. So kannst du in Sekunden durch ein Interview gehen, die guten Stellen mit I und O markieren, per C übernehmen -- und dich dann direkt zum nächsten Schnitt wenden. Viel schneller als mit der Maus."
+    },
+    {
+      "title": "Tour fertig",
+      "body": "Das Info-Panel bleibt offen, solange du es nicht schließt. Die kompletten Kürzel sind dort dauerhaft einsehbar.",
+      "audio_text": "Du musst dir die Kürzel nicht alle merken -- das Info-Panel bleibt offen, solange du es nicht schließt. Die komplette Liste steht dort dauerhaft bereit, gruppiert nach Playback, Schnitt, Vorschau und Timeline. Solltest du mal etwas vergessen, schau einfach rein."
+    }
+  ],
+
+  "ki-untertitel": [
+    {
+      "title": "Komplett lokal",
+      "body": "CuttOffl nutzt Whisper lokal, ohne Cloud. Die Modelle liegen im HuggingFace-Cache auf deinem Rechner, Audio-Dateien verlassen den Rechner nie.",
+      "audio_text": "CuttOffl transkribiert komplett lokal -- mit OpenAI Whisper, aber ohne Cloud. Die Modell-Gewichte liegen im HuggingFace-Cache auf deiner Platte, und deine Audio-Dateien werden nie irgendwohin hochgeladen. Nach dem einmaligen Modell-Download kannst du sogar das WLAN abschalten und CuttOffl transkribiert weiter. Für Offline-Arbeit, Datenschutz und Nachvollziehbarkeit ist das ein großer Vorteil."
+    },
+    {
+      "title": "Drei Engines",
+      "body": "MLX-Whisper ist für Apple Silicon optimiert, Faster-Whisper läuft auf Pi, Linux und Intel gut, OpenAI-Whisper ist die Referenz. CuttOffl erkennt, welche installiert sind.",
+      "audio_text": "Es gibt drei Whisper-Engines zur Auswahl. MLX-Whisper ist speziell für Apple Silicon optimiert und nutzt die Neural Engine -- auf einem Mac ist das meistens die schnellste Variante. Faster-Whisper basiert auf CTranslate2 und läuft richtig gut auf Raspberry Pi, Linux und Intel-Systemen. OpenAI Whisper ist die Original-Referenz und funktioniert überall, ist aber oft langsamer. CuttOffl erkennt beim Start, welche Engines installiert sind, und schlägt die passende vor."
+    },
+    {
+      "title": "Modelle auswählen",
+      "body": "In den Einstellungen unter Transkription siehst du alle Modelle auf der Platte. Mit einem Klick auf Auswählen wird ein anderes Modell aktiv -- die Wahl wirkt für künftige Transkriptionen.",
+      "audio_text": "In den Einstellungen unter Transkription siehst du alle Modelle, die auf deiner Platte liegen -- gruppiert nach Engine und Modellgröße. Das aktive Modell trägt einen Haken. Willst du wechseln, klickst du bei einem anderen Modell auf Auswählen. Die Wahl ist persistent und wirkt ab der nächsten Transkription -- laufende Jobs bleiben beim alten Modell, weil sie das sonst nicht zu Ende bringen könnten. Bestehende Transkripte bleiben sowieso unverändert."
+    },
+    {
+      "title": "Weitere Modelle holen",
+      "body": "Der Download-Bereich lädt fehlende Modelle direkt aus dem offiziellen HuggingFace-Repo. Fortschritt läuft im Hintergrund -- du kannst weiterarbeiten.",
+      "audio_text": "Wenn du ein Modell noch nicht auf der Platte hast, findest du den Download-Bereich direkt darunter. Du wählst die Engine und die gewünschte Modellgröße -- von Tiny für Blitzschnell bis Large für höchste Genauigkeit. Der Download läuft als Hintergrund-Job mit Fortschrittsbalken. Du kannst während des Downloads einfach weiterarbeiten, auch im Editor oder beim Rendern. Sobald das Modell da ist, erscheint es automatisch in der Liste und ist wählbar."
+    },
+    {
+      "title": "Transkript im Editor",
+      "body": "Im Editor startest du die Transkription direkt am aktiven Video. Beim Laufen erscheinen die Segmente live im Transkript-Panel.",
+      "audio_text": "Im Editor startest du die Transkription mit einem Klick am aktiven Video. Während die Transkription läuft, tauchen die fertigen Segmente live im Transkript-Panel rechts auf -- du musst nicht warten, bis alles fertig ist. Beim Abspielen wird das gerade gesprochene Segment automatisch hervorgehoben und kann als Untertitel-Overlay im Video angezeigt werden. Später kannst du das fertige Transkript im Editor nach Text durchsuchen oder den Export als SRT oder WebVTT starten."
+    },
+    {
+      "title": "Fertig -- das war der KI-Teil",
+      "body": "Transkripte laufen rein lokal, die Modelle brauchen einmalig Internet zum Download. Nach dem ersten Zug kannst du das WLAN abschalten -- CuttOffl arbeitet komplett offline weiter.",
+      "audio_text": "Das war der Überblick zur KI-Transkription. Zusammengefasst: Alles läuft lokal, nur der einmalige Modell-Download braucht Internet. Danach funktioniert CuttOffl komplett offline, auch in Zügen oder abgelegenen Drehorten. Viel Spaß mit deinen Transkripten."
+    }
+  ]
+}

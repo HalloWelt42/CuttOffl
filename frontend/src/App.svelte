@@ -10,11 +10,13 @@
   import Editor from './views/Editor.svelte';
   import Exports from './views/Exports.svelte';
   import Settings from './views/Settings.svelte';
+  import Help from './views/Help.svelte';
   import ThanksOverlay from './components/ThanksOverlay.svelte';
   import DialogHost from './components/DialogHost.svelte';
   import FolderPickerOverlay from './components/FolderPickerOverlay.svelte';
   import InfoPanel from './components/InfoPanel.svelte';
   import AboutPanel from './components/AboutPanel.svelte';
+  import TourOverlay from './components/TourOverlay.svelte';
   import { nav } from './lib/nav.svelte.js';
   import { applyTheme } from './lib/theme.svelte.js';
   import { persisted, persist } from './lib/persist.svelte.js';
@@ -64,6 +66,7 @@
         {:else if nav.view === 'editor'}<Editor />
         {:else if nav.view === 'exports'}<Exports />
         {:else if nav.view === 'settings'}<Settings />
+        {:else if nav.view === 'help'}<Help />
         {/if}
       </main>
     </div>
@@ -75,6 +78,7 @@
     <FolderPickerOverlay />
     <InfoPanel />
     <AboutPanel />
+    <TourOverlay />
   </div>
 </ErrorBoundary>
 
