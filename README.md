@@ -243,6 +243,18 @@ CuttOffl/
 └── start.sh
 ```
 
+## Lokal & Offline
+
+Die App läuft nach dem einmaligen Einrichten vollständig offline:
+
+- Frontend spricht ausschließlich mit dem lokalen Backend.
+- Backend ruft selbst keine externen Dienste auf.
+- **Whisper-Modelle** werden nur beim bewusst angestoßenen Download
+  aus den Einstellungen gezogen. Danach setzt CuttOffl bei jedem
+  Transkriptions-Lauf `HF_HUB_OFFLINE=1` -- es gibt auch keine
+  Cache-Aktualitäts-Prüfung an huggingface.co mehr.
+- **Keine Telemetrie, kein Analytics, keine CDN-Aufrufe**.
+
 ## Lizenz
 
 Nicht-kommerzielle Lizenz v2.0 (`LicenseRef-CuttOffl-NC-2.0`), basierend auf
@@ -250,6 +262,11 @@ Nicht-kommerzielle Lizenz v2.0 (`LicenseRef-CuttOffl-NC-2.0`), basierend auf
 mit Ergänzungen. Copyright 2026 HalloWelt42. Private Nutzung erlaubt,
 kommerzielle Nutzung und Veröffentlichung modifizierter Versionen nicht.
 Vollständig in [`LICENSE`](LICENSE) und in der App unter **Über**.
+
+Die verwendete Drittsoftware (alles MIT / Apache / BSD / OFL / LGPL)
+und die Lizenzen der optionalen Whisper-Modelle stehen in
+[`NOTICE.md`](NOTICE.md). Alle Lizenzen sind mit der NC-Lizenz unseres
+Projekts kompatibel.
 
 ## Unterstützung
 

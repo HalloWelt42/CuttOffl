@@ -572,32 +572,54 @@ async def _extract_audio_chunk(
 
 def _transcribe_file_once(engine: str, model: str, path: str) -> dict:
     """Synchrone Einzel-Transkription einer WAV-Datei mit der gewuenschten
-    Engine. Gibt ein Dict mit 'segments' und 'language' zurueck."""
-    if engine == "mlx-whisper":
-        import mlx_whisper  # type: ignore
-        result = mlx_whisper.transcribe(
-            path, path_or_hf_repo=_mlx_repo_for(model), verbose=False,
-        )
-        return {
-            "segments": list(result.get("segments") or []),
-            "language": str(result.get("language") or ""),
-        }
-    if engine == "faster-whisper":
-        wm = _get_faster_model(model)
-        seg_iter, info = wm.transcribe(path, beam_size=5, vad_filter=True)
-        segs = []
-        for s in seg_iter:
-            segs.append({"start": float(s.start), "end": float(s.end),
-                         "text": (s.text or "").strip()})
-        return {"segments": segs, "language": str(getattr(info, "language", "") or "")}
-    if engine == "openai-whisper":
-        m = _get_openai_model(model)
-        result = m.transcribe(path, verbose=False, fp16=False)
-        return {
-            "segments": list(result.get("segments") or []),
-            "language": str(result.get("language") or ""),
-        }
-    raise RuntimeError(f"Unbekannte Engine: {engine}")
+    Engine. Gibt ein Dict mit 'segments' und 'language' zurueck.
+
+    Offline-Zwang: Sobald wir den lokalen Modell-Pfad kennen, setzen wir
+    HF_HUB_OFFLINE=1 fuer den Call. Damit unterdruecken wir auch jeden
+    "ist das Cache aktuell?"-HEAD-Request an huggingface.co. Fuer den
+    Nutzer heisst das: nach einmaligem Download laeuft die Transkription
+    komplett ohne Internet -- Pflicht fuer den Offline-first-Anspruch."""
+    local = _find_local_model(engine, model)
+    prev_offline = os.environ.get("HF_HUB_OFFLINE")
+    if local:
+        os.environ["HF_HUB_OFFLINE"] = "1"
+    try:
+        if engine == "mlx-whisper":
+            import mlx_whisper  # type: ignore
+            # Wenn wir einen lokalen Snapshot-Pfad haben, uebergeben wir
+            # den direkt -- sonst wuerde mlx-whisper einen Repo-Check
+            # machen. Nur wenn keiner da ist, nennen wir den HF-Repo.
+            repo = local or f"mlx-community/whisper-{model}-mlx"
+            result = mlx_whisper.transcribe(
+                path, path_or_hf_repo=repo, verbose=False,
+            )
+            return {
+                "segments": list(result.get("segments") or []),
+                "language": str(result.get("language") or ""),
+            }
+        if engine == "faster-whisper":
+            wm = _get_faster_model(model)
+            seg_iter, info = wm.transcribe(path, beam_size=5, vad_filter=True)
+            segs = []
+            for s in seg_iter:
+                segs.append({"start": float(s.start), "end": float(s.end),
+                             "text": (s.text or "").strip()})
+            return {"segments": segs, "language": str(getattr(info, "language", "") or "")}
+        if engine == "openai-whisper":
+            m = _get_openai_model(model)
+            result = m.transcribe(path, verbose=False, fp16=False)
+            return {
+                "segments": list(result.get("segments") or []),
+                "language": str(result.get("language") or ""),
+            }
+        raise RuntimeError(f"Unbekannte Engine: {engine}")
+    finally:
+        # Env-Var zurueckstellen, damit der Downloader weiterhin Online-
+        # Zugriff hat.
+        if prev_offline is None:
+            os.environ.pop("HF_HUB_OFFLINE", None)
+        else:
+            os.environ["HF_HUB_OFFLINE"] = prev_offline
 
 
 # --------------------------------------------------------------------------
