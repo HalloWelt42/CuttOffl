@@ -119,6 +119,29 @@ async def _run_with_progress(
 # Clip-Build + Concat + Hauptablauf
 # ---------------------------------------------------------------------------
 
+def _audio_filter_chain(output: OutputProfile) -> Optional[str]:
+    """Baut die Audio-Filterkette aus den Flags. None = kein Filter noetig.
+    Reihenfolge: Mono-Downmix vor loudnorm, damit loudnorm auf dem
+    finalen Mix rechnet."""
+    filters = []
+    if output.audio_mono:
+        filters.append("pan=mono|c0=.5*c0+.5*c1")
+    if output.audio_normalize:
+        # Standard-Ziel nach EBU R128 -- ausreichend fuer Web/SocialMedia
+        filters.append("loudnorm=I=-16:TP=-1.5:LRA=11")
+    return ",".join(filters) if filters else None
+
+
+def _needs_reencode(clip: Clip, output: OutputProfile) -> bool:
+    """Erzwingt Re-Encoding, wenn Audio-Filter aktiv sind -- sonst greifen
+    die Filter nicht (copy-Mode kopiert den AV-Stream 1:1)."""
+    if clip.mode == "reencode":
+        return True
+    if output.audio_mute or output.audio_normalize or output.audio_mono:
+        return True
+    return False
+
+
 async def _build_clip(
     source: Path,
     clip: Clip,
@@ -131,8 +154,9 @@ async def _build_clip(
 ) -> None:
     """Erzeugt genau ein Segment ins dest."""
     base = [ffmpeg_binary(), "-y", "-hide_banner", "-loglevel", "error"]
-    # Bei copy-Mode input-seek für keyframe-genaues, schnelles Cut
-    if clip.mode == "copy":
+    reencode = _needs_reencode(clip, output)
+    # Bei copy-Mode OHNE Filter: schnelles verlustfreies Schneiden
+    if not reencode:
         args = base + [
             "-ss", f"{clip.src_start:.3f}",
             "-to", f"{clip.src_end:.3f}",
@@ -156,10 +180,19 @@ async def _build_clip(
             args += ["-crf", str(output.crf)]
         if scale_vf:
             args += ["-vf", scale_vf]
+        # Audio-Teil: komplette Stummschaltung via -an, sonst Codec +
+        # Bitrate + optionale Filterkette (Mono/loudnorm).
+        audio_args: list[str] = []
+        if output.audio_mute:
+            audio_args += ["-an"]
+        else:
+            audio_args += ["-c:a", output.audio_codec, "-b:a", output.audio_bitrate]
+            chain = _audio_filter_chain(output)
+            if chain:
+                audio_args += ["-af", chain]
         args += [
             "-pix_fmt", "yuv420p",
-            "-c:a", output.audio_codec,
-            "-b:a", output.audio_bitrate,
+            *audio_args,
             "-progress", "pipe:1", "-nostats",
             str(dest),
         ]

@@ -55,6 +55,12 @@ class OutputProfile(BaseModel):
     container: Container = "mp4"
     audio_codec: Literal["aac", "mp3", "opus", "copy"] = "aac"
     audio_bitrate: str = "160k"
+    # Audio-Filter. Greifen nur bei reencode -- wenn mindestens einer
+    # davon aktiv ist, zwingen wir den Clip auf reencode (copy kann
+    # keine Filter anwenden).
+    audio_normalize: bool = False   # EBU R128 loudnorm
+    audio_mono: bool = False        # Stereo -> Mono mischen
+    audio_mute: bool = False        # Tonspur komplett stumm
 
     @field_validator("resolution")
     @classmethod
