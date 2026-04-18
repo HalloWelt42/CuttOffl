@@ -384,6 +384,13 @@ async function demonstrateCut() {
     await new Promise((r) => setTimeout(r, 150));
   }
   if (!editor.edl) return;
+
+  // Falls der Timeline-Schritt vorher noch einen Range-Preview
+  // abspielen lässt: sofort stoppen. Sonst läuft das Video während
+  // der Cut-Animation weiter und reißt Playhead + Aufmerksamkeit
+  // mit sich.
+  stopPreview();
+
   // Alten Demo-Clip raus, damit die Animation wirklich jedes Mal
   // sichtbar passiert -- auch beim zweiten oder dritten Durchlauf.
   resetDemoTimeline();
@@ -396,40 +403,45 @@ async function demonstrateCut() {
   const start = Math.max(0, Math.min(DEMO_CLIP_START, Math.max(0, end - 5)));
   const w = (ms) => new Promise((r) => setTimeout(r, ms));
 
+  // Schrittweise, step by step. Die Pausen geben jedem Klick /
+  // jeder Bewegung Zeit, wahrgenommen zu werden. Gesamt ca. 18-20
+  // Sekunden -- der Schritt-Audio ist etwa so lang.
+
   // Phase 1: Spotlight auf Timeline (Playhead-Bereich), Playhead
   // sichtbar auf Start-Position fahren.
   focusOn('[data-tour="editor-timeline"]');
   seek(start);
-  await w(1500);
+  await w(2000);
 
-  // Phase 2: Spotlight wandert zum "Start"-Button, dann klicken.
+  // Phase 2: Spotlight wandert zum "Start"-Button -- kurz bevor er
+  // geklickt wird, damit der User merkt: jetzt kommt der Klick.
   focusOn('[data-tour="editor-setin"]');
-  await w(700);
+  await w(1100);
   document.querySelector('[data-tour="editor-setin"]')?.click();
-  await w(900);
+  await w(1200);
 
-  // Phase 3: Spotlight zurück auf die Timeline -- Playhead wandert
-  // in mehreren Schritten zum Ende. So sieht der User die Zeit
-  // verstreichen, nicht einen harten Sprung.
+  // Phase 3: Spotlight zurück auf die Timeline, Playhead wandert
+  // in kleinen Schritten zum Ende.
   focusOn('[data-tour="editor-timeline"]');
   const steps = 4;
   const stepDur = (end - start) / steps;
   for (let i = 1; i <= steps; i++) {
     seek(start + stepDur * i);
-    await w(600);
+    await w(650);
   }
+  await w(500);
 
   // Phase 4: Spotlight auf "Ende"-Button, dann klicken.
   focusOn('[data-tour="editor-setout"]');
-  await w(700);
+  await w(1100);
   document.querySelector('[data-tour="editor-setout"]')?.click();
-  await w(900);
+  await w(1200);
 
   // Phase 5: Spotlight auf "+ Clip übernehmen"-Button, dann Commit.
   focusOn('[data-tour="editor-addclip"]');
-  await w(700);
+  await w(1100);
   document.querySelector('[data-tour="editor-addclip"]')?.click();
-  await w(900);
+  await w(1100);
 
   // Phase 6: Spotlight auf die Timeline insgesamt -- der neue Clip
   // liegt jetzt sichtbar als Bereich drin.
