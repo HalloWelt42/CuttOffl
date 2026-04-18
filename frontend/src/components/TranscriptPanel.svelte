@@ -243,12 +243,15 @@
           <i class="fa-solid fa-chevron-down"></i>
         </button>
       {/if}
-      <button class="btn btn-sm" class:is-on={editor.transcriptFollowOn}
+      <button class="btn btn-sm follow-btn" class:is-on={editor.transcriptFollowOn}
               onclick={toggleTranscriptFollow}
               title={editor.transcriptFollowOn
-                ? 'Mitlaufen beim Abspielen ist an. Die Liste scrollt zur aktuellen Stelle.'
-                : 'Mitlaufen ist aus. Du scrollst frei.'}>
-        <i class="fa-solid fa-location-crosshairs"></i>
+                ? 'Mitlaufen beim Abspielen ist AN. Liste scrollt zur aktuellen Stelle. Klick: ausschalten.'
+                : 'Mitlaufen ist AUS. Du scrollst frei. Klick: einschalten.'}>
+        <i class="fa-solid
+                    {editor.transcriptFollowOn
+                      ? 'fa-location-crosshairs'
+                      : 'fa-circle-dot'}"></i>
       </button>
       {#if t?.has_transcript}
         <a class="btn btn-sm" href={api.transcriptSrtUrl(editor.fileId)} download
@@ -393,6 +396,15 @@
     color: var(--danger);
     border-color: color-mix(in oklab, var(--danger) 40%, var(--border));
   }
+
+  /* Follow-Toggle: klar sichtbarer Zustand. Aktiv = Akzentbrille,
+     inaktiv = gedaempfter Ring mit Punkt. */
+  .follow-btn i { color: var(--fg-muted); }
+  .follow-btn.is-on {
+    background: var(--accent-soft);
+    border-color: var(--accent);
+  }
+  .follow-btn.is-on i { color: var(--accent); }
 
   .segs {
     list-style: none; padding: 6px 0; margin: 0;

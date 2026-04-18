@@ -14,20 +14,23 @@ und Proxy-Job -- damit ist das Resultat sofort wieder schnittbar.
 
 from __future__ import annotations
 
+import io
 import json
 import logging
 import re
 import shutil
 import uuid
+import zipfile
 from pathlib import Path
 
 from fastapi import APIRouter, HTTPException
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, Response
 from pydantic import BaseModel
 
 from app.config import ORIGINALS_DIR
 from app.db import db
 from app.routers.ws import broadcaster as ws_broadcaster
+from app.services import transcribe_service as tx
 from app.services.folder_service import FolderError, normalize as normalize_folder
 from app.services.job_service import job_service
 from app.services.probe_service import probe_file, summarize
@@ -78,15 +81,16 @@ def _display_name_for(project_name: str | None,
 async def list_exports() -> list[dict]:
     rows = await db.fetch_all(
         """
-        SELECT j.id            AS job_id,
-               j.status         AS status,
-               j.project_id     AS project_id,
-               j.file_id        AS file_id,
-               j.result_path    AS result_path,
-               j.created_at     AS created_at,
-               j.updated_at     AS updated_at,
-               p.name           AS project_name,
-               f.original_name  AS source_name
+        SELECT j.id              AS job_id,
+               j.status           AS status,
+               j.project_id       AS project_id,
+               j.file_id          AS file_id,
+               j.result_path      AS result_path,
+               j.created_at       AS created_at,
+               j.updated_at       AS updated_at,
+               p.name             AS project_name,
+               f.original_name    AS source_name,
+               f.transcript_path  AS source_transcript_path
         FROM jobs j
         LEFT JOIN projects p ON p.id = j.project_id
         LEFT JOIN files    f ON f.id = j.file_id
@@ -112,6 +116,8 @@ async def list_exports() -> list[dict]:
             r["project_name"], r["source_name"], r["updated_at"], suffix,
             clip_id=clip_id,
         )
+        stp = r["source_transcript_path"]
+        has_transcript = bool(stp and Path(stp).exists())
         result.append({
             "job_id": r["job_id"],
             "project_id": r["project_id"],
@@ -123,6 +129,10 @@ async def list_exports() -> list[dict]:
             "result_path": p,
             "exists": exists,
             "size_bytes": size,
+            # Bundle / CC-Download ist moeglich, wenn die Quelldatei
+            # ein Transkript hat -- die Export-SRT wird on-the-fly
+            # aus der EDL des Projekts umgerechnet.
+            "has_transcript": has_transcript,
             "created_at": r["created_at"],
             "updated_at": r["updated_at"],
         })
@@ -157,6 +167,145 @@ async def download_export(job_id: str):
         clip_id=clip_id,
     )
     return FileResponse(path, media_type=media, filename=display)
+
+
+async def _build_export_segments(job_id: str) -> tuple[list[dict], str]:
+    """Holt Original-Transkript, Projekt-EDL und Clip-ID aus dem Job,
+    bildet das Ergebnis auf die Export-Zeitachse ab. Gibt (segments,
+    stem) zurueck -- stem ist der lesbare Dateiname ohne Endung.
+
+    Wirft HTTPException mit klarer Meldung, wenn das Quelltranskript
+    fehlt oder das Projekt nicht auflösbar ist.
+    """
+    row = await db.fetch_one(
+        """SELECT j.result_path, j.updated_at, j.project_id,
+                  p.edl_json, p.name AS project_name,
+                  f.original_name AS source_name,
+                  f.transcript_path AS source_transcript
+           FROM jobs j
+           LEFT JOIN projects p ON p.id = j.project_id
+           LEFT JOIN files    f ON f.id = p.source_file_id
+           WHERE j.id = ? AND j.kind = 'render'""",
+        (job_id,),
+    )
+    if row is None:
+        raise HTTPException(status_code=404, detail="Render-Job nicht gefunden")
+    stp = row["source_transcript"]
+    if not stp or not Path(stp).exists():
+        raise HTTPException(
+            status_code=404,
+            detail="Keine Untertitel verfügbar (Quelldatei hat kein Transkript)",
+        )
+    try:
+        srt_text = Path(stp).read_text(encoding="utf-8")
+    except OSError as e:
+        raise HTTPException(status_code=500, detail=f"Transkript nicht lesbar: {e}")
+    original_segments = tx.parse_srt(srt_text)
+
+    # EDL aus dem Projekt
+    try:
+        edl_data = json.loads(row["edl_json"] or "{}")
+    except Exception:
+        edl_data = {}
+    clips = edl_data.get("timeline") or []
+
+    # Einzel-Clip-Export? Dateiname-Stem "<jobhex>-clip-<id>"
+    rp = row["result_path"] or ""
+    stem_on_disk = Path(rp).stem if rp else ""
+    m = re.match(r"^[0-9a-f]{32}-clip-(.+)$", stem_on_disk)
+    clip_id = m.group(1) if m else None
+
+    segs = tx.remap_segments_for_edl(
+        original_segments, clips, clip_id=clip_id,
+    )
+    # Lesbarer Stem fuer Download-Dateinamen
+    suffix = Path(rp).suffix if rp else ".mp4"
+    display = _display_name_for(
+        row["project_name"], row["source_name"], row["updated_at"], suffix,
+        clip_id=clip_id,
+    )
+    stem = display.rsplit(".", 1)[0]
+    return segs, stem
+
+
+@router.get("/{job_id}/transcript.srt")
+async def export_transcript_srt(job_id: str):
+    segs, stem = await _build_export_segments(job_id)
+    content = tx.segments_to_srt(segs)
+    return Response(
+        content=content,
+        media_type="application/x-subrip",
+        headers={"Content-Disposition": f'attachment; filename="{stem}.srt"'},
+    )
+
+
+@router.get("/{job_id}/transcript.vtt")
+async def export_transcript_vtt(job_id: str):
+    segs, stem = await _build_export_segments(job_id)
+    content = tx.segments_to_vtt(segs)
+    return Response(
+        content=content,
+        media_type="text/vtt; charset=utf-8",
+        headers={"Content-Disposition": f'attachment; filename="{stem}.vtt"'},
+    )
+
+
+@router.get("/{job_id}/bundle.zip")
+async def export_bundle(job_id: str):
+    """ZIP mit Export-Video + SRT + VTT, falls die Quelle ein Transkript
+    hat. Ohne Transkript: nur das Video im ZIP."""
+    row = await db.fetch_one(
+        """SELECT j.result_path, j.updated_at, j.project_id,
+                  p.edl_json, p.name AS project_name,
+                  f.original_name AS source_name,
+                  f.transcript_path AS source_transcript
+           FROM jobs j
+           LEFT JOIN projects p ON p.id = j.project_id
+           LEFT JOIN files    f ON f.id = p.source_file_id
+           WHERE j.id = ? AND j.kind = 'render'""",
+        (job_id,),
+    )
+    if row is None:
+        raise HTTPException(status_code=404, detail="Render-Job nicht gefunden")
+    rp = row["result_path"]
+    if not rp or not Path(rp).exists():
+        raise HTTPException(status_code=410, detail="Datei nicht mehr vorhanden")
+    video = Path(rp)
+    stem_on_disk = video.stem
+    m = re.match(r"^[0-9a-f]{32}-clip-(.+)$", stem_on_disk)
+    clip_id = m.group(1) if m else None
+    display = _display_name_for(
+        row["project_name"], row["source_name"], row["updated_at"], video.suffix,
+        clip_id=clip_id,
+    )
+    stem = display.rsplit(".", 1)[0]
+
+    buf = io.BytesIO()
+    with zipfile.ZipFile(buf, "w", zipfile.ZIP_STORED, allowZip64=True) as zf:
+        zf.write(video, arcname=display)
+        stp = row["source_transcript"]
+        if stp and Path(stp).exists():
+            try:
+                srt_text = Path(stp).read_text(encoding="utf-8")
+                original_segments = tx.parse_srt(srt_text)
+                try:
+                    edl_data = json.loads(row["edl_json"] or "{}")
+                except Exception:
+                    edl_data = {}
+                clips = edl_data.get("timeline") or []
+                export_segs = tx.remap_segments_for_edl(
+                    original_segments, clips, clip_id=clip_id,
+                )
+                zf.writestr(f"{stem}.srt", tx.segments_to_srt(export_segs))
+                zf.writestr(f"{stem}.vtt", tx.segments_to_vtt(export_segs))
+            except OSError:
+                pass
+    buf.seek(0)
+    return Response(
+        content=buf.getvalue(),
+        media_type="application/zip",
+        headers={"Content-Disposition": f'attachment; filename="{stem}.zip"'},
+    )
 
 
 @router.post("/{job_id}/import-to-library")

@@ -744,6 +744,63 @@ def segments_to_vtt(segments: list[dict]) -> str:
     return "\n".join(lines)
 
 
+def remap_segments_for_edl(
+    segments: list[dict],
+    edl_clips: list[dict],
+    clip_id: Optional[str] = None,
+) -> list[dict]:
+    """Rechnet Original-Segmente auf die Zeitachse eines EDL-Exports um.
+
+    edl_clips ist eine Liste mit Dicts oder Pydantic-Objekten, die die
+    Felder ``src_start``, ``src_end`` und ``id`` haben. Wenn ``clip_id``
+    gesetzt ist, werden nur die Segmente des entsprechenden Clips
+    geliefert (Einzel-Clip-Export). Sonst werden alle Clips in Timeline-
+    Reihenfolge aneinandergehaengt und die Segmente auf den jeweiligen
+    Export-Offset gemapped.
+
+    Segmente, die an Clip-Grenzen liegen, werden zugeschnitten -- das
+    Start- oder End-Timing kann dadurch kuerzer werden als im Original.
+    """
+    def _get(clip, key, default=None):
+        if isinstance(clip, dict):
+            return clip.get(key, default)
+        return getattr(clip, key, default)
+
+    clips = list(edl_clips or [])
+    if clip_id:
+        clips = [c for c in clips if _get(c, "id") == clip_id]
+
+    out: list[dict] = []
+    offset = 0.0
+    for clip in clips:
+        c_start = float(_get(clip, "src_start", 0.0) or 0.0)
+        c_end   = float(_get(clip, "src_end", 0.0) or 0.0)
+        if c_end <= c_start:
+            continue
+        for s in segments:
+            try:
+                ss = float(s.get("start", 0.0))
+                se = float(s.get("end", 0.0))
+            except (TypeError, ValueError):
+                continue
+            if se <= c_start or ss >= c_end:
+                continue
+            eff_s = max(ss, c_start)
+            eff_e = min(se, c_end)
+            if eff_e <= eff_s:
+                continue
+            text = (s.get("text") or "").strip()
+            if not text:
+                continue
+            out.append({
+                "start": offset + (eff_s - c_start),
+                "end":   offset + (eff_e - c_start),
+                "text":  text,
+            })
+        offset += c_end - c_start
+    return out
+
+
 def parse_srt(content: str) -> list[dict]:
     """Liest SRT zurueck in Segmente. Toleriert CRLF und leere Blocks."""
     segs: list[dict] = []

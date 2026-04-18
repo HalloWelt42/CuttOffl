@@ -921,15 +921,18 @@
                         <i class="fa-solid fa-folder-tree"></i>
                         <span class="sm-hide">Verschieben</span>
                       </button>
+                      <a class="btn" href={api.fileDownloadUrl(f.id)} download
+                         title="Nur das Video herunterladen">
+                        <i class="fa-solid fa-download"></i>
+                      </a>
                       {#if f.has_transcript}
+                        <a class="btn" href={api.transcriptSrtUrl(f.id)} download
+                           title="Nur Untertitel als SRT herunterladen (für WebVTT siehe Editor-Panel)">
+                          <i class="fa-solid fa-closed-captioning"></i>
+                        </a>
                         <a class="btn" href={api.fileBundleUrl(f.id)} download
                            title="Video + Untertitel (SRT & VTT) als ZIP herunterladen">
                           <i class="fa-solid fa-file-zipper"></i>
-                        </a>
-                      {:else}
-                        <a class="btn" href={api.fileDownloadUrl(f.id)} download
-                           title="Original-Datei herunterladen">
-                          <i class="fa-solid fa-download"></i>
                         </a>
                       {/if}
                       <button class="btn" onclick={() => onRegenProxy(f)}
@@ -1021,15 +1024,18 @@
                                 title="Verschieben">
                           <i class="fa-solid fa-folder-tree"></i>
                         </button>
+                        <a class="btn btn-sm" href={api.fileDownloadUrl(f.id)} download
+                           title="Nur Video herunterladen">
+                          <i class="fa-solid fa-download"></i>
+                        </a>
                         {#if f.has_transcript}
-                          <a class="btn btn-sm" href={api.fileBundleUrl(f.id)} download
-                             title="Video + Untertitel als ZIP herunterladen">
-                            <i class="fa-solid fa-file-zipper"></i>
+                          <a class="btn btn-sm" href={api.transcriptSrtUrl(f.id)} download
+                             title="Nur Untertitel (SRT)">
+                            <i class="fa-solid fa-closed-captioning"></i>
                           </a>
-                        {:else}
-                          <a class="btn btn-sm" href={api.fileDownloadUrl(f.id)} download
-                             title="Download">
-                            <i class="fa-solid fa-download"></i>
+                          <a class="btn btn-sm" href={api.fileBundleUrl(f.id)} download
+                             title="Video + Untertitel als ZIP">
+                            <i class="fa-solid fa-file-zipper"></i>
                           </a>
                         {/if}
                         <button class="btn btn-sm btn-danger" onclick={() => onDelete(f)}

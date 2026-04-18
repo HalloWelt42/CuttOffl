@@ -209,6 +209,9 @@ export const api = {
   // Exports
   listExports: () => request('/exports'),
   exportDownloadUrl: (jobId) => `${BASE}/exports/${jobId}/download`,
+  exportBundleUrl:   (jobId) => `${BASE}/exports/${jobId}/bundle.zip`,
+  exportTranscriptSrtUrl: (jobId) => `${BASE}/exports/${jobId}/transcript.srt`,
+  exportTranscriptVttUrl: (jobId) => `${BASE}/exports/${jobId}/transcript.vtt`,
   deleteExport: (jobId) => request(`/exports/${jobId}`, { method: 'DELETE' }),
   importExportToLibrary: (jobId, folder_path = '', rename = null) =>
     request(`/exports/${jobId}/import-to-library`, {

@@ -137,11 +137,25 @@
                       title="Dieses Video als neue Quelle in die Bibliothek aufnehmen (kopiert die Datei)">
                 <i class="fa-solid fa-right-to-bracket"></i>
               </button>
-              <a class="btn btn-primary" href={api.exportDownloadUrl(ex.job_id)} download
-                 class:disabled={!ex.exists}
-                 title="Dieses Video herunterladen">
-                <i class="fa-solid fa-download"></i> Download
-              </a>
+              {#if ex.has_transcript}
+                <!-- CC-Direkt-Download: SRT (VTT-Variante als Title-Hint) -->
+                <a class="btn" href={api.exportTranscriptSrtUrl(ex.job_id)} download
+                   class:disabled={!ex.exists}
+                   title="Nur Untertitel (SRT) für diesen Schnitt herunterladen -- mit neuer Zeitachse. Für WebVTT siehe bundle.zip.">
+                  <i class="fa-solid fa-closed-captioning"></i>
+                </a>
+                <a class="btn btn-primary" href={api.exportBundleUrl(ex.job_id)} download
+                   class:disabled={!ex.exists}
+                   title="Video + Untertitel (SRT & VTT) als ZIP herunterladen -- Zeiten auf den Schnitt angepasst">
+                  <i class="fa-solid fa-file-zipper"></i> Download
+                </a>
+              {:else}
+                <a class="btn btn-primary" href={api.exportDownloadUrl(ex.job_id)} download
+                   class:disabled={!ex.exists}
+                   title="Dieses Video herunterladen">
+                  <i class="fa-solid fa-download"></i> Download
+                </a>
+              {/if}
               <button class="btn btn-danger" onclick={() => onDelete(ex)}
                       title="Dieses gerenderte Video endgültig entfernen">
                 <i class="fa-solid fa-trash"></i>
