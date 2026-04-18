@@ -241,7 +241,8 @@ class JobService:
     async def _process_proxy(self, job: Job) -> None:
         assert job.file_id, "proxy-Job benötigt file_id"
         row = await db.fetch_one(
-            "SELECT path, duration_s, fps FROM files WHERE id = ?", (job.file_id,)
+            "SELECT path, duration_s, fps, video_codec FROM files WHERE id = ?",
+            (job.file_id,),
         )
         if row is None:
             raise RuntimeError("Datei nicht gefunden")
@@ -273,6 +274,7 @@ class JobService:
             dest=dest,
             duration_s=row["duration_s"],
             fps=row["fps"],
+            source_codec=row["video_codec"],
             progress_cb=on_progress,
         )
         job.result_path = str(dest)
