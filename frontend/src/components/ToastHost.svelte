@@ -29,7 +29,9 @@
     display: flex;
     flex-direction: column;
     gap: 8px;
-    z-index: 1000;
+    /* Muss über allen Dialogen, Tours und Overlays liegen -- sonst
+       wird der Schließen-Knopf abgedeckt und ist nicht erreichbar. */
+    z-index: 10000;
     pointer-events: none;
   }
   .toast {
