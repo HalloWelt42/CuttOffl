@@ -135,7 +135,7 @@ class PathsBody(BaseModel):
 
 @router.get("/system/paths")
 async def system_paths() -> dict:
-    """Gibt aktuell aktive und persistierte Pfade zurueck."""
+    """Gibt aktuell aktive und persistierte Pfade zurück."""
     data = uc.load()
     return {
         "active": {
@@ -153,7 +153,7 @@ async def system_paths() -> dict:
         "note": (
             "Aenderungen werden persistiert, aber erst nach einem Neustart "
             "des Backends wirksam. Bereits vorhandene Dateien bleiben am "
-            "alten Ort -- sie muessen bei Bedarf manuell uebertragen werden."
+            "alten Ort -- sie müssen bei Bedarf manuell übertragen werden."
         ),
     }
 
@@ -161,7 +161,7 @@ async def system_paths() -> dict:
 @router.put("/system/paths")
 async def set_system_paths(body: PathsBody) -> dict:
     """Speichert neue Pfade. Validiert jeden gegen Existenz, is_dir und
-    Schreibrecht. Ein leerer String setzt den jeweiligen Override zurueck
+    Schreibrecht. Ein leerer String setzt den jeweiligen Override zurück
     auf den Default.
     """
     current = uc.load()

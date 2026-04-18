@@ -5,9 +5,9 @@
 
   const jobs = $state({ map: new Map() });
 
-  // Laien-verstaendliche Bezeichnung pro Job-Typ. Die rohen kinds
+  // Laien-verständliche Bezeichnung pro Job-Typ. Die rohen kinds
   // (proxy, thumbnail, sprite, ...) sind Entwickler-Jargon und
-  // gehoeren nicht in die UI.
+  // gehören nicht in die UI.
   const KIND_INFO = {
     proxy:      { label: 'Vorschau-Video wird erstellt',  icon: 'fa-film' },
     thumbnail:  { label: 'Vorschaubild wird erzeugt',     icon: 'fa-image' },
@@ -44,8 +44,8 @@
 </script>
 
 <div class="bar mono">
-  <!-- LEDs fuer alle Dienste, die ausfallen koennen. Ersetzt die
-       frueher einzelne "verbunden"-Anzeige, die nur den WebSocket
+  <!-- LEDs für alle Dienste, die ausfallen können. Ersetzt die
+       früher einzelne "verbunden"-Anzeige, die nur den WebSocket
        bedeutete und bei Backend- oder Transkriptions-Ausfall nichts
        sagte. -->
   <StatusLeds />

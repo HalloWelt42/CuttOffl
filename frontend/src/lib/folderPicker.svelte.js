@@ -1,6 +1,6 @@
 // Ordner-Picker als Promise-basiertes Overlay.
-// Laedt den Ordnerbaum ueber /api/folders und laesst den User einen
-// bestehenden Ordner oder die Basis (oberste Ebene) waehlen.
+// Lädt den Ordnerbaum über /api/folders und lässt den User einen
+// bestehenden Ordner oder die Basis (oberste Ebene) wählen.
 // Neuanlegen per Eingabe.
 
 let _resolve = null;
@@ -9,7 +9,7 @@ export const folderPicker = $state({
   open: false,
   title: 'Ordner wählen',
   currentPath: '',
-  // Fuer die Vormerkung waehrend der Auswahl
+  // Für die Vormerkung während der Auswahl
   selected: '',
 });
 

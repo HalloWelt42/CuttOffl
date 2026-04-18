@@ -23,7 +23,7 @@
   let uploadPct = $state(0);
   let fileInput;
 
-  // Tag-Editor (Popover): gleichzeitig nur eines geoeffnet.
+  // Tag-Editor (Popover): gleichzeitig nur eines geöffnet.
   let tagEditorFor = $state(null);        // file_id oder null
   let tagEditorAnchor = $state(null);     // Ankerelement
   function openTagEditor(ev, f) {
@@ -63,7 +63,7 @@
   );
 
   // Sortieroptionen für das Dropdown (Label passt zur Ansicht)
-  // Aktive Filter als strukturierte Liste fuer die Chip-Anzeige.
+  // Aktive Filter als strukturierte Liste für die Chip-Anzeige.
   // So sieht der User auf einen Blick welche Filter greifen und kann
   // sie einzeln per X entfernen.
   const activeFilters = $derived.by(() => {

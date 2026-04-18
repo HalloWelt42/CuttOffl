@@ -17,15 +17,15 @@
   } from '../lib/editor.svelte.js';
   import TranscriptPanel from '../components/TranscriptPanel.svelte';
 
-  // Zoom-Presets fuer die Timeline. Die Werte in px/Sekunde sind so
-  // gewaehlt, dass typische Schnitt-Szenarien direkt ansteuerbar sind:
-  //   Übersicht    : 10 px/s  -- sieht lange Videos am Stueck
+  // Zoom-Presets für die Timeline. Die Werte in px/Sekunde sind so
+  // gewählt, dass typische Schnitt-Szenarien direkt ansteuerbar sind:
+  //   Übersicht    : 10 px/s  -- sieht lange Videos am Stück
   //   Standard     : 40 px/s  -- Default, allgemein nutzbar
   //   Genauer      : 80 px/s
   //   Frame-nah    : 160 px/s
   //   Frame-genau  : 320 px/s -- nahe am Maximum (400)
   // "Gesamt" passt den Zoom so an, dass das komplette Video ins Panel
-  // passt -- nuetzlich bei sehr langen Quellen.
+  // passt -- nützlich bei sehr langen Quellen.
   const ZOOM_PRESETS = [
     { v: 10,  label: 'Übersicht' },
     { v: 40,  label: 'Standard' },
@@ -34,7 +34,7 @@
     { v: 320, label: 'Frame-genau' },
   ];
 
-  let timelineWidthPx = $state(800);   // wird fuer "Gesamt" genutzt
+  let timelineWidthPx = $state(800);   // wird für "Gesamt" genutzt
 
   function zoomFitAll() {
     const dur = editor.duration || 1;
@@ -484,7 +484,7 @@
           </button>
           <label class="btn-toggle" class:is-on={editor.snapOn}
                  title={editor.snapOn
-                   ? 'Keyframe-Magnet ist aktiv. Die Schnittmarken (In/Out) rasten automatisch auf den naechstliegenden Keyframe ein. Der Clip wird beim Rendern verlustfrei kopiert (Modus: copy).'
+                   ? 'Keyframe-Magnet ist aktiv. Die Schnittmarken (In/Out) rasten automatisch auf den nächstliegenden Keyframe ein. Der Clip wird beim Rendern verlustfrei kopiert (Modus: copy).'
                    : 'Keyframe-Magnet ist aus. Schnittmarken bleiben auf der exakten Zeitposition stehen. Der Clip wird beim Rendern neu kodiert (Modus: reencode).'}>
             <input type="checkbox" checked={editor.snapOn}
                    onchange={(e) => setSnap(e.target.checked)} />
@@ -501,8 +501,8 @@
             Timeline folgt
           </label>
 
-          <!-- Zoom-Presets fuer die Timeline -->
-          <span class="zoom-wrap" title="Timeline-Zoom (auch mit Cmd/Ctrl + Mausrad ueber der Timeline)">
+          <!-- Zoom-Presets für die Timeline -->
+          <span class="zoom-wrap" title="Timeline-Zoom (auch mit Cmd/Ctrl + Mausrad über der Timeline)">
             <i class="fa-solid fa-magnifying-glass zoom-ico"></i>
             <select class="zoom-select"
                     value={String(editor.timelineZoom)}
@@ -667,7 +667,7 @@
   .group:last-child { border-right: none; }
   .group.right { margin-left: auto; font-size: 12px; color: var(--fg-muted); }
   /* Button-Klassen kommen global aus app.css. Hier nur noch kontext-spezifische
-     Ergaenzungen (z.B. kleine Timecodes innerhalb eines Buttons). */
+     Ergänzungen (z.B. kleine Timecodes innerhalb eines Buttons). */
   .btn .t { font-size: 11px; color: var(--fg-primary); margin-left: 4px; }
   .btn .small { font-size: 10px; opacity: 0.8; padding-left: 4px; }
   .t { font-size: 11px; color: var(--fg-primary); }

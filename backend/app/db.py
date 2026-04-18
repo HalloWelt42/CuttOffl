@@ -77,7 +77,7 @@ SCHEMA: tuple[str, ...] = (
     "CREATE INDEX IF NOT EXISTS idx_files_folder_path ON files(folder_path)",
     # Tags: JSON-Array normierter Tag-Strings. Leerer Array = '[]'.
     "ALTER TABLE files ADD COLUMN tags_json TEXT NOT NULL DEFAULT '[]'",
-    # SHA-256 der Originaldatei (Hex, 64 Zeichen). Fuer Duplikat-Erkennung.
+    # SHA-256 der Originaldatei (Hex, 64 Zeichen). Für Duplikat-Erkennung.
     "ALTER TABLE files ADD COLUMN sha256 TEXT",
     "CREATE INDEX IF NOT EXISTS idx_files_sha256 ON files(sha256)",
     # Transkription: Pfad zur SRT-Datei, erkannte Sprache, verwendetes

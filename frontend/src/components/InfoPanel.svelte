@@ -1,9 +1,9 @@
 <script>
   // Kontextabhaengiges Hilfe-Panel. Inhalt wechselt je nach aktiver View:
-  // im Editor gibt es Tastaturkuerzel, in der Bibliothek Hinweise zu
-  // Ordnern und Drag & Drop, im Export die Erklaerung zum Zurueckschicken
+  // im Editor gibt es Tastaturkürzel, in der Bibliothek Hinweise zu
+  // Ordnern und Drag & Drop, im Export die Erklärung zum Zurückschicken
   // in die Bibliothek, usw. Das Fenster ist frei verschiebbar und
-  // schaltbar ueber den Sidebar-Eintrag "Info".
+  // schaltbar über den Sidebar-Eintrag "Info".
 
   import FloatingPanel from './FloatingPanel.svelte';
   import { infoPanel, closeInfo, persistInfoGeometry } from '../lib/panels.svelte.js';

@@ -127,13 +127,13 @@
     }
 
     // Thumbnails bleiben immer in ihrem nativen Seitenverhaeltnis --
-    // Hoehe = Bandhoehe, Breite = destH * tile-Aspect. Kein Strecken,
+    // Höhe = Bandhöhe, Breite = destH * tile-Aspect. Kein Strecken,
     // kein Stauchen.
     const destH = FILM_H;
     const destW = Math.max(1, Math.round(destH * (meta.tile_w / meta.tile_h)));
 
     // Jedes Tile deckt meta.interval Sekunden ab, also tilePx Pixel in
-    // der Timeline. Damit die Bilder sich nicht ueberlappen, ueber-
+    // der Timeline. Damit die Bilder sich nicht ueberlappen, über-
     // springen wir Tiles, sobald destW > tilePx -- z. B. jedes zweite
     // oder dritte. Bei starkem Zoom-In, wenn tilePx >> destW, bleiben
     // Luecken zwischen den Bildern (natuerlich, kein Strecken). Eine
@@ -280,7 +280,7 @@
     return `${m}:${String(Math.floor(s)).padStart(2, '0')}`;
   }
 
-  // Re-render bei Zustandsaenderungen
+  // Re-render bei Zustandsänderungen
   $effect(() => {
     editor.playhead; editor.duration; editor.keyframes;
     editor.edl?.timeline; editor.selectedClipId; editor.playingClipId;
@@ -291,7 +291,7 @@
 
   // Auto-Follow: smoothes Mitlaufen. Ab 2/3 von links wird sanft nachgezogen;
   // wenn der Playhead abrupt (z.B. via Seek) weit rausspringt, wird er geholt.
-  // userInteracting pausiert Follow fuer 500ms nach Scroll/Drag/Wheel.
+  // userInteracting pausiert Follow für 500ms nach Scroll/Drag/Wheel.
   let userInteracting = $state(false);
   let followPauseTimer = 0;
   let rafId = 0;
@@ -330,16 +330,16 @@
       scrollX = target;
     } else if (curLead > anchor) {
       // Sobald der Playhead die Anker-Linie (1/3) passiert hat, ziehen
-      // wir kontinuierlich mit. Frueher wurde erst ab 2/3 nachgezogen,
+      // wir kontinuierlich mit. Früher wurde erst ab 2/3 nachgezogen,
       // das erzeugte ein sichtbares Spring-Verhalten. Low easing-Faktor
-      // + Deadzone sorgen dafuer, dass es sanft statt zappelig wirkt.
+      // + Deadzone sorgen dafür, dass es sanft statt zappelig wirkt.
       const delta = target - scrollX;
       if (Math.abs(delta) < 0.3) {
         scrollX = target;
       } else {
-        // Frame-rate-unabhaengiges easing: der Faktor ist so gewaehlt,
-        // dass bei 60 fps ~0.12 pro Frame zurueckgelegt wird -- weich,
-        // aber kein Hinterherhaengen von mehr als einem knappen Frame.
+        // Frame-rate-unabhaengiges easing: der Faktor ist so gewählt,
+        // dass bei 60 fps ~0.12 pro Frame zurückgelegt wird -- weich,
+        // aber kein Hinterherhängen von mehr als einem knappen Frame.
         scrollX += delta * 0.12;
       }
     }
@@ -441,7 +441,7 @@
       const factor = ev.deltaY < 0 ? 1.25 : 0.8;
       pxPerSec = Math.max(4, Math.min(400, pxPerSec * factor));
       scrollX = Math.max(0, focusT * pxPerSec - x);
-      // in den Store spiegeln -- aber ueber setTimelineZoom, damit auch
+      // in den Store spiegeln -- aber über setTimelineZoom, damit auch
       // die Persistenz mitkommt
       setTimelineZoom(pxPerSec);
     } else {

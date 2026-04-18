@@ -1,7 +1,7 @@
 <script>
-  // Ueber-Panel: Projekt-Info, Lizenz und Haftungshinweise. Verhaelt sich
+  // Über-Panel: Projekt-Info, Lizenz und Haftungshinweise. Verhaelt sich
   // wie das Info-Panel (verschiebbar, schaltbar), hat aber dauerhaften
-  // Inhalt. Sidebar-Eintrag "Ueber" oeffnet dieses Fenster.
+  // Inhalt. Sidebar-Eintrag "Ueber" öffnet dieses Fenster.
 
   import FloatingPanel from './FloatingPanel.svelte';
   import { aboutPanel, closeAbout, persistAboutGeometry } from '../lib/panels.svelte.js';

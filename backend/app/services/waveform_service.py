@@ -30,7 +30,7 @@ logger = logging.getLogger(__name__)
 
 
 DEFAULT_SAMPLES_PER_SECOND = 50
-PCM_RATE = 8000  # Hz fuer die Zwischenberechnung (reicht fuer Waveform)
+PCM_RATE = 8000  # Hz für die Zwischenberechnung (reicht für Waveform)
 
 
 async def generate_waveform(

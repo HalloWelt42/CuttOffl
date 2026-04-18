@@ -47,7 +47,7 @@
     box-shadow: var(--shadow-md);
     font-size: 13px;
   }
-  /* Typ-Signal ueber Icon-Farbe, nicht ueber Seitenleiste */
+  /* Typ-Signal über Icon-Farbe, nicht über Seitenleiste */
   .toast > i { font-size: 15px; flex: 0 0 auto; }
   .toast.success > i { color: var(--success); }
   .toast.warning > i { color: var(--warning); }

@@ -1,11 +1,11 @@
 <script>
-  // Inline-Tag-Editor als Popover. Oeffnet sich direkt neben dem
-  // Ausloese-Element, zeigt bestehende Tags als Chips (mit x zum Loeschen),
-  // ein Input-Feld zum Hinzufuegen (Komma oder Enter bestaetigen) und
+  // Inline-Tag-Editor als Popover. Öffnet sich direkt neben dem
+  // Auslöse-Element, zeigt bestehende Tags als Chips (mit x zum Löschen),
+  // ein Input-Feld zum Hinzufügen (Komma oder Enter bestaetigen) und
   // Autocomplete aus allen bereits bekannten Tags.
   //
-  // Speichern passiert direkt bei jeder Aenderung gegen das Backend,
-  // kein separater "Speichern"-Knopf. Schliessen per Esc, Klick ausserhalb
+  // Speichern passiert direkt bei jeder Änderung gegen das Backend,
+  // kein separater "Speichern"-Knopf. Schließen per Esc, Klick ausserhalb
   // oder Return auf leerem Input.
 
   import { onMount } from 'svelte';
@@ -24,10 +24,10 @@
     onChange = () => {},
   } = $props();
 
-  // Snapshot beim Oeffnen ist beabsichtigt: das Popover arbeitet danach
-  // auf seiner eigenen Liste und speichert nach jeder Aenderung zurueck.
+  // Snapshot beim Öffnen ist beabsichtigt: das Popover arbeitet danach
+  // auf seiner eigenen Liste und speichert nach jeder Änderung zurück.
   // Damit kommen Tag-Aktualisierungen ausserhalb (z. B. anderer Nutzer)
-  // erst beim naechsten Oeffnen in diesen Editor -- gewolltes Verhalten.
+  // erst beim nächsten Öffnen in diesen Editor -- gewolltes Verhalten.
   // svelte-ignore state_referenced_locally
   let tags = $state([...initialTags]);
   let draft = $state('');
@@ -65,7 +65,7 @@
       const res = await api.setFileTags(fileId, tags);
       const accepted = res.accepted || [];
       const rejected = res.rejected || [];
-      tags = accepted;   // zurueck in den State, falls Backend weggefiltert hat
+      tags = accepted;   // zurück in den State, falls Backend weggefiltert hat
       if (rejected.length > 0) {
         toast.warn(`Verworfen: ${rejected.join(', ')}`);
       }

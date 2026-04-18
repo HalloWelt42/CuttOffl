@@ -28,7 +28,7 @@ async def extract_keyframes(
 ) -> list[float]:
     """Liest alle Keyframe-Zeitstempel via ffprobe (nur Video-Stream 0).
 
-    Bei grossen Dateien kann das mehrere Sekunden dauern. Progress wird
+    Bei großen Dateien kann das mehrere Sekunden dauern. Progress wird
     auf Basis des aktuell gelesenen Timestamps vs duration_s geschaetzt.
     """
     args = [

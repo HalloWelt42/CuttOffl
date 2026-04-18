@@ -53,7 +53,7 @@ async def generate(file_id: str) -> dict:
 
 @router.get("/{file_id}/snap", response_model=SnapResponse)
 async def snap(file_id: str, t: float, mode: str = "nearest") -> SnapResponse:
-    """Gibt den naechsten Keyframe zum Zeitpunkt t zurueck.
+    """Gibt den nächsten Keyframe zum Zeitpunkt t zurück.
 
     mode: 'nearest' | 'prev' | 'next'
     """

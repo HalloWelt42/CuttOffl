@@ -1,5 +1,5 @@
 <script>
-  // Footer-Status-Leiste: fuer jeden ueberwachten Dienst eine LED mit
+  // Footer-Status-Leiste: für jeden ueberwachten Dienst eine LED mit
   // Farb-Punkt und sprechendem Namen. Beim Hover zeigt der Browser den
   // Detail-Tooltip (title-Attribut). Eine Farbe pro level:
   //   ok      gruen    -- Dienst ist einsatzbereit

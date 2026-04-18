@@ -6,10 +6,10 @@ Endpunkte:
   POST /api/transcription/scan                    Neu scannen (optional extra Pfade)
   GET  /api/transcript/{file_id}                  geparste Segmente (aus SRT)
   GET  /api/transcript/{file_id}.srt              SRT-Datei zum Download
-  DELETE /api/transcript/{file_id}                Transkript loeschen
+  DELETE /api/transcript/{file_id}                Transkript löschen
 
 Der Service ist defensiv geschrieben: Ist kein Whisper-Paket installiert
-oder fehlt jedes Modell, liefert /status eine klare "nicht verfuegbar"-
+oder fehlt jedes Modell, liefert /status eine klare "nicht verfügbar"-
 Antwort. Das Frontend kann daraufhin die Transkriptions-UI ausblenden
 bzw. dem Nutzer den Installations-/Download-Hinweis zeigen.
 """
@@ -54,7 +54,7 @@ async def transcription_status() -> dict:
         "models_found": [asdict(m) for m in caps.models_found],
         "suggested_engine": caps.suggested_engine,
         "suggested_model": caps.suggested_model,
-        # Die tatsaechlich aktive Wahl -- Nutzer-Preference, sonst
+        # Die tatsächlich aktive Wahl -- Nutzer-Preference, sonst
         # suggested_*. Frontend markiert das entsprechende Modell.
         "active_engine": caps.active_engine,
         "active_model": caps.active_model,
@@ -89,9 +89,9 @@ async def transcription_download(body: DownloadRequest) -> dict:
             detail=f"Unbekannte Modellgröße: {model}. "
                    f"Erlaubt: {', '.join(tx.WHISPER_SIZES)}",
         )
-    # Engine muss installiert sein -- sonst koennen wir das Modell zwar
+    # Engine muss installiert sein -- sonst können wir das Modell zwar
     # herunterladen, aber nicht nutzen. Wir lehnen das gleich ab, damit
-    # der User nicht GB laedt, die er nicht einsetzen kann.
+    # der User nicht GB lädt, die er nicht einsetzen kann.
     caps = tx.capabilities(scan=False)
     engine_info = next((e for e in caps.engines if e.name == engine), None)
     if not engine_info or not engine_info.installed:
@@ -110,7 +110,7 @@ async def transcription_download(body: DownloadRequest) -> dict:
 @router.put("/transcription/preference")
 async def set_preference(body: PreferenceRequest) -> dict:
     """Persistiert die Nutzer-Wahl (Engine + Modell). Leerer Body
-    (oder beide Felder None) setzt die Auswahl zurueck auf den
+    (oder beide Felder None) setzt die Auswahl zurück auf den
     automatischen Vorschlag."""
     tx.set_preference(body.engine, body.model)
     caps = tx.capabilities(scan=True)
@@ -134,7 +134,7 @@ async def transcription_scan(body: ScanRequest) -> dict:
     return {"models_found": [asdict(m) for m in models]}
 
 
-# --- Transkript lesen / loeschen ----------------------------------------
+# --- Transkript lesen / löschen ----------------------------------------
 
 async def _file_or_404(file_id: str):
     row = await db.fetch_one(
@@ -150,7 +150,7 @@ async def _file_or_404(file_id: str):
 @router.post("/transcript/{file_id}/generate")
 async def start_transcription(file_id: str, body: GenerateRequest) -> dict:
     """Startet einen Transkriptions-Job. Prüft vorab capabilities; wenn
-    die Engine nicht verfuegbar ist oder kein Modell da ist, gibt es
+    die Engine nicht verfügbar ist oder kein Modell da ist, gibt es
     eine klare 409-Meldung -- kein Crash."""
     row = await db.fetch_one("SELECT id FROM files WHERE id = ?", (file_id,))
     if row is None:
@@ -199,7 +199,7 @@ async def get_transcript_srt(file_id: str):
 
 @router.get("/transcript/{file_id}.vtt")
 async def get_transcript_vtt(file_id: str):
-    """Gleicher Inhalt wie SRT, aber als WebVTT -- praktisch fuer HTML5-
+    """Gleicher Inhalt wie SRT, aber als WebVTT -- praktisch für HTML5-
     Player mit <track kind='captions'>."""
     row = await _file_or_404(file_id)
     p = row["transcript_path"]
@@ -225,7 +225,7 @@ async def get_transcript_vtt(file_id: str):
 @router.get("/transcript/{file_id}")
 async def get_transcript(file_id: str) -> dict:
     """Liefert geparste Segmente + Metadaten. Gibt 204-ish (leere Liste)
-    zurueck, wenn noch kein Transkript da ist -- damit das Frontend
+    zurück, wenn noch kein Transkript da ist -- damit das Frontend
     einfach reagieren kann ohne 404-Toast."""
     row = await _file_or_404(file_id)
     p = row["transcript_path"]

@@ -15,7 +15,7 @@ function coerce(val, allowed, fallback) {
 
 // Filterwerte
 export const STATUS_VALUES = ['all', 'ready', 'processing', 'failed'];
-// Aufloesung: Buckets -- 'all' oder '<=480' (SD), '<=720' (HD), '<=1080' (FHD),
+// Auflösung: Buckets -- 'all' oder '<=480' (SD), '<=720' (HD), '<=1080' (FHD),
 // '<=2160' (4K UHD), '>2160' (mehr als 4K). Buckets by height.
 export const RES_BUCKETS = ['all', 'sd', 'hd', 'fhd', 'uhd', 'above'];
 
@@ -150,7 +150,7 @@ export function filterFiles(files) {
     }
     if (q) {
       // Volltext-Suche matcht Dateiname ODER einen der Tags. So findet
-      // der User Videos sowohl ueber den Namen als auch ueber spontan
+      // der User Videos sowohl über den Namen als auch über spontan
       // vergebene Label-Begriffe.
       const nameHit = (f.original_name || '').toLocaleLowerCase('de').includes(q);
       const tagHit  = (f.tags || []).some(

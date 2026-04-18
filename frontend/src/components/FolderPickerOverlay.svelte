@@ -35,7 +35,7 @@
     if (!clean) return;
     if (/[\/\\:]/.test(clean)) return;
     // Ordner sind virtuell -- Auswahl setzen, der Ordner entsteht beim
-    // naechsten Move/Upload in diesen Pfad. Wir zeigen ihn sofort in der
+    // nächsten Move/Upload in diesen Pfad. Wir zeigen ihn sofort in der
     // Liste.
     const base = folderPicker.selected || '';
     const full = base ? `${base}/${clean}` : clean;

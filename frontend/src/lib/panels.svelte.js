@@ -1,9 +1,9 @@
-// State-Container fuer die beiden verschiebbaren Hilfe-Panels:
+// State-Container für die beiden verschiebbaren Hilfe-Panels:
 // - Info-Panel (kontextabhaengig, Tastatur- und Bedien-Hinweise)
-// - Ueber-Panel (Projekt-Info, Lizenz, Haftung, Danke-Link)
+// - Über-Panel (Projekt-Info, Lizenz, Haftung, Danke-Link)
 //
-// Position und Groesse werden im localStorage persistiert. Beim ersten
-// Oeffnen wird eine sinnvolle Startposition rechts unten im Viewport
+// Position und Größe werden im localStorage persistiert. Beim ersten
+// Öffnen wird eine sinnvolle Startposition rechts unten im Viewport
 // berechnet, damit nichts neben dem sichtbaren Bereich landet.
 
 import { persisted, persist } from './persist.svelte.js';
@@ -62,14 +62,14 @@ export function clampToViewport(p) {
 }
 
 // ---------------------------------------------------------------------------
-// Kontext-Label fuer den Info-Sidebar-Eintrag
+// Kontext-Label für den Info-Sidebar-Eintrag
 // ---------------------------------------------------------------------------
 // Die Hilfe im Info-Panel ist kontextabhaengig -- also soll auch schon der
 // Sidebar-Eintrag zeigen, was sich hinter dem Klick verbirgt. Mapping fuer
 // kurze Sidebar-Labels und den passenden Titel-Text im Panel-Header.
 
 // Kurzbegriffe -- maximal ein Wort, soll den Inhalt zielführend
-// andeuten. Fallback "Info" wenn fuer den View nichts definiert ist.
+// andeuten. Fallback "Info" wenn für den View nichts definiert ist.
 export const INFO_SIDEBAR_LABEL = {
   dashboard: 'Starthilfe',
   library:   'Tipps',
@@ -78,15 +78,15 @@ export const INFO_SIDEBAR_LABEL = {
   settings:  'Hinweise',
 };
 
-/** Gibt das passende Sidebar-Label fuer den aktuellen View zurueck.
- *  Unbekannte Views fallen auf "Info" zurueck -- das Panel hat dort
+/** Gibt das passende Sidebar-Label für den aktuellen View zurück.
+ *  Unbekannte Views fallen auf "Info" zurück -- das Panel hat dort
  *  ohnehin nur einen allgemeinen Hinweistext. */
 export function infoLabelFor(view) {
   const lbl = INFO_SIDEBAR_LABEL[view];
   return lbl || 'Info';
 }
 
-/** Zeigt an, ob es fuer diesen View ein spezifisches Info-Label gibt
+/** Zeigt an, ob es für diesen View ein spezifisches Info-Label gibt
  *  (Sidebar-Eintrag dann akzentuiert) oder der generische "Info"-
  *  Fallback greift (dann grau). */
 export function hasSpecificInfo(view) {

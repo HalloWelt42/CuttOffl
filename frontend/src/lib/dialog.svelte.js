@@ -1,5 +1,5 @@
 // Eigener Dialog-Service -- ersetzt native prompt()/confirm()/alert().
-// Gibt Promises zurueck, aufloesend nach Klick oder Esc/Enter.
+// Gibt Promises zurück, auflösend nach Klick oder Esc/Enter.
 
 let _resolve = null;
 
@@ -8,7 +8,7 @@ export const dialog = $state({
   kind: 'confirm',        // 'confirm' | 'prompt' | 'alert'
   title: '',
   message: '',
-  value: '',              // Vorbelegung fuer prompt
+  value: '',              // Vorbelegung für prompt
   placeholder: '',
   okLabel: 'OK',
   cancelLabel: 'Abbrechen',

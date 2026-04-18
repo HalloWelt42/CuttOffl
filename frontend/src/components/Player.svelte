@@ -52,7 +52,7 @@
   $effect(() => {
     const p = editor.preview;
     if (!videoEl || !p || !p.autoPlay) return;
-    // erst seek abschliessen lassen
+    // erst seek abschließen lassen
     const seekTo = p.start;
     if (Math.abs(videoEl.currentTime - seekTo) > 0.1) {
       videoEl.currentTime = seekTo;
@@ -62,9 +62,9 @@
 
   // HTML5-Video feuert "timeupdate" nur alle ~200 ms -- zu wenig fuer
   // eine smoothe Playhead-Nadel auf der Timeline. Solange das Video
-  // laeuft, holen wir per rAF den exakten currentTime und spiegeln ihn
+  // läuft, holen wir per rAF den exakten currentTime und spiegeln ihn
   // in den Store. Damit bleibt die Nadel synchron zu 60 fps, ohne dass
-  // wir die tatsaechliche Wiedergabe interpolieren muessten.
+  // wir die tatsächliche Wiedergabe interpolieren muessten.
   let smoothRaf = 0;
 
   function smoothTick() {
@@ -153,7 +153,7 @@
         >
           <!-- Leerer captions-Track erfuellt die a11y-Anforderung; die
                echten Untertitel kommen aus dem Transkript und werden als
-               Overlay (.subtitle) gerendert, nicht ueber native tracks. -->
+               Overlay (.subtitle) gerendert, nicht über native tracks. -->
           <track kind="captions" />
         </video>
       {/key}
@@ -216,7 +216,7 @@
     border-bottom: 1px solid var(--border);
   }
   /* Fullscreen: Player fuellt den kompletten Screen. Das Video nimmt den
-     gesamten verfuegbaren Raum bis auf die Controls-Leiste ein (object-fit
+     gesamten verfügbaren Raum bis auf die Controls-Leiste ein (object-fit
      contain behaelt die Aspect Ratio und zeigt ggf. schwarze Letterbox-
      Balken). Controls bleiben sichtbar, damit Preview/Play/Stop im
      Vollbild funktioniert. */
@@ -261,7 +261,7 @@
   }
 
   /* Untertitel-Overlay am unteren Bildrand. Ueberlappt das Video, bleibt
-     zentriert, mit ein bisschen Schwarzschatten fuer Lesbarkeit egal
+     zentriert, mit ein bisschen Schwarzschatten für Lesbarkeit egal
      welcher Hintergrund. */
   .subtitle {
     position: absolute;
@@ -288,7 +288,7 @@
     bottom: 6%;
   }
 
-  /* Aktiver Toggle fuer den CC-Button */
+  /* Aktiver Toggle für den CC-Button */
   .controls .btn.active {
     color: var(--accent);
     border-color: var(--accent);

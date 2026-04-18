@@ -1,5 +1,5 @@
 """
-CuttOffl Backend - Virtuelle Ordner-Hierarchie fuer die Bibliothek.
+CuttOffl Backend - Virtuelle Ordner-Hierarchie für die Bibliothek.
 
 Ordner sind rein logisch: sie werden als Pfad-String je Datei gespeichert
 (Spalte files.folder_path), aber Dateien leben alle flach im
@@ -35,7 +35,7 @@ _BAD = re.compile(r"[/\\:\x00<>|?*]")
 
 
 class FolderError(ValueError):
-    """Wird geworfen, wenn ein Ordnerpfad ungueltig ist."""
+    """Wird geworfen, wenn ein Ordnerpfad ungültig ist."""
 
 
 def normalize(path: str | None) -> str:
@@ -60,9 +60,9 @@ def normalize(path: str | None) -> str:
     for seg in segments:
         s = seg.strip()
         if s in ("", ".", ".."):
-            raise FolderError("Ungueltiges Pfadsegment (., .., leer)")
+            raise FolderError("Ungültiges Pfadsegment (., .., leer)")
         if len(s) > MAX_SEG_LEN:
-            raise FolderError(f"Pfadsegment laenger als {MAX_SEG_LEN} Zeichen")
+            raise FolderError(f"Pfadsegment länger als {MAX_SEG_LEN} Zeichen")
         if _BAD.search(s):
             raise FolderError("Pfadsegment enthaelt unerlaubte Zeichen")
         cleaned.append(s)
@@ -71,7 +71,7 @@ def normalize(path: str | None) -> str:
 
 
 def parent_of(path: str) -> str:
-    """Gibt den Eltern-Ordner zurueck, '' fuer die Wurzel."""
+    """Gibt den Eltern-Ordner zurück, '' für die Wurzel."""
     p = normalize(path)
     if not p:
         return ""
@@ -91,7 +91,7 @@ def is_descendant(child: str, ancestor: str) -> bool:
 
 
 def rename_prefix(path: str, old_prefix: str, new_prefix: str) -> str:
-    """Fuer Rename/Move: ersetzt den Ordner-Prefix in einem Pfad.
+    """Für Rename/Move: ersetzt den Ordner-Prefix in einem Pfad.
     Pfade, die nicht unter old_prefix liegen, bleiben unveraendert.
     """
     p = normalize(path)

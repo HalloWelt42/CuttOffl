@@ -9,7 +9,7 @@ from pathlib import Path
 
 
 APP_NAME = "CuttOffl"
-VERSION = "0.18.2"
+VERSION = "0.18.3"
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 DATA_DIR = Path(os.getenv("CUTTOFFL_DATA_DIR", str(BASE_DIR.parent / "data"))).resolve()
@@ -28,8 +28,8 @@ def _resolve_path(custom: str | None, default: Path) -> Path:
     return default
 
 
-# Nutzer-Overrides aus user_config.json (falls vorhanden) sind fuer die
-# beiden grossen Datenbereiche moeglich, in denen echte Video-Dateien
+# Nutzer-Overrides aus user_config.json (falls vorhanden) sind für die
+# beiden großen Datenbereiche möglich, in denen echte Video-Dateien
 # landen. DB, Proxy, Thumbs, Sprites und Waveforms bleiben bewusst beim
 # Default im Daten-Verzeichnis -- das sind interne Caches.
 try:
@@ -61,8 +61,8 @@ PORT = int(os.getenv("CUTTOFFL_PORT", "10036"))
 LOG_LEVEL = os.getenv("CUTTOFFL_LOG_LEVEL", "INFO").upper()
 
 # CORS: standardmaessig nur die erwarteten Dev-Origins. Erlaubte Werte
-# koennen per CUTTOFFL_CORS_ORIGINS ueberschrieben werden (komma-separiert).
-# "*" als Eintrag bleibt moeglich fuer offene Umgebungen; in dem Fall
+# können per CUTTOFFL_CORS_ORIGINS überschrieben werden (komma-separiert).
+# "*" als Eintrag bleibt möglich für offene Umgebungen; in dem Fall
 # wird allow_credentials in main.py bewusst auf False gezwungen, weil
 # Browser "Origin: *" + Credentials sowieso ignorieren.
 _DEFAULT_CORS = (

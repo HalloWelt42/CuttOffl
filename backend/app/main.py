@@ -1,7 +1,7 @@
 """
 CuttOffl Backend - Hauptanwendung.
 
-Registriert alle Router, haengt den Job-Worker und die Lifespan-Hooks ein.
+Registriert alle Router, hängt den Job-Worker und die Lifespan-Hooks ein.
 
 Aktueller Funktionsumfang (v0.4.0):
   - Multipart-Upload mit ffprobe-Metadatenextraktion

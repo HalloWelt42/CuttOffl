@@ -336,7 +336,7 @@
   }
   .block h3 i { color: var(--accent); }
   .head-info { font-size: 12px; color: var(--fg-muted); }
-  /* Lesetexte unter den Block-Ueberschriften bewusst groesser als die
+  /* Lesetexte unter den Block-Überschriften bewusst größer als die
      dichten UI-Elemente. */
   .hint { font-size: 14px; color: var(--fg-primary); margin: 4px 0 14px; line-height: 1.65; }
 

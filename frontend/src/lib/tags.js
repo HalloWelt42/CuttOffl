@@ -14,7 +14,7 @@ const PALETTE = [
   { bg: '#c084fc', fg: '#140a1c' },  // Flieder
 ];
 
-// Einfache DJB2-Hash (stabil, fuer gleiche Strings gleiche Farbe)
+// Einfache DJB2-Hash (stabil, für gleiche Strings gleiche Farbe)
 function hash(str) {
   let h = 5381;
   for (let i = 0; i < str.length; i++) {

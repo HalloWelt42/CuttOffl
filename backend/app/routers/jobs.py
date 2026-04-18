@@ -30,7 +30,7 @@ async def active_job() -> dict:
 
 @router.delete("/failed")
 async def clear_failed_jobs() -> dict:
-    """Loescht alle fehlgeschlagenen Jobs aus der Historie."""
+    """Löscht alle fehlgeschlagenen Jobs aus der Historie."""
     row = await db.fetch_one(
         "SELECT COUNT(*) c FROM jobs WHERE status = 'failed'"
     )
@@ -41,7 +41,7 @@ async def clear_failed_jobs() -> dict:
 
 @router.delete("/completed")
 async def clear_completed_jobs(keep_renders: bool = True) -> dict:
-    """Loescht abgeschlossene Hintergrund-Jobs (Proxy/Thumbnail/Sprite/Waveform).
+    """Löscht abgeschlossene Hintergrund-Jobs (Proxy/Thumbnail/Sprite/Waveform).
     Render-Jobs werden standardmaessig behalten, weil sie die Referenz auf das
     fertige Export-Video sind; kann per keep_renders=false umgeschaltet werden.
     """
@@ -59,7 +59,7 @@ async def clear_completed_jobs(keep_renders: bool = True) -> dict:
 @router.post("/{job_id}/cancel")
 async def cancel_job(job_id: str) -> dict:
     """Bricht einen laufenden oder wartenden Job ab. Der Worker
-    erkennt das an definierten Pruefpunkten -- bei Transkriptionen
+    erkennt das an definierten Prüfpunkten -- bei Transkriptionen
     nach jedem Chunk. Bereits abgeschlossene Jobs bleiben unveraendert."""
     row = await db.fetch_one("SELECT status FROM jobs WHERE id = ?", (job_id,))
     if row is None:

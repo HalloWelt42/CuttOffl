@@ -18,7 +18,7 @@
   let loading = $state(false);
   let tileIndex = $state(0);      // aktueller Frame-Index (0..count-1)
 
-  // Background-Size ist cols*100% x rows*100% damit ein Tile ueber das
+  // Background-Size ist cols*100% x rows*100% damit ein Tile über das
   // Element-Rechteck passt. Position wird als Prozentsatz relativ zum
   // Tile-Raster berechnet (ohne Pixelmathe am Sprite).
   const bgStyle = $derived.by(() => {

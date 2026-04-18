@@ -11,9 +11,9 @@
 //   /exports                        Fertige Videos
 //   /settings                       Einstellungen
 //
-// Back/Forward-Buttons des Browsers funktionieren ueber popstate.
-// Fuer die Ordner-Tiefe in der Bibliothek wird der folder_path aus
-// dem library-Store direkt an die URL gehaengt.
+// Back/Forward-Buttons des Browsers funktionieren über popstate.
+// Für die Ordner-Tiefe in der Bibliothek wird der folder_path aus
+// dem library-Store direkt an die URL gehängt.
 
 import { persisted, persist } from './persist.svelte.js';
 import { library } from './library.svelte.js';
@@ -31,9 +31,9 @@ export const SETTINGS_TABS = ['pfade', 'transkription', 'system'];
  *
  * Returns: {
  *   view: 'library'|'editor'|...,
- *   folder: string,           // nur fuer library, sonst ''
- *   fileId: string|null,      // nur fuer editor
- *   projectId: string|null,   // nur fuer editor
+ *   folder: string,           // nur für library, sonst ''
+ *   fileId: string|null,      // nur für editor
+ *   projectId: string|null,   // nur für editor
  * }
  */
 export function parsePath(pathname) {
@@ -46,7 +46,7 @@ export function parsePath(pathname) {
   const head = parts[0];
   if (!VIEWS.includes(head)) {
     // Legacy-Hash-URL -- beim ersten Laden einmal migrieren:
-    // wenn es einen Hash gibt und der eine bekannte View ist, uebernehmen.
+    // wenn es einen Hash gibt und der eine bekannte View ist, übernehmen.
     const h = (location.hash || '').replace(/^#/, '');
     if (VIEWS.includes(h)) {
       return { view: h, folder: '', fileId: null, projectId: null };
@@ -70,7 +70,7 @@ export function parsePath(pathname) {
     return { view: 'editor', folder: '', fileId: null, projectId: null };
   }
   if (head === 'settings') {
-    // /settings/<tab> -- unbekannter Tab faellt auf Default zurueck
+    // /settings/<tab> -- unbekannter Tab faellt auf Default zurück
     const tab = SETTINGS_TABS.includes(rest[0]) ? rest[0] : null;
     return {
       view: 'settings', folder: '', fileId: null, projectId: null,
@@ -110,14 +110,14 @@ export const nav = $state({
   activeFileId: initialRoute.fileId,
   activeProjectId: initialRoute.projectId,
   // folder ist der "Einstiegs-Ordner" aus der URL beim Seitenaufruf.
-  // Die eigentliche Wahrheit fuer den aktuellen Ordner steht im
-  // library-Store; dieser sync ueber ein effect in Library.svelte.
+  // Die eigentliche Wahrheit für den aktuellen Ordner steht im
+  // library-Store; dieser sync über ein effect in Library.svelte.
   initialFolder: initialRoute.folder,
   // Settings-Unterseite aus der URL (null = Default)
   settingsTab: initialRoute.settingsTab ?? null,
 });
 
-// Persistiere beim ersten Aufruf die Default-View (fuer Fallbacks).
+// Persistiere beim ersten Aufruf die Default-View (für Fallbacks).
 persist('app.view', nav.view);
 
 // Initial einmal den sauberen Pfad in der History ablegen, damit
@@ -146,12 +146,12 @@ export function go(view, opts = {}) {
   if (!VIEWS.includes(view)) return;
   nav.view = view;
   persist('app.view', view);
-  // Editor-State zuruecksetzen, wenn wir aus dem Editor rauswechseln
+  // Editor-State zurücksetzen, wenn wir aus dem Editor rauswechseln
   if (view !== 'editor') {
     nav.activeFileId = null;
     nav.activeProjectId = null;
   }
-  // Fuer library ohne expliziten Ordner-Opt nehmen wir den aktuell im
+  // Für library ohne expliziten Ordner-Opt nehmen wir den aktuell im
   // Store eingestellten Ordner, damit URL und Anzeige konsistent bleiben.
   const folderFromStore = view === 'library' ? (library.currentFolder || '') : '';
   const route = {

@@ -1,8 +1,8 @@
 <script>
   // Generisches verschiebbares Info-Fenster. Liest die Geometrie via
-  // `geometry`-Prop (nur lesen!) und meldet Aenderungen per Callback
-  // `onChange(partial)` zurueck -- der Parent haelt den Store und
-  // schreibt zurueck. Damit kommt Svelte 5 nicht auf die Idee, dass wir
+  // `geometry`-Prop (nur lesen!) und meldet Änderungen per Callback
+  // `onChange(partial)` zurück -- der Parent haelt den Store und
+  // schreibt zurück. Damit kommt Svelte 5 nicht auf die Idee, dass wir
   // eine Prop mutieren ("ownership_invalid_mutation"-Warnungen).
   //
   // onPersist() wird nach Drag-Ende / Resize-Ende aufgerufen -- gibt
@@ -119,7 +119,7 @@
        style:height="{geometry.height}px">
     <!-- Drag-Handle: header ist semantisch korrekt (Fenster-Titel), aber
          Svelte will bei mousedown eine aria-role sehen. "toolbar" passt,
-         weil das Fenster-Chrome (Titel + Close + ggf. spaeter mehr) damit
+         weil das Fenster-Chrome (Titel + Close + ggf. später mehr) damit
          als interaktive Regie-Leiste annonciert ist. -->
     <header class="fp-head" role="toolbar" tabindex="-1"
             onmousedown={onHeaderDown}

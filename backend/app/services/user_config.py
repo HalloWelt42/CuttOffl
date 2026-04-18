@@ -7,10 +7,10 @@ die Datei bei Bedarf auch per Texteditor oder Backup-Skript
 bearbeitbar bleibt.
 
 Aktuell gespeichert:
-  - originals_dir: Verzeichnis fuer hochgeladene Videos
-  - exports_dir:   Verzeichnis fuer gerenderte Schnitte
+  - originals_dir: Verzeichnis für hochgeladene Videos
+  - exports_dir:   Verzeichnis für gerenderte Schnitte
 
-Wird beim Start ausgelesen und ueberschreibt die Default-Pfade aus
+Wird beim Start ausgelesen und überschreibt die Default-Pfade aus
 config.py. Aenderungen zur Laufzeit erfordern einen Backend-Neustart.
 """
 
@@ -28,7 +28,7 @@ CONFIG_FILENAME = "user_config.json"
 
 
 def _config_path() -> Path:
-    """Liegt im Projekt-Root (eine Ebene ueber backend/)."""
+    """Liegt im Projekt-Root (eine Ebene über backend/)."""
     return Path(__file__).resolve().parent.parent.parent.parent / CONFIG_FILENAME
 
 
@@ -63,8 +63,8 @@ def set_key(key: str, value) -> None:
 
 
 def validate_directory(path_str: str) -> Optional[str]:
-    """Prueft, ob der Pfad als Datenverzeichnis taugt.
-    Gibt None bei OK zurueck, sonst eine Fehlermeldung.
+    """Prüft, ob der Pfad als Datenverzeichnis taugt.
+    Gibt None bei OK zurück, sonst eine Fehlermeldung.
     """
     if not path_str or not path_str.strip():
         return "Pfad darf nicht leer sein"

@@ -27,7 +27,7 @@ from app.services.folder_service import FolderError, normalize
 
 async def _emit_file_event(event: str, **extra) -> None:
     """Kleiner Wrapper, damit die Routen nicht jedes Mal das dict-Gerüst
-    wiederholen. Events landen ueber den WS-Broadcaster bei allen
+    wiederholen. Events landen über den WS-Broadcaster bei allen
     offenen Clients und triggern dort das automatische Refresh von
     Library, Dashboard & Exports."""
     msg = {"type": "file_event", "event": event}
@@ -50,7 +50,7 @@ TAG_ALLOWED = re.compile(r"^[\w äöüÄÖÜß\-.]{1,24}$")
 def _normalize_tags(raw: list[str]) -> tuple[list[str], list[str]]:
     """Trimmt, dedupliziert und validiert Tags.
 
-    Gibt zwei Listen zurueck: (accepted, rejected). rejected enthaelt
+    Gibt zwei Listen zurück: (accepted, rejected). rejected enthaelt
     die unveraenderten Urspruengs-Strings, damit der Caller dem User
     genau sagen kann, welche Tags warum verworfen wurden.
     """
@@ -98,7 +98,7 @@ router = APIRouter(prefix="/api/files", tags=["files"])
 
 
 def _row_to_fileout(row) -> FileOut:
-    # has_transcript nur dann True, wenn die SRT-Datei auch tatsaechlich
+    # has_transcript nur dann True, wenn die SRT-Datei auch tatsächlich
     # auf der Platte liegt. Andernfalls wuerde das Frontend Download-
     # Buttons anbieten, die in einen 404 laufen.
     tp = row["transcript_path"] if "transcript_path" in row.keys() else None
@@ -148,7 +148,7 @@ async def list_files(
         try:
             f = normalize(folder)
         except FolderError as e:
-            raise HTTPException(status_code=400, detail=f"Ungueltiger Ordner: {e}")
+            raise HTTPException(status_code=400, detail=f"Ungültiger Ordner: {e}")
         if recursive and f:
             rows = await db.fetch_all(
                 "SELECT * FROM files WHERE folder_path = ? OR folder_path LIKE ? "
@@ -229,7 +229,7 @@ async def bulk_move(body: FileBulkMoveBody) -> dict:
     try:
         target = normalize(body.folder_path)
     except FolderError as e:
-        raise HTTPException(status_code=400, detail=f"Ungueltiger Zielordner: {e}")
+        raise HTTPException(status_code=400, detail=f"Ungültiger Zielordner: {e}")
     ids = list({fid for fid in body.file_ids if fid})
     if not ids:
         return {"moved": 0}
@@ -249,7 +249,7 @@ async def move_file(file_id: str, body: FileMoveBody) -> FileOut:
     try:
         target = normalize(body.folder_path)
     except FolderError as e:
-        raise HTTPException(status_code=400, detail=f"Ungueltiger Zielordner: {e}")
+        raise HTTPException(status_code=400, detail=f"Ungültiger Zielordner: {e}")
     row = await db.fetch_one("SELECT id FROM files WHERE id = ?", (file_id,))
     if row is None:
         raise HTTPException(status_code=404, detail="Datei nicht gefunden")
@@ -264,11 +264,11 @@ async def move_file(file_id: str, body: FileMoveBody) -> FileOut:
 
 @router.put("/{file_id}/tags")
 async def set_tags(file_id: str, body: FileTagsBody) -> dict:
-    """Setzt die Tag-Liste einer Datei (ersetzt vollstaendig).
+    """Setzt die Tag-Liste einer Datei (ersetzt vollständig).
 
     Response enthaelt die aktualisierte Datei, die akzeptierten Tags und
     die Liste der abgelehnten Eingaben -- damit das Frontend dem User
-    konkret sagen kann, welche Eingaben nicht uebernommen wurden (z. B.
+    konkret sagen kann, welche Eingaben nicht übernommen wurden (z. B.
     'foo!' wegen unerlaubter Zeichen).
     """
     row = await db.fetch_one("SELECT id FROM files WHERE id = ?", (file_id,))
@@ -314,7 +314,7 @@ async def rename_file(file_id: str, body: FileRenameBody) -> FileOut:
 @router.get("/{file_id}/download")
 async def download_file(file_id: str):
     """Liefert die Original-Datei zum Herunterladen aus.
-    Der Download-Header traegt den urspruenglichen Dateinamen.
+    Der Download-Header traegt den ursprünglichen Dateinamen.
     """
     row = await db.fetch_one(
         "SELECT path, original_name FROM files WHERE id = ?", (file_id,)

@@ -118,7 +118,7 @@ async def render_project(
     clip_id: str | None = None,
 ) -> RenderStartResponse:
     """Rendert das Projekt. Optional mit `?clip_id=...` nur diesen einen Clip
-    als eigenstaendiges Video exportieren."""
+    als eigenständiges Video exportieren."""
     row = await db.fetch_one(
         "SELECT id, source_file_id, edl_json FROM projects WHERE id = ?",
         (project_id,),

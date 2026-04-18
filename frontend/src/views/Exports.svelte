@@ -43,13 +43,13 @@
   async function onImportToLibrary(ex) {
     if (!ex.exists) return;
     const target = await openFolderPicker({
-      title: 'In Bibliothek uebernehmen: Zielordner waehlen',
+      title: 'In Bibliothek übernehmen: Zielordner wählen',
       current: '',
     });
     if (target === null) return;
     try {
       const res = await api.importExportToLibrary(ex.job_id, target);
-      toast.info(`"${res.original_name}" in Bibliothek uebernommen`);
+      toast.info(`"${res.original_name}" in Bibliothek übernommen`);
     } catch (e) { toast.error(e.message); }
   }
 

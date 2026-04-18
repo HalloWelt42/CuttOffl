@@ -129,7 +129,7 @@ async def list_exports() -> list[dict]:
             "result_path": p,
             "exists": exists,
             "size_bytes": size,
-            # Bundle / CC-Download ist moeglich, wenn die Quelldatei
+            # Bundle / CC-Download ist möglich, wenn die Quelldatei
             # ein Transkript hat -- die Export-SRT wird on-the-fly
             # aus der EDL des Projekts umgerechnet.
             "has_transcript": has_transcript,
@@ -172,7 +172,7 @@ async def download_export(job_id: str):
 async def _build_export_segments(job_id: str) -> tuple[list[dict], str]:
     """Holt Original-Transkript, Projekt-EDL und Clip-ID aus dem Job,
     bildet das Ergebnis auf die Export-Zeitachse ab. Gibt (segments,
-    stem) zurueck -- stem ist der lesbare Dateiname ohne Endung.
+    stem) zurück -- stem ist der lesbare Dateiname ohne Endung.
 
     Wirft HTTPException mit klarer Meldung, wenn das Quelltranskript
     fehlt oder das Projekt nicht auflösbar ist.
@@ -218,7 +218,7 @@ async def _build_export_segments(job_id: str) -> tuple[list[dict], str]:
     segs = tx.remap_segments_for_edl(
         original_segments, clips, clip_id=clip_id,
     )
-    # Lesbarer Stem fuer Download-Dateinamen
+    # Lesbarer Stem für Download-Dateinamen
     suffix = Path(rp).suffix if rp else ".mp4"
     display = _display_name_for(
         row["project_name"], row["source_name"], row["updated_at"], suffix,

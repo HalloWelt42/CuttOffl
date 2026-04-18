@@ -1,6 +1,6 @@
-// Zentraler Gesundheits-State: alle Dienste, die ausfallen koennen und
+// Zentraler Gesundheits-State: alle Dienste, die ausfallen können und
 // im Footer als LED sichtbar sein sollen. Jeder Eintrag hat einen
-// stabilen "key" (wird fuer die LED-Anzeige benutzt), einen Label-
+// stabilen "key" (wird für die LED-Anzeige benutzt), einen Label-
 // Namen und einen "level" aus {unknown, ok, warn, err}.
 //
 // Backend wird per HTTP-Ping abgefragt, Transkription per /status,
@@ -10,7 +10,7 @@
 import { api } from './api.js';
 import { wsState } from './ws.svelte.js';
 
-const INTERVAL_MS = 15_000;     // 15 s reicht fuer Footer-Statusanzeige
+const INTERVAL_MS = 15_000;     // 15 s reicht für Footer-Statusanzeige
 
 export const health = $state({
   backend: {
@@ -45,7 +45,7 @@ async function pollBackend() {
       + (p.hw_encoder ? ` · HW ${p.hw_encoder}` : '');
   } catch (e) {
     health.backend.level = 'err';
-    health.backend.detail = 'Nicht erreichbar -- laeuft das Backend?';
+    health.backend.detail = 'Nicht erreichbar -- läuft das Backend?';
   }
 }
 
@@ -58,13 +58,13 @@ async function pollTranscription() {
         `${s.active_engine} / ${s.active_model}`;
       return;
     }
-    // Nicht verfuegbar -- unterscheide "gar nichts installiert"
-    // (err/rot) von "installiert aber kein Modell ausgewaehlt" (warn)
+    // Nicht verfügbar -- unterscheide "gar nichts installiert"
+    // (err/rot) von "installiert aber kein Modell ausgewählt" (warn)
     const anyInstalled = (s.engines || []).some((e) => e.installed);
     if (anyInstalled) {
       health.transcription.level = 'warn';
       health.transcription.detail =
-        (s.notes && s.notes[0]) || 'Kein lokales Whisper-Modell ausgewaehlt';
+        (s.notes && s.notes[0]) || 'Kein lokales Whisper-Modell ausgewählt';
     } else {
       health.transcription.level = 'err';
       health.transcription.detail =

@@ -20,7 +20,7 @@ _HOME_STR = str(Path.home())
 
 
 def sanitize_error(msg: str | None, fallback: str = "Interner Fehler") -> str:
-    """Entfernt absolute Pfade, kuerzt Text auf sinnvolle Laenge."""
+    """Entfernt absolute Pfade, kuerzt Text auf sinnvolle Länge."""
     if not msg:
         return fallback
     text = str(msg)

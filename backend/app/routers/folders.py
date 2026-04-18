@@ -165,7 +165,7 @@ async def children(folder: str = "") -> dict:
 
 @router.get("/tree")
 async def tree() -> dict:
-    """Rekursiver Baum aller Ordner mit Dateizahlen. Fuer die Sidebar oder
+    """Rekursiver Baum aller Ordner mit Dateizahlen. Für die Sidebar oder
     einen Tree-View."""
     all_paths = _expand_with_parents(await _all_folder_paths())
 
@@ -277,7 +277,7 @@ async def download_folder_zip(
         raise HTTPException(status_code=404, detail="Keine Dateien im Ordner")
 
     # Auf existierende Dateien reduzieren. Transcript-Pfade (SRT) werden
-    # zusaetzlich als eigene Eintraege im ZIP gefuehrt -- im selben
+    # zusätzlich als eigene Eintraege im ZIP gefuehrt -- im selben
     # Ordner wie das Video, mit passendem Dateinamen.
     items: list[tuple[str, Path]] = []
     transcripts: list[tuple[str, str]] = []   # (member_name, srt_text)
@@ -418,7 +418,7 @@ async def delete_folder(folder: str) -> dict:
     except FolderError as e:
         raise HTTPException(status_code=400, detail=str(e))
     if f == "":
-        raise HTTPException(status_code=400, detail="Wurzel kann nicht geloescht werden")
+        raise HTTPException(status_code=400, detail="Wurzel kann nicht gelöscht werden")
 
     row = await db.fetch_one(
         "SELECT COUNT(*) c FROM files WHERE folder_path = ? OR folder_path LIKE ?",

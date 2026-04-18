@@ -27,8 +27,8 @@
   let capsStatus = $state(null);
 
   const t = $derived(editor.transcript);
-  // Live-Segmente haben Vorrang, solange die Transkription laeuft --
-  // sobald sie fertig ist, uebernimmt die endgueltige SRT-Liste.
+  // Live-Segmente haben Vorrang, solange die Transkription läuft --
+  // sobald sie fertig ist, übernimmt die endgültige SRT-Liste.
   const segments = $derived(
     editor.transcribing && editor.liveSegments.length > 0
       ? editor.liveSegments
@@ -37,7 +37,7 @@
 
   // Indizes aller Segmente, die den Suchbegriff enthalten. Anders als
   // vorher filtern wir die Liste NICHT -- alle Segmente bleiben sichtbar,
-  // nur die Treffer werden markiert und per vor/zurueck angesprungen.
+  // nur die Treffer werden markiert und per vor/zurück angesprungen.
   const q = $derived(query.trim());
   const qLow = $derived(q.toLocaleLowerCase('de'));
   const matches = $derived.by(() => {
@@ -51,7 +51,7 @@
     return hits;
   });
 
-  // Treffer-Index klemmen, wenn sich die matches aendern
+  // Treffer-Index klemmen, wenn sich die matches ändern
   $effect(() => {
     if (matches.length === 0) { currentMatchIdx = -1; return; }
     if (currentMatchIdx < 0) currentMatchIdx = 0;
@@ -80,7 +80,7 @@
   function gotoMatch(idx) {
     if (matches.length === 0) return;
     const n = matches.length;
-    // Modulo mit Korrektur fuer negative Werte
+    // Modulo mit Korrektur für negative Werte
     currentMatchIdx = ((idx % n) + n) % n;
     const segIdx = matches[currentMatchIdx];
     const seg = segments[segIdx];
@@ -120,14 +120,14 @@
 
   // Aktives Segment in den Sichtbereich scrollen. Eigener Follow-
   // Schalter (transcriptFollowOn) -- unabhaengig vom Timeline-Follow.
-  // Wir nutzen data-idx als stabilen Schluessel (Float-Vergleich in
+  // Wir nutzen data-idx als stabilen Schlüssel (Float-Vergleich in
   // data-Attributen ist unzuverlaessig).
   let userScrolledAt = 0;
   function onUserScroll() { userScrolledAt = Date.now(); }
 
   $effect(() => {
     if (!editor.transcriptFollowOn || !listEl || !active) return;
-    // Nach manuellem Scroll 1,5 s Pause, damit der User nicht staendig
+    // Nach manuellem Scroll 1,5 s Pause, damit der User nicht ständig
     // wieder an die aktuelle Stelle gerissen wird.
     if (Date.now() - userScrolledAt < 1500) return;
     // Bei aktiver Suche ueberlassen wir das Scrollen der Such-Navigation
@@ -239,7 +239,7 @@
         </button>
         <button class="btn btn-sm" onclick={nextMatch}
                 disabled={matches.length === 0}
-                title="Naechster Treffer (Enter)">
+                title="Nächster Treffer (Enter)">
           <i class="fa-solid fa-chevron-down"></i>
         </button>
       {/if}
@@ -259,7 +259,7 @@
           <i class="fa-solid fa-download"></i> SRT
         </a>
         <a class="btn btn-sm" href={api.transcriptVttUrl(editor.fileId)} download
-           title="Als WebVTT-Datei herunterladen (fuer HTML5-Video-Player)">
+           title="Als WebVTT-Datei herunterladen (für HTML5-Video-Player)">
           <i class="fa-solid fa-download"></i> VTT
         </a>
         <button class="btn btn-sm btn-danger" onclick={onDelete}
@@ -413,7 +413,7 @@
     min-height: 0;
   }
   .segs li {
-    /* Dezente Farbsteuerung fuer nicht-aktive Segmente */
+    /* Dezente Farbsteuerung für nicht-aktive Segmente */
     color: var(--fg-muted);
   }
   .segs li.active {
@@ -439,7 +439,7 @@
     cursor: pointer;
     text-align: left;
     font: inherit;
-    /* Lesbarer: groesser + etwas dicker */
+    /* Lesbarer: größer + etwas dicker */
     font-size: 15px;
     font-weight: 500;
     line-height: 1.55;

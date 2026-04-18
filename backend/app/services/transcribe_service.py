@@ -4,9 +4,9 @@ CuttOffl Backend - Transkriptions-Service.
 Dieser Service ist bewusst so geschrieben, dass die App *immer* startet,
 auch wenn weder mlx-whisper noch openai-whisper noch faster-whisper
 installiert sind. capabilities() liefert dann einen klaren "nicht
-verfuegbar"-Status an das Frontend, das dann entsprechend reagiert.
+verfügbar"-Status an das Frontend, das dann entsprechend reagiert.
 
-Drei moegliche Engines:
+Drei mögliche Engines:
   * mlx-whisper       -- Apple-Silicon-optimiert (Metal), schnell
   * faster-whisper    -- CTranslate2-basiert, portabel (Pi, Intel, Linux)
   * openai-whisper    -- Referenz-Implementierung, langsamer, aber verbreitet
@@ -17,7 +17,7 @@ Pro Engine gibt es eine eigene Modell-Cache-Konvention:
   * openai-whisper  -> eigener Cache (~/.cache/whisper/*.pt)
 
 Wir scannen nicht blind, sondern konservativ: Wir zeigen nur Modelle an,
-deren Ablage so aussieht, als koennten sie tatsaechlich geladen werden.
+deren Ablage so aussieht, als könnten sie tatsächlich geladen werden.
 Ob sie wirklich funktionieren entscheidet der Lade-Versuch; Fehler
 werden sauber nach oben gereicht, ohne die App zu crashen.
 """
@@ -40,8 +40,8 @@ logger = logging.getLogger(__name__)
 # Engines und Modelle
 # --------------------------------------------------------------------------
 
-# Offizielle Whisper-Modellnamen (klein -> gross). "large-v3" ist das beste,
-# "large-v3-turbo" ist schneller bei leicht geringerer Qualitaet. "medium"
+# Offizielle Whisper-Modellnamen (klein -> groß). "large-v3" ist das beste,
+# "large-v3-turbo" ist schneller bei leicht geringerer Qualität. "medium"
 # ist ein guter Kompromiss.
 WHISPER_SIZES: tuple[str, ...] = (
     "tiny", "base", "small", "medium", "large-v2", "large-v3", "large-v3-turbo",
@@ -56,7 +56,7 @@ class ModelLocation:
     engine: str            # 'mlx-whisper' | 'openai-whisper' | 'faster-whisper'
     model: str             # 'large-v3' usw.
     path: str              # absoluter Pfad (Datei oder Ordner)
-    size_bytes: int = 0    # ungefaehre Groesse auf der Platte
+    size_bytes: int = 0    # ungefaehre Größe auf der Platte
 
 
 @dataclass
@@ -133,7 +133,7 @@ def detect_engines() -> list[EngineInfo]:
 # Modell-Scan auf der Platte
 # --------------------------------------------------------------------------
 
-# Bekannte Orte, an denen Whisper-Modelle liegen koennten.
+# Bekannte Orte, an denen Whisper-Modelle liegen könnten.
 # Kein blindes Systemsabsuchen -- wir beschraenken uns auf die ueblichen
 # Cache-Konventionen der jeweiligen Libraries, plus einen Voice2Text-
 # Schwesterpfad falls vorhanden.
@@ -144,7 +144,7 @@ def _default_scan_roots() -> list[Path]:
         home / ".cache" / "whisper",                       # openai
         home / "Library" / "Caches" / "huggingface" / "hub",
     ]
-    # Voice2Text-Schwesterprojekt: wenn es da ist, koennen wir dessen Cache
+    # Voice2Text-Schwesterprojekt: wenn es da ist, können wir dessen Cache
     # mit benutzen, um Downloads zu sparen.
     voice2text = Path(
         "/Users/alpha/Entwicklung/03_KI_Erstellung/Python/Voice2Text/cache"
@@ -206,7 +206,7 @@ def _scan_hf_hub(root: Path) -> list[ModelLocation]:
         snapshots = [p for p in snap_dir.iterdir() if p.is_dir()]
         if not snapshots:
             continue
-        # Groesstes Snapshot nehmen
+        # Größtes Snapshot nehmen
         snap = max(snapshots, key=_dir_size)
         found.append(ModelLocation(
             engine=engine,
@@ -236,7 +236,7 @@ def _scan_openai_cache(root: Path) -> list[ModelLocation]:
 
 def scan_models(extra_roots: Optional[list[str]] = None) -> list[ModelLocation]:
     """Sucht bekannte Modell-Ablagen auf der Platte ab. Gibt eine Liste von
-    ModelLocation zurueck, die das Frontend dem Nutzer zur Auswahl anbieten
+    ModelLocation zurück, die das Frontend dem Nutzer zur Auswahl anbieten
     kann."""
     roots = _default_scan_roots()
     for extra in extra_roots or []:
@@ -278,7 +278,7 @@ def scan_models(extra_roots: Optional[list[str]] = None) -> list[ModelLocation]:
 @dataclass
 class CapabilitiesFull(Capabilities):
     # Die Nutzer-Auswahl aus user_config.json (falls vorhanden und noch
-    # zu den verfuegbaren Modellen passt). Hat Vorrang vor suggested_*.
+    # zu den verfügbaren Modellen passt). Hat Vorrang vor suggested_*.
     active_engine: Optional[str] = None
     active_model: Optional[str] = None
 
@@ -296,8 +296,8 @@ def _read_preference() -> tuple[Optional[str], Optional[str]]:
 
 
 def capabilities(scan: bool = True) -> CapabilitiesFull:
-    """Fasst Engine-Verfuegbarkeit und gefundene Modelle zu einer Antwort
-    fuer das Frontend zusammen."""
+    """Fasst Engine-Verfügbarkeit und gefundene Modelle zu einer Antwort
+    für das Frontend zusammen."""
     engines = detect_engines()
     any_installed = any(e.installed for e in engines)
 
@@ -324,7 +324,7 @@ def capabilities(scan: bool = True) -> CapabilitiesFull:
     )
     if preferred:
         caps.suggested_engine = preferred.name
-        # Modell: wenn zur Engine passend was lokal da ist, das groesste
+        # Modell: wenn zur Engine passend was lokal da ist, das größte
         # vorhandene -- sonst Default
         local = [m for m in caps.models_found if m.engine == preferred.name]
         if local:
@@ -350,7 +350,7 @@ def capabilities(scan: bool = True) -> CapabilitiesFull:
             )
             if pref_available:
                 caps.active_model = pref_model
-    # Fallback: wenn keine gueltige Praeferenz, aktiver = suggested
+    # Fallback: wenn keine gültige Praeferenz, aktiver = suggested
     if not caps.active_engine:
         caps.active_engine = caps.suggested_engine
     if not caps.active_model:
@@ -369,7 +369,7 @@ def capabilities(scan: bool = True) -> CapabilitiesFull:
 def set_preference(engine: Optional[str], model: Optional[str]) -> None:
     """Persistiert die Nutzer-Wahl in user_config.json. Beide Werte
     duerfen None sein -- dann wird die gesamte Praeferenz entfernt
-    (= zurueck zum Auto-Vorschlag)."""
+    (= zurück zum Auto-Vorschlag)."""
     from app.services.user_config import load as _load, save as _save
     data = _load() or {}
     if not engine and not model:
@@ -469,8 +469,8 @@ class TranscribeResult:
 
 def _find_local_model(engine: str, model: str) -> Optional[str]:
     """Sucht im lokalen Scan eine passende Modell-Instanz. Gibt den
-    Pfad zurueck, der direkt an die Engine uebergeben werden kann,
-    oder None wenn nichts passt (dann laedt die Engine selbst)."""
+    Pfad zurück, der direkt an die Engine uebergeben werden kann,
+    oder None wenn nichts passt (dann lädt die Engine selbst)."""
     try:
         for m in scan_models():
             if m.engine == engine and m.model == model:
@@ -483,7 +483,7 @@ def _find_local_model(engine: str, model: str) -> Optional[str]:
 # --------------------------------------------------------------------------
 # Modell-Cache: jedes geladene Whisper-Modell bleibt im Speicher, damit
 # wiederholte Transkriptionen nicht jedes Mal Sekunden mit Setup warten.
-# Key ist (engine, model). mlx-whisper laedt intern im transcribe-Call
+# Key ist (engine, model). mlx-whisper lädt intern im transcribe-Call
 # selber eine Gewichte-Datei, deshalb gibt es dort nur einen Pfad-Cache,
 # keine Modell-Instanz.
 # --------------------------------------------------------------------------
@@ -520,7 +520,7 @@ def _mlx_repo_for(model: str) -> str:
 
 # --------------------------------------------------------------------------
 # Chunking: Audio in ca. 25-Sekunden-Blöcke schneiden und jeden einzeln
-# transkribieren. Vorteil: Wir koennen nach jedem Chunk Segmente an die UI
+# transkribieren. Vorteil: Wir können nach jedem Chunk Segmente an die UI
 # pushen (Live-Text), einen sauberen Prozent-Fortschritt melden und bei
 # Cancel direkt abbrechen.
 # --------------------------------------------------------------------------
@@ -572,13 +572,13 @@ async def _extract_audio_chunk(
 
 def _transcribe_file_once(engine: str, model: str, path: str) -> dict:
     """Synchrone Einzel-Transkription einer WAV-Datei mit der gewuenschten
-    Engine. Gibt ein Dict mit 'segments' und 'language' zurueck.
+    Engine. Gibt ein Dict mit 'segments' und 'language' zurück.
 
     Offline-Zwang: Sobald wir den lokalen Modell-Pfad kennen, setzen wir
-    HF_HUB_OFFLINE=1 fuer den Call. Damit unterdruecken wir auch jeden
-    "ist das Cache aktuell?"-HEAD-Request an huggingface.co. Fuer den
-    Nutzer heisst das: nach einmaligem Download laeuft die Transkription
-    komplett ohne Internet -- Pflicht fuer den Offline-first-Anspruch."""
+    HF_HUB_OFFLINE=1 für den Call. Damit unterdruecken wir auch jeden
+    "ist das Cache aktuell?"-HEAD-Request an huggingface.co. Für den
+    Nutzer heisst das: nach einmaligem Download läuft die Transkription
+    komplett ohne Internet -- Pflicht für den Offline-first-Anspruch."""
     local = _find_local_model(engine, model)
     prev_offline = os.environ.get("HF_HUB_OFFLINE")
     if local:
@@ -614,7 +614,7 @@ def _transcribe_file_once(engine: str, model: str, path: str) -> dict:
             }
         raise RuntimeError(f"Unbekannte Engine: {engine}")
     finally:
-        # Env-Var zurueckstellen, damit der Downloader weiterhin Online-
+        # Env-Var zurückstellen, damit der Downloader weiterhin Online-
         # Zugriff hat.
         if prev_offline is None:
             os.environ.pop("HF_HUB_OFFLINE", None)
@@ -626,9 +626,9 @@ def _transcribe_file_once(engine: str, model: str, path: str) -> dict:
 # Modell-Downloader
 # --------------------------------------------------------------------------
 
-# Geschaetzte Groesse pro Modell auf der Platte (in Bytes). Wird fuer die
+# Geschaetzte Größe pro Modell auf der Platte (in Bytes). Wird für die
 # Progress-Abschaetzung beim Download verwendet. Zahlen sind grob, aber
-# ausreichend fuer einen aussagekraeftigen Prozent-Balken.
+# ausreichend für einen aussagekraeftigen Prozent-Balken.
 MODEL_SIZE_ESTIMATE: dict[tuple[str, str], int] = {
     # mlx-whisper (HF-Repos mlx-community/whisper-<size>-mlx)
     ("mlx-whisper", "tiny"):            80_000_000,
@@ -666,8 +666,8 @@ def _hf_repo_for(engine: str, model: str) -> str:
 
 
 def _hf_cache_dir_for(engine: str, model: str) -> Path:
-    """Pfad zum HF-Cache-Ordner des Modells (auch waehrend Download
-    existieren dort schon Partial-Files, die wir fuer Progress nutzen)."""
+    """Pfad zum HF-Cache-Ordner des Modells (auch während Download
+    existieren dort schon Partial-Files, die wir für Progress nutzen)."""
     home = Path.home() / ".cache" / "huggingface" / "hub"
     if engine == "mlx-whisper":
         return home / f"models--mlx-community--whisper-{model}-mlx"
@@ -699,9 +699,9 @@ async def download_model(
     progress_cb: Optional[Callable[[float], None]] = None,
     cancel_event: Optional[asyncio.Event] = None,
 ) -> str:
-    """Laedt das gewuenschte Modell in den Standard-Cache der jeweiligen
-    Engine. Gibt den Ziel-Pfad zurueck. Progress wird aus der waehrend
-    des Downloads wachsenden Dateigroesse geschaetzt (gegen
+    """Lädt das gewuenschte Modell in den Standard-Cache der jeweiligen
+    Engine. Gibt den Ziel-Pfad zurück. Progress wird aus der während
+    des Downloads wachsenden Dateigröße geschaetzt (gegen
     MODEL_SIZE_ESTIMATE)."""
     from app.services.job_service import CancelledByUser
 
@@ -717,14 +717,14 @@ async def download_model(
         target = _hf_cache_dir_for(engine, model)
 
         def _download_hf():
-            # huggingface_hub ist eine transitive Abhaengigkeit beider
-            # Whisper-Pakete -- kein zusaetzlicher Install noetig.
+            # huggingface_hub ist eine transitive Abhängigkeit beider
+            # Whisper-Pakete -- kein zusätzlicher Install noetig.
             from huggingface_hub import snapshot_download  # type: ignore
             snapshot_download(repo_id=repo)
 
         task = asyncio.create_task(asyncio.to_thread(_download_hf))
 
-        # Progress-Polling: alle 500 ms die tatsaechliche Groesse checken
+        # Progress-Polling: alle 500 ms die tatsächliche Größe checken
         last = 0.0
         while not task.done():
             if cancel_event and cancel_event.is_set():
@@ -751,7 +751,7 @@ async def download_model(
 
     def _download_openai():
         import whisper  # type: ignore
-        # load_model() laedt auf den offiziellen Pfad in ~/.cache/whisper
+        # load_model() lädt auf den offiziellen Pfad in ~/.cache/whisper
         whisper.load_model(model)
 
     task = asyncio.create_task(asyncio.to_thread(_download_openai))
@@ -784,12 +784,12 @@ async def run_transcription(
     cancel_event: Optional[asyncio.Event] = None,
     chunk_seconds: float = CHUNK_SECONDS,
 ) -> TranscribeResult:
-    """Transkribiert Stueck fuer Stueck. Nach jedem Chunk:
+    """Transkribiert Stueck für Stueck. Nach jedem Chunk:
     - progress_cb(frac)       -> bisheriger Fortschritt [0..1]
     - segment_cb(segment)     -> einzelnes {start,end,text}-Dict (schon mit
                                   absolutem Zeitstempel relativ zum Gesamt-
                                   Audio, damit die UI es direkt anzeigen kann)
-    - cancel_event            -> wird vor jedem Chunk geprueft; bei set()
+    - cancel_event            -> wird vor jedem Chunk geprüft; bei set()
                                   steigt die Funktion mit CancelledByUser aus.
 
     Wirft RuntimeError bei Setup-Problemen, ImportError wird in RuntimeError
@@ -866,7 +866,7 @@ async def run_transcription(
                     continue
                 start = float(s.get("start", 0.0)) + offset
                 end   = float(s.get("end", 0.0)) + offset
-                # Bei Overlap koennen doppelte Eintraege vorkommen: wenn
+                # Bei Overlap können doppelte Eintraege vorkommen: wenn
                 # das letzte gespeicherte Segment denselben Text im selben
                 # Zeitfenster hat, ueberspringen.
                 if all_segs and all_segs[-1]["text"] == text \
@@ -930,7 +930,7 @@ def remap_segments_for_edl(
     Felder ``src_start``, ``src_end`` und ``id`` haben. Wenn ``clip_id``
     gesetzt ist, werden nur die Segmente des entsprechenden Clips
     geliefert (Einzel-Clip-Export). Sonst werden alle Clips in Timeline-
-    Reihenfolge aneinandergehaengt und die Segmente auf den jeweiligen
+    Reihenfolge aneinandergehängt und die Segmente auf den jeweiligen
     Export-Offset gemapped.
 
     Segmente, die an Clip-Grenzen liegen, werden zugeschnitten -- das
@@ -977,7 +977,7 @@ def remap_segments_for_edl(
 
 
 def parse_srt(content: str) -> list[dict]:
-    """Liest SRT zurueck in Segmente. Toleriert CRLF und leere Blocks."""
+    """Liest SRT zurück in Segmente. Toleriert CRLF und leere Blocks."""
     segs: list[dict] = []
     if not content:
         return segs

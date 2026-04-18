@@ -1,5 +1,5 @@
 // Theme (dunkel/hell) -- persistent im localStorage.
-// Schriftgroesse bleibt dem Browser ueberlassen (Cmd/Ctrl + / - /  0).
+// Schriftgröße bleibt dem Browser ueberlassen (Cmd/Ctrl + / - /  0).
 
 import { persisted, persist } from './persist.svelte.js';
 

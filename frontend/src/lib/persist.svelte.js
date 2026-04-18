@@ -1,4 +1,4 @@
-// Kleine localStorage-Helfer -- fuer Sidebar-Breite, Theme, Font-Scale etc.
+// Kleine localStorage-Helfer -- für Sidebar-Breite, Theme, Font-Scale etc.
 
 export function persisted(key, initial) {
   try {

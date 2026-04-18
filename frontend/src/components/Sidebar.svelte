@@ -8,7 +8,7 @@
   } from '../lib/panels.svelte.js';
 
   // Kontext-abhaengiges Info-Label: steht je nach aktiver View fuer
-  // "Tastenkuerzel" (Editor), "Bibliothek-Tipps", etc. Wenn es fuer den
+  // "Tastenkürzel" (Editor), "Bibliothek-Tipps", etc. Wenn es für den
   // View keine spezifische Hilfe gibt, bleibt der Eintrag grau als
   // generisches "Info".
   const infoLabel = $derived(infoLabelFor(nav.view));
@@ -75,7 +75,7 @@
     {#if !collapsed}
       <div class="group-label soft">Hilfe</div>
     {/if}
-    <!-- Info: Label wechselt je nach aktiver View. Wenn es fuer den
+    <!-- Info: Label wechselt je nach aktiver View. Wenn es für den
          Kontext keine spezifische Hilfe gibt, bleibt der Eintrag grau
          und heisst generisch "Info". -->
     <button
@@ -207,13 +207,13 @@
 
   /* Hilfe-Panel-Eintraege: Icon dauerhaft in Akzent-Blau, damit sie
      klar als "Info-Ebene" erkennbar sind. Beim Hover wird auch der Text
-     blau. Aktiver Zustand (Fenster offen) zusaetzlich mit Akzent-Soft
+     blau. Aktiver Zustand (Fenster offen) zusätzlich mit Akzent-Soft
      Hintergrund. */
   .item-panel i { color: var(--accent); }
   .item-panel:hover { color: var(--accent); }
   .item-panel.active { background: var(--accent-soft); color: var(--accent); }
 
-  /* Info-Fallback: wenn es fuer den aktuellen Kontext keinen spezifischen
+  /* Info-Fallback: wenn es für den aktuellen Kontext keinen spezifischen
      Hilfetext gibt, Eintrag dezenter darstellen (Icon + Text grau). */
   .item-panel.item-panel-muted i { color: var(--fg-faint); }
   .item-panel.item-panel-muted:hover { color: var(--fg-primary); }
