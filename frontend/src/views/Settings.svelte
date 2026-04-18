@@ -23,13 +23,13 @@
     nav.settingsTab || persisted('settings.tab', DEFAULT_TAB) || DEFAULT_TAB,
   );
 
-  // Beim ersten Mount: URL-Tab ggf. ergaenzen, damit Deeplink bestehen
+  // Beim ersten Mount: URL-Tab ggf. ergänzen, damit Deeplink bestehen
   // bleibt (z. B. /settings ohne Tab bekommt ?tab=pfade).
   onMount(() => {
     if (!nav.settingsTab) setSettingsTab(activeTab);
   });
 
-  // Auf URL-Aenderungen reagieren (Back/Forward)
+  // Auf URL-Änderungen reagieren (Back/Forward)
   $effect(() => {
     if (nav.settingsTab && nav.settingsTab !== activeTab) {
       activeTab = nav.settingsTab;
@@ -74,7 +74,7 @@
       originalsInput = pp.saved?.originals_dir ?? '';
       exportsInput   = pp.saved?.exports_dir   ?? '';
       txStatus = tx;
-      // Default-Engine fuer den Download-Abschnitt: erste installierte
+      // Default-Engine für den Download-Abschnitt: erste installierte
       if (!dlEngine) {
         const first = tx?.engines?.find((e) => e.installed);
         if (first) dlEngine = first.name;
@@ -96,6 +96,44 @@
       txStatus = await api.transcriptionStatus();
       toast.info('Auswahl zurückgesetzt -- Auto-Vorschlag wird verwendet');
     } catch (e) { toast.error(e.message); }
+  }
+
+  // pip-Paketname je Engine -- fast immer identisch zum Engine-Namen,
+  // aber openai-whisper heißt im Python-Import nur "whisper".
+  function pipPackageFor(engine) {
+    if (engine === 'mlx-whisper') return 'mlx-whisper';
+    if (engine === 'faster-whisper') return 'faster-whisper';
+    if (engine === 'openai-whisper') return 'openai-whisper';
+    return engine;
+  }
+
+  async function copyCmd(cmd) {
+    try {
+      await navigator.clipboard.writeText(cmd);
+      toast.success('In die Zwischenablage kopiert');
+    } catch {
+      toast.error('Kopieren nicht möglich -- bitte manuell markieren');
+    }
+  }
+
+  async function copyPipCmd(engine) {
+    const pkg = pipPackageFor(engine);
+    const cmd = `cd backend && source .venv/bin/activate && pip install ${pkg}`;
+    await copyCmd(cmd);
+  }
+
+  // Bei disabled-Modellen: kurzer Toast statt stummem Button, damit
+  // der User weiß, was zu tun ist.
+  function explainDisabled(model) {
+    const engine = (txStatus?.engines || []).find((e) => e.name === model.engine);
+    if (engine && !engine.installed) {
+      toast.info(
+        `Engine "${model.engine}" ist nicht installiert. `
+        + `Kopiere oben bei "Installierte Pakete" den pip-Befehl und `
+        + `starte das Backend neu.`,
+        { duration: 8000 },
+      );
+    }
   }
 
   async function startModelDownload() {
@@ -267,7 +305,7 @@
     {:else if activeTab === 'system'}
     <div class="card block">
       <h3><i class="fa-solid fa-circle-info"></i> System</h3>
-      <!-- Zwei Spalten fuer die kurzen Info-Paare; bricht auf schmalen
+      <!-- Zwei Spalten für die kurzen Info-Paare; bricht auf schmalen
            Fenstern auf eine Spalte um. -->
       <dl class="kv kv-two">
         <div><dt>Backend</dt><dd class="mono">{ping?.app ?? '-'} v{ping?.version ?? '-'}</dd></div>
@@ -311,7 +349,7 @@
 cd backend && source .venv/bin/activate
 pip install -r requirements-transcription.txt
 
-# Variante C -- einzelne Engine selbst waehlen:
+# Variante C -- einzelne Engine selbst wählen:
 #   Apple Silicon:   pip install mlx-whisper
 #   Pi/Linux/Intel:  pip install faster-whisper
 #   Referenz:        pip install openai-whisper
@@ -350,10 +388,26 @@ pip install -r requirements-transcription.txt
             <span class="tx-dot {e.installed ? 'on' : 'off'}"></span>
             <span class="name mono">{e.name}</span>
             {#if e.preferred}<span class="tag preferred">empfohlen</span>{/if}
-            {#if !e.installed}<span class="reason">{e.reason}</span>{/if}
+            {#if !e.installed}
+              <span class="reason">{e.reason}</span>
+              <button class="btn btn-sm pip-copy" onclick={() => copyPipCmd(e.name)}
+                      title={`pip-Befehl für ${e.name} kopieren`}>
+                <i class="fa-solid fa-copy"></i>
+                <span class="pip-cmd mono">pip install {pipPackageFor(e.name)}</span>
+              </button>
+            {/if}
           </li>
         {/each}
       </ul>
+      {#if (txStatus?.engines || []).some((e) => !e.installed)}
+        <p class="meta pip-hint">
+          <i class="fa-solid fa-circle-info"></i>
+          Fehlende Engines in der Backend-venv installieren, danach
+          <button class="linklike" onclick={() => copyCmd('./start.sh restart backend')}>
+            <code>./start.sh restart backend</code>
+          </button>.
+        </p>
+      {/if}
 
       <h4 class="sub">Gefundene Modelle auf der Platte</h4>
       {#if (txStatus?.models_found?.length || 0) === 0}
@@ -372,15 +426,19 @@ pip install -r requirements-transcription.txt
                   <span class="badge-active">
                     <i class="fa-solid fa-check"></i> Aktiv
                   </span>
-                {:else}
+                {:else if engineInstalled}
                   <button class="btn btn-sm"
                           onclick={() => useModel(m)}
-                          disabled={!engineInstalled}
-                          title={engineInstalled
-                            ? 'Dieses Modell für die Transkription verwenden'
-                            : `Engine ${m.engine} ist nicht installiert -- siehe Installationshinweise oben`}>
+                          title="Dieses Modell für die Transkription verwenden">
                     <i class="fa-solid fa-check"></i>
                     Auswählen
+                  </button>
+                {:else}
+                  <button class="btn btn-sm btn-warn-soft"
+                          onclick={() => explainDisabled(m)}
+                          title={`Engine ${m.engine} ist nicht installiert -- klick für Installationshinweis`}>
+                    <i class="fa-solid fa-triangle-exclamation"></i>
+                    Engine fehlt
                   </button>
                 {/if}
                 <span class="size mono">{fmtSizeB(m.size_bytes)}</span>
@@ -513,7 +571,7 @@ pip install -r requirements-transcription.txt
   }
   h3 i { color: var(--accent); }
 
-  /* Lesetexte bewusst groesser als die dichte Cutter-UI */
+  /* Lesetexte bewusst größer als die dichte Cutter-UI */
   .hint {
     font-size: 15px;
     margin: 0 0 12px;
@@ -547,7 +605,7 @@ pip install -r requirements-transcription.txt
     border: 1px solid var(--border-strong);
     border-radius: 6px;
     padding: 10px 12px;
-    /* Pfade profitieren trotzdem von Monospace, aber etwas groesser */
+    /* Pfade profitieren trotzdem von Monospace, aber etwas größer */
     font-family: 'JetBrains Mono', ui-monospace, monospace;
     font-size: 14px;
   }
@@ -630,6 +688,37 @@ pip install -r requirements-transcription.txt
     font-size: 10px; font-weight: 700;
     padding: 1px 6px; border-radius: 4px;
     text-transform: uppercase; letter-spacing: 0.5px;
+  }
+  .pip-copy {
+    display: inline-flex; align-items: center; gap: 6px;
+    margin-left: auto;
+    font-family: var(--font-mono);
+    font-size: 11px;
+  }
+  .pip-copy .pip-cmd {
+    color: var(--fg-muted);
+  }
+  .pip-hint {
+    margin-top: 8px;
+    display: flex; align-items: center; gap: 8px;
+    flex-wrap: wrap;
+  }
+  .pip-hint i { color: var(--accent); }
+  .pip-hint code {
+    font-family: var(--font-mono);
+    background: var(--bg-elev);
+    padding: 1px 6px;
+    border-radius: 4px;
+    font-size: 12px;
+    color: var(--fg-primary);
+  }
+  .btn-warn-soft {
+    background: color-mix(in oklab, var(--warning) 12%, var(--bg-elev));
+    border-color: color-mix(in oklab, var(--warning) 35%, var(--border));
+    color: var(--warning);
+  }
+  .btn-warn-soft:hover {
+    background: color-mix(in oklab, var(--warning) 20%, var(--bg-elev));
   }
 
   .models {

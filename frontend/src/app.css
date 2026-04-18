@@ -233,5 +233,38 @@ html, body {
   pointer-events: none;
 }
 
-/* Kleine Variante: schmaler, fuer Listen */
+/* Kleine Variante: schmaler, für Listen */
 .btn-sm { height: 26px; padding: 0 8px; font-size: 11px; }
+
+/* ------------------------------------------------------------------
+   Browser-native Extras auf Input-Feldern abschalten
+   ------------------------------------------------------------------
+   - Clear-Button ("X") bei type=search und dessen nicht-standard
+     Varianten (Edge, Internet Explorer Reveal)
+   - Spin-Buttons bei type=number (Pfeilchen rauf/runter)
+   Wir liefern eigene Clear-Buttons da, wo welche gebraucht werden.
+   Die nativen stören das dunkle Theme (grelles Blau auf Dark) und
+   sind für unsere Zwecke nicht nötig. */
+input[type="search"]::-webkit-search-cancel-button,
+input[type="search"]::-webkit-search-decoration,
+input[type="search"]::-webkit-search-results-button,
+input[type="search"]::-webkit-search-results-decoration {
+  -webkit-appearance: none;
+  appearance: none;
+  display: none;
+}
+input::-ms-clear,
+input::-ms-reveal {
+  display: none;
+  width: 0;
+  height: 0;
+}
+input[type="number"]::-webkit-outer-spin-button,
+input[type="number"]::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+input[type="number"] {
+  -moz-appearance: textfield;
+  appearance: textfield;
+}
