@@ -42,6 +42,7 @@ class FileOut(BaseModel):
     has_transcript: bool = False
     transcript_lang: Optional[str] = None
     transcript_model: Optional[str] = None
+    protected: bool = False
     created_at: str
 
 

@@ -94,6 +94,15 @@ export const api = {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(body),
     }),
+  // Reset-Endpunkte. target ∈
+  //   'caches' | 'transcripts' | 'jobs-history'
+  //   'demo-video-remove' | 'demo-video-reload'
+  systemReset: (target) =>
+    request('/system/reset', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ target }),
+    }),
 
   // Upload
   upload: async (file, onProgress, folder = '', opts = {}) => {

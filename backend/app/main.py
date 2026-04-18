@@ -51,6 +51,17 @@ async def lifespan(app: FastAPI):
     job_service.set_broadcaster(ws.broadcaster.broadcast)
     await job_service.start()
     await _auto_cleanup_jobs()
+    # Demo-Video einmalig importieren, falls die Quelle in data/demo/
+    # liegt (kam beim setup.sh über tools/fetch_demo_video.sh dort an).
+    # Wenn der User das Demo später manuell in den Einstellungen
+    # entfernt, bleibt der Import hier aus -- es passiert nur genau
+    # dann etwas, wenn die Quelle da ist UND die Bibliothek noch
+    # keinen protected-Eintrag hat.
+    try:
+        from app.services.demo_video_service import ensure_demo_imported
+        await ensure_demo_imported()
+    except Exception as e:
+        logger.warning(f"Demo-Video-Import übersprungen: {e}")
     logger.info(f"[OK] API: http://{HOST}:{PORT}  Docs: http://{HOST}:{PORT}/docs  HW: {hw}")
     yield
     logger.info(f"[STOP] {APP_NAME} fährt herunter...")

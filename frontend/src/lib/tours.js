@@ -10,6 +10,9 @@
 // aus der JSON an den jeweiligen Schritt gemerged.
 
 import { openInfo } from './panels.svelte.js';
+import { editor } from './editor.svelte.js';
+import { openInEditor } from './nav.svelte.js';
+import { api } from './api.js';
 import texts from './tour-texts.json';
 
 // Skelett je Tour: alles Strukturelle, aber keine Texte.
@@ -31,7 +34,8 @@ const SKELETONS = {
       { view: 'library', selector: '[data-tour="lib-view-switch"]' },
       { view: 'library', selector: '[data-tour="lib-file-open"]',
         hint: 'Der Button ist erst aktiv, wenn die Proxy-Vorschau fertig ist.' },
-      { view: 'editor', selector: '[data-tour="editor-timeline"]' },
+      { view: 'editor', selector: '[data-tour="editor-timeline"]',
+        before: ensureEditorHasVideo },
       { view: 'editor', selector: '[data-tour="editor-addclip"]',
         hint: 'Frame-genau schneiden: Keyframe-Magnet aus -- dann reencode, kostet Rechenzeit, ist dafür exakt.' },
       { view: 'editor', selector: '[data-tour="editor-render"]',
@@ -73,6 +77,7 @@ const SKELETONS = {
     runnable: true,
     steps: [
       { view: 'editor', selector: '[data-tour="editor-render"]',
+        before: ensureEditorHasVideo,
         hint: 'Der Dialog wird gleich für dich geöffnet -- nichts wird gerendert.' },
       { view: 'editor',
         before: () => clickIfExists('[data-tour="editor-render"]'),
@@ -94,7 +99,8 @@ const SKELETONS = {
     duration: '1 Min',
     runnable: true,
     steps: [
-      { view: 'editor', before: () => openInfo() },
+      { view: 'editor',
+        before: async () => { await ensureEditorHasVideo(); openInfo(); } },
       { view: 'editor', selector: '[data-panel="info"]' },
       { view: 'editor', selector: '[data-panel="info"]' },
       { view: 'editor', demo_ms: 5500 },
@@ -149,4 +155,25 @@ export const TOURS = Object.entries(SKELETONS).map(([id, tour]) => {
 function clickIfExists(selector) {
   const el = document.querySelector(selector);
   if (el && !el.disabled) el.click();
+}
+
+// Damit die Editor-Schritte der Tour etwas zu zeigen haben: wenn noch
+// kein Video im Editor offen ist, wählen wir eins aus der Bibliothek
+// aus. Bevorzugt das geschützte Demo-Video (protected=1), sonst die
+// erste beste Datei mit fertiger Proxy-Vorschau. Ohne Proxy bleibt
+// der Schritt ohne Spotlight -- kein Drama.
+async function ensureEditorHasVideo() {
+  if (editor.fileId) return;
+  let files = [];
+  try {
+    files = await api.listFiles();
+  } catch { return; }
+  if (!files || files.length === 0) return;
+  const demo = files.find((f) => f.protected && f.has_proxy);
+  const fallback = files.find((f) => f.has_proxy);
+  const target = demo || fallback;
+  if (!target) return;
+  openInEditor(target.id);
+  // kurz warten, damit der Editor das Projekt und den Player lädt
+  await new Promise((r) => setTimeout(r, 1500));
 }

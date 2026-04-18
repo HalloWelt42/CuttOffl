@@ -3,6 +3,7 @@
   import PanelHeader from '../components/PanelHeader.svelte';
   import { api } from '../lib/api.js';
   import { toast } from '../lib/toast.svelte.js';
+  import { confirmDialog } from '../lib/dialog.svelte.js';
   import { nav, setSettingsTab, SETTINGS_TABS } from '../lib/nav.svelte.js';
   import { persisted, persist } from '../lib/persist.svelte.js';
   import { wsOn, wsStart } from '../lib/ws.svelte.js';
@@ -47,6 +48,7 @@
     { id: 'pfade',         label: 'Arbeits-Verzeichnisse', icon: 'fa-folder-tree' },
     { id: 'transkription', label: 'Transkription',         icon: 'fa-closed-captioning' },
     { id: 'system',        label: 'System-Info',           icon: 'fa-circle-info' },
+    { id: 'reset',         label: 'Zurücksetzen',          icon: 'fa-rotate-left' },
   ];
 
   let ping = $state(null);
@@ -209,6 +211,81 @@
   }
 
   onMount(loadAll);
+
+  // --- Resets -----------------------------------------------------------
+
+  let resetBusy = $state('');      // 'caches' | 'transcripts' | ... | ''
+  let demoProtected = $derived(
+    paths ? false : false,   // reiner Platzhalter, echte Info folgt über listFiles
+  );
+  let demoVideoInfo = $state({ present: false, file: null });
+
+  async function loadDemoInfo() {
+    try {
+      const files = await api.listFiles();
+      const demo = (files || []).find((f) => f.protected);
+      demoVideoInfo = demo
+        ? { present: true, file: demo }
+        : { present: false, file: null };
+    } catch { demoVideoInfo = { present: false, file: null }; }
+  }
+  // Demo-Info beim ersten Besuch des Reset-Tabs laden
+  $effect(() => {
+    if (activeTab === 'reset' && !demoVideoInfo.present) {
+      loadDemoInfo();
+    }
+  });
+
+  async function runReset(target, confirmMsg) {
+    if (resetBusy) return;
+    const ok = await confirmDialog(confirmMsg, {
+      title: 'Bestätigen',
+      okLabel: 'Zurücksetzen',
+      okVariant: 'danger',
+    });
+    if (!ok) return;
+    resetBusy = target;
+    try {
+      const res = await api.systemReset(target);
+      toast.success(`Zurückgesetzt: ${target}`);
+      // Storage-Zahlen + Demo-Info neu laden
+      await loadAll();
+      await loadDemoInfo();
+      return res;
+    } catch (e) {
+      toast.error(`${target}: ${e.message}`);
+    } finally {
+      resetBusy = '';
+    }
+  }
+
+  function resetTours() {
+    // rein clientseitig
+    const keys = [
+      'tour.completed', 'tour.firstRunOffered', 'tour.audioOn',
+    ];
+    keys.forEach((k) => localStorage.removeItem(k));
+    toast.success(
+      'Touren zurückgesetzt -- beim nächsten Dashboard-Besuch wird die '
+      + 'Einsteiger-Tour wieder angeboten.',
+    );
+  }
+
+  function resetAppPrefs() {
+    // Alles unter app.*, editor.*, library.*, panel.* weg.
+    // Transkriptions-Präferenz (user_config.json) und Pfade bleiben.
+    const prefixes = ['app.', 'editor.', 'library.', 'panel.'];
+    const toDelete = [];
+    for (let i = 0; i < localStorage.length; i++) {
+      const k = localStorage.key(i);
+      if (k && prefixes.some((p) => k.startsWith(p))) toDelete.push(k);
+    }
+    toDelete.forEach((k) => localStorage.removeItem(k));
+    toast.success(
+      `App-Einstellungen zurückgesetzt (${toDelete.length} Einträge). `
+      + 'Lade die App neu, damit alles frisch greift.',
+    );
+  }
 
   async function savePaths() {
     saving = true;
@@ -510,6 +587,158 @@ pip install -r requirements-transcription.txt
         </button>
       </div>
     </div>
+
+    {:else if activeTab === 'reset'}
+    <!-- Reset-Tab: lokale Dinge (Touren, App-Prefs) und Server-Reste
+         (Caches, Transkripte, Job-Historie, Demo-Video). Jeder Block
+         als eigene Karte mit Bestätigungsdialog. -->
+    <div class="tab-body reset-body">
+      <p class="lead">
+        Hier setzt du einzelne Bereiche zurück -- kein Bereich reißt
+        andere mit. Originale und Projekte bleiben immer erhalten.
+      </p>
+
+      <article class="reset-card">
+        <header>
+          <i class="fa-solid fa-life-ring"></i>
+          <h4>Touren</h4>
+        </header>
+        <p>
+          Setzt die Fortschritts-Merker aller Touren zurück. Das
+          First-Run-Modal erscheint beim nächsten Dashboard-Besuch
+          wieder, alle Touren gelten als "noch nicht gesehen". Die
+          MP3-Dateien der Sprecher-Stimme bleiben natürlich liegen.
+        </p>
+        <button class="btn" onclick={resetTours}>
+          <i class="fa-solid fa-rotate-left"></i> Touren zurücksetzen
+        </button>
+      </article>
+
+      <article class="reset-card">
+        <header>
+          <i class="fa-solid fa-sliders"></i>
+          <h4>App-Einstellungen</h4>
+        </header>
+        <p>
+          Theme, Sidebar-Breite, Panel-Positionen, Editor-Präferenzen
+          (Snap, Follow, Zoom), Bibliotheks-Ansicht &amp; Filter, Tab-
+          Deeplinks -- alles was lokal im Browser liegt, wird auf
+          Default zurückgesetzt. <b>Bleibt:</b> deine Arbeits-
+          Verzeichnisse und die Transkriptions-Modellwahl (die stehen
+          serverseitig).
+        </p>
+        <button class="btn" onclick={resetAppPrefs}>
+          <i class="fa-solid fa-rotate-left"></i> App-Einstellungen zurücksetzen
+        </button>
+      </article>
+
+      <h3 class="group-head">Speicher</h3>
+
+      <article class="reset-card">
+        <header>
+          <i class="fa-solid fa-broom"></i>
+          <h4>Vorschau-Caches leeren</h4>
+        </header>
+        <p>
+          Löscht Proxy-Videos, Thumbnails, Frame-Streifen und
+          Wellenformen -- die werden bei Bedarf neu erzeugt. Originale,
+          Projekte und Transkripte bleiben unberührt. Danach müssen die
+          Vorschauen einmal neu gerechnet werden (dauert, je nach
+          Menge).
+        </p>
+        <button class="btn btn-danger" disabled={!!resetBusy}
+                onclick={() => runReset('caches',
+                  'Alle Proxy-Vorschauen, Thumbnails, Sprite-Streifen '
+                  + 'und Wellenformen werden gelöscht. Die Dateien selbst '
+                  + 'bleiben, aber Vorschauen müssen neu erzeugt werden. '
+                  + 'Fortfahren?')}>
+          <i class="fa-solid fa-broom"></i>
+          {resetBusy === 'caches' ? 'Leere …' : 'Caches leeren'}
+        </button>
+      </article>
+
+      <article class="reset-card">
+        <header>
+          <i class="fa-solid fa-closed-captioning"></i>
+          <h4>Transkripte löschen</h4>
+        </header>
+        <p>
+          Alle erzeugten SRT-Transkripte werden entfernt. Videos und
+          Projekte bleiben unberührt. Danach kannst du bei Bedarf neu
+          transkribieren lassen.
+        </p>
+        <button class="btn btn-danger" disabled={!!resetBusy}
+                onclick={() => runReset('transcripts',
+                  'Alle SRT-Transkripte werden gelöscht. Videos bleiben '
+                  + 'erhalten. Sicher?')}>
+          <i class="fa-solid fa-trash"></i>
+          {resetBusy === 'transcripts' ? 'Lösche …' : 'Transkripte löschen'}
+        </button>
+      </article>
+
+      <article class="reset-card">
+        <header>
+          <i class="fa-solid fa-list-check"></i>
+          <h4>Job-Historie leeren</h4>
+        </header>
+        <p>
+          Abgeschlossene und fehlgeschlagene Jobs werden aus der
+          Historie entfernt. Render-Jobs mit noch existierenden
+          Export-Dateien bleiben erhalten, damit die Liste der fertigen
+          Videos vollständig bleibt.
+        </p>
+        <button class="btn btn-danger" disabled={!!resetBusy}
+                onclick={() => runReset('jobs-history',
+                  'Die Job-Historie (abgeschlossene + fehlgeschlagene '
+                  + 'Jobs) wird geleert. Fortfahren?')}>
+          <i class="fa-solid fa-eraser"></i>
+          {resetBusy === 'jobs-history' ? 'Räume …' : 'Historie leeren'}
+        </button>
+      </article>
+
+      <h3 class="group-head">Demo-Video</h3>
+
+      <article class="reset-card reset-card-demo">
+        <header>
+          <i class="fa-solid fa-circle-play"></i>
+          <h4>
+            Big Buck Bunny -- Demo-Video
+            {#if demoVideoInfo.present}
+              <span class="mini-badge">in Bibliothek</span>
+            {:else}
+              <span class="mini-badge off">nicht importiert</span>
+            {/if}
+          </h4>
+        </header>
+        <p>
+          Das Demo-Video ist in der Bibliothek geschützt und kann dort
+          nicht versehentlich gelöscht werden. Hier ist der einzige
+          Weg, es zu entfernen oder (bei Bedarf) neu zu holen.
+          Lizenz: © Blender Foundation, CC BY 3.0.
+        </p>
+        <div class="reset-actions">
+          <button class="btn btn-danger" disabled={!!resetBusy || !demoVideoInfo.present}
+                  onclick={() => runReset('demo-video-remove',
+                    'Das Demo-Video wird aus der Bibliothek entfernt '
+                    + '(DB-Eintrag + abgeleitete Vorschauen). Die '
+                    + 'Quelldatei in data/demo/ bleibt liegen, du '
+                    + 'kannst das Demo jederzeit neu laden. Fortfahren?')}>
+            <i class="fa-solid fa-trash"></i>
+            {resetBusy === 'demo-video-remove' ? 'Entferne …' : 'Aus Bibliothek entfernen'}
+          </button>
+          <button class="btn btn-primary" disabled={!!resetBusy}
+                  onclick={() => runReset('demo-video-reload',
+                    'Das Demo-Video wird neu geladen. Wenn die Quelle '
+                    + 'fehlt, wird sie bei bestehender Internet-Verbindung '
+                    + 'neu von download.blender.org geholt -- das kann '
+                    + 'ein paar Minuten dauern. Fortfahren?')}>
+            <i class="fa-solid fa-rotate-right"></i>
+            {resetBusy === 'demo-video-reload' ? 'Lade …' : 'Neu laden'}
+          </button>
+        </div>
+      </article>
+    </div>
+
     {/if}
 
     <!-- Tab-unabhaengiger Hinweis -- bleibt immer am unteren Rand -->
@@ -847,5 +1076,95 @@ pip install -r requirements-transcription.txt
     border-radius: 3px;
     font-family: 'JetBrains Mono', ui-monospace, monospace;
     font-size: 13px;
+  }
+
+  /* ---- Reset-Tab ---- */
+  .reset-body {
+    max-width: 780px;
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+  }
+  .reset-body .lead {
+    color: var(--fg-muted);
+    line-height: 1.55;
+    margin: 0 0 4px;
+  }
+  .reset-body .group-head {
+    margin: 16px 0 2px;
+    font-size: 12px;
+    text-transform: uppercase;
+    letter-spacing: 0.6px;
+    color: var(--fg-faint);
+    font-weight: 600;
+  }
+  .reset-card {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    padding: 14px 16px;
+    background: var(--bg-panel);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+  }
+  .reset-card header {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+  .reset-card header i {
+    color: var(--accent);
+    font-size: 18px;
+    width: 24px;
+    text-align: center;
+  }
+  .reset-card h4 {
+    margin: 0;
+    font-size: 14px;
+    font-weight: 600;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .reset-card p {
+    margin: 0;
+    color: var(--fg-muted);
+    font-size: 13px;
+    line-height: 1.5;
+  }
+  .reset-card button {
+    align-self: flex-start;
+    margin-top: 4px;
+  }
+  .reset-actions {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+    margin-top: 4px;
+  }
+  .reset-actions button { align-self: auto; margin-top: 0; }
+
+  .reset-card-demo {
+    background: linear-gradient(
+      135deg,
+      color-mix(in oklab, var(--accent) 14%, var(--bg-panel)) 0%,
+      var(--bg-panel) 70%
+    );
+    border-color: color-mix(in oklab, var(--accent) 40%, var(--border));
+  }
+  .mini-badge {
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    font-weight: 700;
+    padding: 2px 7px;
+    border-radius: 10px;
+    background: var(--success);
+    color: var(--accent-on);
+  }
+  .mini-badge.off {
+    background: var(--bg-elev);
+    color: var(--fg-muted);
+    border: 1px solid var(--border);
   }
 </style>

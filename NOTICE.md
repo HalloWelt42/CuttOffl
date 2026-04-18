@@ -68,6 +68,15 @@ einer lokalen, individuell geklonten Qwen3-TTS-Stimme synthetisiert
 (via des Schwester-Projekts txt2voice). Sie werden als Teil von
 CuttOffl verteilt und stehen unter derselben Lizenz wie die App.
 
+Das Demo-Video unter `data/demo/cuttoffl-demo.mov` (falls via
+`./tools/fetch_demo_video.sh` heruntergeladen) ist **Big Buck
+Bunny** der Blender Foundation -- lizenziert unter **Creative
+Commons Attribution 3.0** (CC BY 3.0). Die Datei liegt ausschließlich
+lokal beim Nutzer, sie wird *nicht* mit dem Repository ausgeliefert.
+
+- Quelle: https://peach.blender.org  
+- Autor: (c) copyright 2008, Blender Foundation / www.bigbuckbunny.org
+
 ---
 
 ## Externe Binaries

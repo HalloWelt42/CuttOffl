@@ -126,6 +126,7 @@ def _row_to_fileout(row) -> FileOut:
         has_transcript=has_tx,
         transcript_lang=row["transcript_lang"] if "transcript_lang" in row.keys() else None,
         transcript_model=row["transcript_model"] if "transcript_model" in row.keys() else None,
+        protected=bool(row["protected"]) if "protected" in row.keys() else False,
         created_at=row["created_at"],
     )
 
@@ -179,18 +180,28 @@ async def get_file(file_id: str) -> FileOut:
 async def bulk_delete(body: FileBulkDeleteBody) -> dict:
     """Löscht mehrere Dateien samt aller Ableitungen. Gibt die Anzahl der
     erfolgreich entfernten Einträge zurück (und Liste der fehlgeschlagenen
-    IDs). Nicht gefundene IDs werden ignoriert."""
+    IDs). Nicht gefundene IDs werden ignoriert.
+
+    Geschützte Dateien (protected=1, z. B. das Demo-Video) werden
+    grundsätzlich nicht per Massen-Löschung entfernt -- der User muss
+    sie einzeln und bewusst aus der Bibliothek löschen. Ihre IDs
+    wandern in die 'protected_skipped'-Liste der Antwort, damit das
+    Frontend dem User klar sagen kann, warum nicht alles weg ist.
+    """
     ids = list({fid for fid in body.file_ids if fid})
     if not ids:
-        return {"deleted": 0, "missing": [], "errors": []}
+        return {"deleted": 0, "missing": [], "errors": [], "protected_skipped": []}
     placeholders = ",".join("?" * len(ids))
     rows = await db.fetch_all(
-        f"""SELECT id, path, proxy_path, thumb_path, sprite_path, waveform_path
+        f"""SELECT id, path, proxy_path, thumb_path, sprite_path, waveform_path,
+                  protected
             FROM files WHERE id IN ({placeholders})""",
         tuple(ids),
     )
     found_ids = {r["id"] for r in rows}
     missing = [i for i in ids if i not in found_ids]
+    protected_skipped = [r["id"] for r in rows if r["protected"]]
+    rows = [r for r in rows if not r["protected"]]
 
     errors: list[str] = []
     for r in rows:
@@ -202,18 +213,18 @@ async def bulk_delete(body: FileBulkDeleteBody) -> dict:
                 except OSError as e:
                     errors.append(f"{r['id']}:{key}:{e}")
 
-    if found_ids:
-        found_list = list(found_ids)
-        ph = ",".join("?" * len(found_list))
+    deletable_ids = [r["id"] for r in rows]
+    if deletable_ids:
+        ph = ",".join("?" * len(deletable_ids))
         # Auch die Projekte wegraeumen, die auf diese Quellen zeigen --
         # sonst bleiben sie als Waisen in der DB und verfaelschen die
         # Dashboard-Statistik.
         await db.execute(
             f"DELETE FROM projects WHERE source_file_id IN ({ph})",
-            tuple(found_list),
+            tuple(deletable_ids),
         )
         await db.execute(
-            f"DELETE FROM files WHERE id IN ({ph})", tuple(found_list)
+            f"DELETE FROM files WHERE id IN ({ph})", tuple(deletable_ids)
         )
         await _emit_file_event("bulk_deleted", file_ids=found_list)
     return {
@@ -384,12 +395,24 @@ async def download_bundle(file_id: str):
 @router.delete("/{file_id}")
 async def delete_file(file_id: str) -> dict:
     row = await db.fetch_one(
-        """SELECT path, proxy_path, thumb_path, sprite_path, waveform_path
+        """SELECT path, proxy_path, thumb_path, sprite_path, waveform_path,
+                  protected
            FROM files WHERE id = ?""",
         (file_id,),
     )
     if row is None:
         raise HTTPException(status_code=404, detail="Datei nicht gefunden")
+    if row["protected"]:
+        # Demo-Video & Co. sind aus der normalen Bibliothek heraus nicht
+        # löschbar -- das geht nur über Einstellungen -> Zurücksetzen.
+        # So landet der User nie versehentlich ohne Demo-Material.
+        raise HTTPException(
+            status_code=403,
+            detail=(
+                "Diese Datei ist geschützt. Entfernen geht nur über "
+                "Einstellungen → Zurücksetzen → Demo-Video."
+            ),
+        )
 
     for key in ("path", "proxy_path", "thumb_path", "sprite_path", "waveform_path"):
         p = row[key]

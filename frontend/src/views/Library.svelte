@@ -942,10 +942,17 @@
                               title="Proxy-Vorschau neu erzeugen">
                         <i class="fa-solid fa-arrows-rotate"></i>
                       </button>
-                      <button class="btn btn-danger" onclick={() => onDelete(f)}
-                              title="Datei samt Vorschau, Thumbnail, Sprite und Wellenform löschen">
-                        <i class="fa-solid fa-trash"></i>
-                      </button>
+                      {#if f.protected}
+                        <button class="btn btn-locked" disabled
+                                title="Dieses Video ist geschützt (Demo). Löschung oder Neu-Laden nur in Einstellungen → Zurücksetzen.">
+                          <i class="fa-solid fa-lock"></i>
+                        </button>
+                      {:else}
+                        <button class="btn btn-danger" onclick={() => onDelete(f)}
+                                title="Datei samt Vorschau, Thumbnail, Sprite und Wellenform löschen">
+                          <i class="fa-solid fa-trash"></i>
+                        </button>
+                      {/if}
                     </div>
                   </div>
                 </article>
@@ -1041,10 +1048,17 @@
                             <i class="fa-solid fa-file-zipper"></i>
                           </a>
                         {/if}
-                        <button class="btn btn-sm btn-danger" onclick={() => onDelete(f)}
-                                title="Löschen">
-                          <i class="fa-solid fa-trash"></i>
-                        </button>
+                        {#if f.protected}
+                          <button class="btn btn-sm btn-locked" disabled
+                                  title="Geschütztes Demo-Video. Entfernen nur in Einstellungen → Zurücksetzen.">
+                            <i class="fa-solid fa-lock"></i>
+                          </button>
+                        {:else}
+                          <button class="btn btn-sm btn-danger" onclick={() => onDelete(f)}
+                                  title="Löschen">
+                            <i class="fa-solid fa-trash"></i>
+                          </button>
+                        {/if}
                       </td>
                     </tr>
                   {/each}
@@ -1089,9 +1103,16 @@
                     <button class="btn btn-sm" onclick={() => onMoveTo(f)} title="Verschieben">
                       <i class="fa-solid fa-folder-tree"></i>
                     </button>
-                    <button class="btn btn-sm btn-danger" onclick={() => onDelete(f)} title="Löschen">
-                      <i class="fa-solid fa-trash"></i>
-                    </button>
+                    {#if f.protected}
+                      <button class="btn btn-sm btn-locked" disabled
+                              title="Geschütztes Demo-Video. Entfernen nur in Einstellungen → Zurücksetzen.">
+                        <i class="fa-solid fa-lock"></i>
+                      </button>
+                    {:else}
+                      <button class="btn btn-sm btn-danger" onclick={() => onDelete(f)} title="Löschen">
+                        <i class="fa-solid fa-trash"></i>
+                      </button>
+                    {/if}
                   </div>
                 </li>
               {/each}

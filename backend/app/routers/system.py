@@ -189,3 +189,125 @@ async def set_system_paths(body: PathsBody) -> dict:
         "saved": current,
         "restart_required": True,
     }
+
+
+# --- Resets --------------------------------------------------------------
+#
+# Der Einstellungen-Tab "Zurücksetzen" spricht diese Endpunkte an. Jeder
+# Reset ist bewusst lokal -- nur das, was im jeweiligen Bucket hängt,
+# wird aufgeräumt. Originale und Projekte bleiben unangetastet.
+
+class ResetTarget(BaseModel):
+    target: str
+
+
+@router.post("/system/reset")
+async def system_reset(body: ResetTarget) -> dict:
+    """Setzt einen bestimmten Bereich zurück. Erlaubte Targets:
+
+    - caches            : Proxy, Thumbnail, Sprite, Wellenform aller Dateien.
+                          Originale + DB-Einträge bleiben, Ableitungen
+                          können später neu erzeugt werden.
+    - transcripts       : SRT-Dateien + Transkript-Metadaten in files.
+                          Videos bleiben unberührt.
+    - jobs-history      : alle abgeschlossenen + fehlgeschlagenen Jobs
+                          aus der jobs-Tabelle (Render-Jobs mit
+                          existierendem result_path bleiben).
+    - demo-video-remove : Demo-Video aus der Bibliothek entfernen
+                          (DB-Eintrag + abgeleitete Dateien). Quelle
+                          in data/demo/ bleibt.
+    - demo-video-reload : Demo-Video neu herunterladen (wenn nötig) und
+                          in die Bibliothek importieren.
+    """
+    from fastapi import HTTPException
+    from app.config import (
+        PROXIES_DIR, SPRITES_DIR, THUMBS_DIR, TRANSCRIPTS_DIR, WAVEFORMS_DIR,
+    )
+
+    target = (body.target or "").strip().lower()
+
+    if target == "caches":
+        removed = {
+            "proxies":   _wipe_dir(PROXIES_DIR),
+            "thumbs":    _wipe_dir(THUMBS_DIR),
+            "sprites":   _wipe_dir(SPRITES_DIR),
+            "waveforms": _wipe_dir(WAVEFORMS_DIR),
+        }
+        # DB: alle abgeleiteten Felder leeren, damit das Frontend
+        # konsistent zeigt "Proxy noch nicht da"
+        await db.execute(
+            "UPDATE files SET "
+            "proxy_path=NULL, proxy_status='none', has_proxy=0, "
+            "keyframe_count=NULL, "
+            "thumb_path=NULL, "
+            "sprite_path=NULL, sprite_interval=NULL, sprite_tile_w=NULL, "
+            "sprite_tile_h=NULL, sprite_cols=NULL, sprite_rows=NULL, "
+            "sprite_count=NULL, "
+            "waveform_path=NULL, waveform_samples=NULL, waveform_rate=NULL"
+        )
+        return {"reset": target, "removed": removed}
+
+    if target == "transcripts":
+        removed = {"transcripts": _wipe_dir(TRANSCRIPTS_DIR)}
+        await db.execute(
+            "UPDATE files SET transcript_path=NULL, transcript_lang=NULL, "
+            "transcript_model=NULL"
+        )
+        return {"reset": target, "removed": removed}
+
+    if target == "jobs-history":
+        # Alle Jobs, die nichts mehr bewegen oder kein Render-Artefakt
+        # haben -> weg. Render-Jobs mit result_path bleiben, damit die
+        # Exports-Ansicht konsistent bleibt.
+        r = await db.execute(
+            "DELETE FROM jobs "
+            "WHERE status IN ('completed', 'failed', 'cancelled') "
+            "AND (kind <> 'render' OR result_path IS NULL)"
+        )
+        # sqlite3 liefert im Cursor kein rowcount -- wir liefern einfach ok
+        return {"reset": target, "removed": {"jobs_deleted": True}}
+
+    if target == "demo-video-remove":
+        from app.services.demo_video_service import remove_demo_from_library
+        ok = await remove_demo_from_library()
+        return {"reset": target, "removed": {"demo_removed": ok}}
+
+    if target == "demo-video-reload":
+        from app.services.demo_video_service import (
+            demo_video_source_exists, fetch_demo_source,
+            remove_demo_from_library, ensure_demo_imported,
+        )
+        # Altes entfernen (falls vorhanden), Quelle besorgen, neu importieren
+        await remove_demo_from_library()
+        if not await demo_video_source_exists():
+            ok = await fetch_demo_source()
+            if not ok:
+                raise HTTPException(
+                    status_code=500,
+                    detail="Download des Demo-Videos fehlgeschlagen -- "
+                           "siehe Backend-Log. Internet-Verbindung prüfen.",
+                )
+        file_id = await ensure_demo_imported()
+        return {"reset": target, "file_id": file_id}
+
+    raise HTTPException(
+        status_code=400,
+        detail=f"Unbekannter Reset-Target: {target!r}",
+    )
+
+
+def _wipe_dir(p: Path) -> dict:
+    """Leert ein Verzeichnis rekursiv und liefert Stats zurück."""
+    if not p.exists():
+        return {"files": 0, "bytes": 0}
+    files = 0
+    bytes_total = 0
+    for f in p.rglob("*"):
+        try:
+            if f.is_file():
+                bytes_total += f.stat().st_size
+                f.unlink(missing_ok=True)
+                files += 1
+        except OSError:
+            pass
+    return {"files": files, "bytes": bytes_total}

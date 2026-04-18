@@ -86,6 +86,11 @@ SCHEMA: tuple[str, ...] = (
     "ALTER TABLE files ADD COLUMN transcript_path TEXT",
     "ALTER TABLE files ADD COLUMN transcript_lang TEXT",
     "ALTER TABLE files ADD COLUMN transcript_model TEXT",
+    # Geschütztes Video: blockt keine API-Operationen, signalisiert
+    # dem Frontend aber, dass dieses File besonders ist (aktuell nur
+    # das Demo-Video). Die UI zeigt dann ein Schloss-Icon und einen
+    # extra Warn-Dialog beim Löschen.
+    "ALTER TABLE files ADD COLUMN protected INTEGER NOT NULL DEFAULT 0",
     """
     CREATE TABLE IF NOT EXISTS projects (
         id              TEXT PRIMARY KEY,

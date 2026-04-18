@@ -22,7 +22,7 @@ import { library } from './library.svelte.js';
 export const VIEWS = ['dashboard', 'library', 'editor', 'exports', 'settings', 'help'];
 // Erlaubte Tabs pro View (nur Settings hat welche). Die Reihenfolge hier
 // bestimmt auch die Defaults.
-export const SETTINGS_TABS = ['pfade', 'transkription', 'system'];
+export const SETTINGS_TABS = ['pfade', 'transkription', 'system', 'reset'];
 
 // --- URL <-> Route -------------------------------------------------------
 

@@ -236,6 +236,20 @@ html, body {
 /* Kleine Variante: schmaler, für Listen */
 .btn-sm { height: 26px; padding: 0 8px; font-size: 11px; }
 
+/* Schloss-Button für geschützte Dateien (aktuell: Demo-Video).
+   Deaktiviert, aber nicht als "Fehler", eher als Hinweis. */
+.btn-locked {
+  background: var(--bg-elev);
+  border-color: var(--border);
+  color: var(--fg-muted);
+  opacity: 1;          /* nicht ausgeblichen wie normaler disabled */
+  cursor: not-allowed;
+}
+.btn-locked:hover {
+  background: var(--bg-elev);
+  color: var(--fg-muted);
+}
+
 /* ------------------------------------------------------------------
    Browser-native Extras auf Input-Feldern abschalten
    ------------------------------------------------------------------

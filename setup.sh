@@ -133,6 +133,19 @@ fi
 ( cd "$FRONTEND" && npm install --no-audit --no-fund )
 
 # ------------------------------------------------------------------
+# 3.5 Demo-Video fuer Touren und erste Schritte
+# ------------------------------------------------------------------
+
+echo
+echo "[3.5/4] Demo-Video (Big Buck Bunny, CC BY 3.0)"
+echo "  Laedt einmalig ein hochaufloesendes Beispielvideo nach data/demo/,"
+echo "  damit die Touren im Editor echtes Material zum Zeigen haben."
+if [ -f "$ROOT/tools/fetch_demo_video.sh" ]; then
+  bash "$ROOT/tools/fetch_demo_video.sh" || \
+    echo "  [warn] Demo-Download uebersprungen -- Tour im Editor bleibt leer"
+fi
+
+# ------------------------------------------------------------------
 # 4. Hinweise fuer den Start
 # ------------------------------------------------------------------
 
