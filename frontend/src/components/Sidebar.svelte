@@ -4,7 +4,15 @@
   import { openThanks } from '../lib/ui.svelte.js';
   import {
     infoPanel, aboutPanel, toggleInfo, toggleAbout,
+    infoLabelFor, hasSpecificInfo,
   } from '../lib/panels.svelte.js';
+
+  // Kontext-abhaengiges Info-Label: steht je nach aktiver View fuer
+  // "Tastenkuerzel" (Editor), "Bibliothek-Tipps", etc. Wenn es fuer den
+  // View keine spezifische Hilfe gibt, bleibt der Eintrag grau als
+  // generisches "Info".
+  const infoLabel = $derived(infoLabelFor(nav.view));
+  const infoIsSpecific = $derived(hasSpecificInfo(nav.view));
 
   let {
     collapsed = $bindable(),
@@ -29,12 +37,8 @@
   ];
 
   // Panel-Einträge: keine View-Navigation, sondern Toggle eines
-  // verschiebbaren Fensters. Akzent-eingefärbt, damit sie sich visuell
-  // von den Views abheben.
-  const PANELS = [
-    { id: 'info',  icon: 'fa-circle-info',      label: 'Info',  toggle: toggleInfo,  state: infoPanel },
-    { id: 'about', icon: 'fa-circle-question',  label: 'Über',  toggle: toggleAbout, state: aboutPanel },
-  ];
+  // verschiebbaren Fensters. Der Info-Eintrag wird im Template direkt
+  // gerendert, weil sein Label kontextabhaengig ist (siehe infoLabel).
 </script>
 
 <aside class="sidebar" class:collapsed>
@@ -71,17 +75,29 @@
     {#if !collapsed}
       <div class="group-label soft">Hilfe</div>
     {/if}
-    {#each PANELS as p (p.id)}
-      <button
-        class="item item-panel"
-        class:active={p.state.open}
-        onclick={p.toggle}
-        title={collapsed ? p.label : ''}
-      >
-        <i class="fa-solid {p.icon}"></i>
-        {#if !collapsed}<span>{p.label}</span>{/if}
-      </button>
-    {/each}
+    <!-- Info: Label wechselt je nach aktiver View. Wenn es fuer den
+         Kontext keine spezifische Hilfe gibt, bleibt der Eintrag grau
+         und heisst generisch "Info". -->
+    <button
+      class="item item-panel"
+      class:active={infoPanel.open}
+      class:item-panel-muted={!infoIsSpecific}
+      onclick={toggleInfo}
+      title={collapsed ? infoLabel : ''}
+    >
+      <i class="fa-solid fa-circle-info"></i>
+      {#if !collapsed}<span>{infoLabel}</span>{/if}
+    </button>
+
+    <button
+      class="item item-panel"
+      class:active={aboutPanel.open}
+      onclick={toggleAbout}
+      title={collapsed ? 'Über' : ''}
+    >
+      <i class="fa-solid fa-circle-question"></i>
+      {#if !collapsed}<span>Über</span>{/if}
+    </button>
   </nav>
 
   <div class="foot">
@@ -196,6 +212,12 @@
   .item-panel i { color: var(--accent); }
   .item-panel:hover { color: var(--accent); }
   .item-panel.active { background: var(--accent-soft); color: var(--accent); }
+
+  /* Info-Fallback: wenn es fuer den aktuellen Kontext keinen spezifischen
+     Hilfetext gibt, Eintrag dezenter darstellen (Icon + Text grau). */
+  .item-panel.item-panel-muted i { color: var(--fg-faint); }
+  .item-panel.item-panel-muted:hover { color: var(--fg-primary); }
+  .item-panel.item-panel-muted:hover i { color: var(--fg-primary); }
   .foot {
     border-top: 1px solid var(--border);
     padding: 8px;

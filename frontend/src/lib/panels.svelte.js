@@ -60,3 +60,35 @@ export function clampToViewport(p) {
   p.x = Math.max(pad, Math.min(p.x, maxX));
   p.y = Math.max(pad, Math.min(p.y, maxY));
 }
+
+// ---------------------------------------------------------------------------
+// Kontext-Label fuer den Info-Sidebar-Eintrag
+// ---------------------------------------------------------------------------
+// Die Hilfe im Info-Panel ist kontextabhaengig -- also soll auch schon der
+// Sidebar-Eintrag zeigen, was sich hinter dem Klick verbirgt. Mapping fuer
+// kurze Sidebar-Labels und den passenden Titel-Text im Panel-Header.
+
+// Kurzbegriffe -- maximal ein Wort, soll den Inhalt zielführend
+// andeuten. Fallback "Info" wenn fuer den View nichts definiert ist.
+export const INFO_SIDEBAR_LABEL = {
+  dashboard: 'Starthilfe',
+  library:   'Tipps',
+  editor:    'Tastenkürzel',
+  exports:   'Aktionen',
+  settings:  'Hinweise',
+};
+
+/** Gibt das passende Sidebar-Label fuer den aktuellen View zurueck.
+ *  Unbekannte Views fallen auf "Info" zurueck -- das Panel hat dort
+ *  ohnehin nur einen allgemeinen Hinweistext. */
+export function infoLabelFor(view) {
+  const lbl = INFO_SIDEBAR_LABEL[view];
+  return lbl || 'Info';
+}
+
+/** Zeigt an, ob es fuer diesen View ein spezifisches Info-Label gibt
+ *  (Sidebar-Eintrag dann akzentuiert) oder der generische "Info"-
+ *  Fallback greift (dann grau). */
+export function hasSpecificInfo(view) {
+  return !!INFO_SIDEBAR_LABEL[view];
+}
