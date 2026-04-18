@@ -3,6 +3,7 @@
 import { api } from './api.js';
 import { toast } from './toast.svelte.js';
 import { persisted, persist as persistLocal } from './persist.svelte.js';
+import { RENDER_PRESETS } from './renderPresets.js';
 
 const HIST_MAX = 80;
 
@@ -10,12 +11,26 @@ function uid() {
   return 'c' + Math.random().toString(36).slice(2, 10);
 }
 
+// Default-Output beim Neuanlegen eines Projekts: unser "bestes"
+// Allround-Preset (YouTube 1080p, H.264 8 Mbit/s, HW-Encoder-tauglich).
+// Wenn kein default-Preset markiert ist, fallen wir auf einfache
+// Source-Defaults zurueck.
+function defaultOutput() {
+  const def = RENDER_PRESETS.find((p) => p.default);
+  if (def) {
+    return { container: 'mp4', ...def.profile };
+  }
+  return {
+    codec: 'h264', resolution: 'source', container: 'mp4', crf: 23,
+    audio_codec: 'aac', audio_bitrate: '160k',
+  };
+}
+
 function emptyEdl(fileId) {
   return {
     source_file_id: fileId,
     timeline: [],
-    output: { codec: 'h264', resolution: 'source', container: 'mp4', crf: 23,
-              audio_codec: 'aac', audio_bitrate: '160k' },
+    output: defaultOutput(),
   };
 }
 
