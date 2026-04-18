@@ -293,14 +293,30 @@ function closeExportDialog() {
 function resetDemoTimeline() {
   if (!editor.edl) return;
   const tl = editor.edl.timeline ?? [];
-  // Einzelner Demo-Clip passend zu DEMO_CLIP_START/END -> weg.
-  // Toleranz beim Vergleich, weil Keyframe-Snap die Grenzen leicht
-  // verschiebt.
+  if (tl.length === 0) return;
+
+  // Primärer Pfad: wir haben die Clip-ID beim Anlegen explizit
+  // gemerkt, damit räumen wir garantiert den richtigen Clip.
+  if (demoClipId) {
+    const before = tl.length;
+    editor.edl.timeline = tl.filter((c) => c.id !== demoClipId);
+    if (editor.edl.timeline.length !== before) {
+      editor.selectedClipId = null;
+    }
+    demoClipId = null;
+    return;
+  }
+
+  // Fallback: kein Merker (z. B. Seite zwischendurch neu geladen).
+  // Wenn nur genau ein Clip in der Timeline liegt und der in die
+  // Nähe des Demo-Bereichs fällt, nehmen wir an: das war unser
+  // Demo-Schnitt, und räumen ihn auf. Toleranz großzügig genug,
+  // damit auch bei weiten Keyframe-Abständen noch gematcht wird.
   if (tl.length === 1) {
     const c = tl[0];
     const plausibleDemo = (
-      Math.abs(c.src_start - DEMO_CLIP_START) < 5
-      && Math.abs(c.src_end - DEMO_CLIP_END) < 5
+      Math.abs(c.src_start - DEMO_CLIP_START) <= 15
+      && Math.abs(c.src_end - DEMO_CLIP_END) <= 15
     );
     if (plausibleDemo) {
       editor.edl.timeline = [];
@@ -342,6 +358,11 @@ async function ensureEditorHasVideo() {
 // kurz genug, dass der Render-Dialog noch sinnvolle Größen zeigt.
 const DEMO_CLIP_START = 20;
 const DEMO_CLIP_END = 45;
+
+// Id des zuletzt von der Tour angelegten Demo-Clips, damit wir ihn
+// am Ende gezielt wieder entfernen können -- unabhängig davon, wie
+// stark Keyframe-Snap Start und Ende verschoben hat.
+let demoClipId = null;
 async function ensureEditorHasClip() {
   await ensureEditorHasVideo();
   // auf den Editor-Load warten, damit edl schon existiert
@@ -437,11 +458,19 @@ async function demonstrateCut() {
   document.querySelector('[data-tour="editor-setout"]')?.click();
   await w(1200);
 
-  // Phase 5: Spotlight auf "+ Clip übernehmen"-Button, dann Commit.
+  // Phase 5: Spotlight auf "+ Clip übernehmen"-Button. Vor dem Klick
+  // merken wir uns die existierenden Clip-IDs, nach dem Klick den
+  // neuen Clip -- so können wir ihn am Tour-Ende gezielt wegräumen,
+  // unabhängig davon wie stark Keyframe-Snap die Werte verschoben hat.
   focusOn('[data-tour="editor-addclip"]');
   await w(1100);
+  const beforeIds = new Set((editor.edl?.timeline ?? []).map((c) => c.id));
   document.querySelector('[data-tour="editor-addclip"]')?.click();
   await w(1100);
+  const added = (editor.edl?.timeline ?? []).find(
+    (c) => !beforeIds.has(c.id),
+  );
+  demoClipId = added?.id ?? null;
 
   // Phase 6: Spotlight auf die Timeline insgesamt -- der neue Clip
   // liegt jetzt sichtbar als Bereich drin.
