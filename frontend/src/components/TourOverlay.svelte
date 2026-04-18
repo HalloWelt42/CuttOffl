@@ -41,11 +41,23 @@
   // klemmen wir die Position hart in den sichtbaren Bereich, damit
   // die Box auch in Grenzfällen (kleines Fenster, Ziel am Viewport-
   // Rand, JobsBar unten) vollständig sichtbar bleibt.
+  // Tatsächlich gemessene Höhe der Box -- wird nach Render gesetzt
+  // (siehe tour-box ref-binding unten). Solange kein Messwert da
+  // ist, rechnen wir mit einer großzügigen Schätzung, die eher
+  // zu hoch als zu niedrig ist -- sonst rutscht die Box ins
+  // Viewport-Out, sobald länger Text + Audio-Progress + Hint +
+  // Queue-Hinweis zusammenkommen.
+  let boxEl = $state(null);
+  let measuredHeight = $state(0);
+
   const boxStyle = $derived.by(() => {
     if (!tour.running) return '';
     const pad = 18;
     const boxW = 380;
-    const boxH = 200;
+    // Fallback 340 ist großzügig genug für Titel + Body + Hint +
+    // Footer + Progress-Balken + Queue-Hinweis; tatsächlicher
+    // Messwert überschreibt das.
+    const boxH = measuredHeight > 0 ? measuredHeight : 340;
     const vw = window.innerWidth;
     const vhEff = effectiveBottom();  // statt innerHeight
     const r = tour.targetRect;
@@ -249,6 +261,21 @@
     if (tickRaf) cancelAnimationFrame(tickRaf);
   });
 
+  // Sobald der Schritt wechselt (oder der Inhalt der Box sich ändert),
+  // messen wir die reale Box-Höhe und schreiben sie in measuredHeight.
+  // boxStyle bezieht das dann mit ein und klemmt top sauber in den
+  // Viewport. Zwei rAF-Runden, damit Layout abgeschlossen ist.
+  $effect(() => {
+    // Dependency auf step, damit das neu getriggert wird.
+    void step?.title; void step?.body; void step?.hint;
+    if (!boxEl || !tour.running) return;
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        if (boxEl) measuredHeight = boxEl.offsetHeight;
+      });
+    });
+  });
+
   // Was zeigen wir im Progress-Balken?
   //   - audioPlaying          -> Audio-Position (aufsteigend 0->100 %)
   //   - countdownMs > 0       -> Puffer (absteigend 100->0 %)
@@ -288,7 +315,7 @@
     <div class="tour-backdrop solid" aria-hidden="true"></div>
   {/if}
 
-  <div class="tour-box" style={boxStyle} role="dialog" aria-live="polite">
+  <div class="tour-box" bind:this={boxEl} style={boxStyle} role="dialog" aria-live="polite">
     <div class="tour-head">
       <div class="tour-counter">
         <i class="fa-solid {activeTour?.icon ?? 'fa-life-ring'}"
@@ -495,6 +522,12 @@
     padding: 14px 16px 10px;
     color: var(--fg-primary);
     font-size: 13px;
+    /* Absolute Obergrenze: niemals höher als ein paar Prozent unter
+       dem Viewport -- sonst verschwindet die Box unter dem Browser-
+       Rand. Der Content scrollt innen, wenn es doch mal sehr viel
+       Text wird. */
+    max-height: calc(100vh - 56px);
+    overflow-y: auto;
   }
   .tour-head {
     display: flex; align-items: center; gap: 10px;
