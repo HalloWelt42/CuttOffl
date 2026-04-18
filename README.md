@@ -32,16 +32,47 @@ Pi, Software-Fallback sonst.
 
 ## Was es kann
 
-- Timeline mit Keyframe-Magnet (copy/reencode wird live angezeigt)
+**Schnitt & Timeline**
+- Keyframe-Magnet in der Timeline (copy/reencode wird live angezeigt)
 - Schneiden per In/Out, Split, Trim-Drag -- Undo/Redo, Auto-Save
 - Vorschau für Auswahl, einzelne Clips oder die ganze EDL
-- Virtuelle Ordner in der Bibliothek, Verschieben per Ordner-Picker
-- Hybrid-Render: so viel wie möglich kopieren, nur nötige Schnitte neu kodieren
+- Smoothes Mitlaufen der Timeline beim Abspielen; Zoom-Presets
+  (Übersicht / Standard / Genauer / Frame-nah / Frame-genau) und
+  gleichmäßige Thumbnail-Verteilung unabhängig vom Zoom
+- Hybrid-Render: so viel wie möglich kopieren, nur nötige Schnitte
+  neu kodieren
+
+**Bibliothek**
+- Virtuelle Ordner mit Drag & Drop, Ordner-Picker, Bulk-Verschieben
+- Mehrere Ansichten (Kacheln, Liste, Kompakt), Sortierung, Filter
+  für Status/Codec/Auflösung/Tag und Volltext-Suche (inkl. Tags)
+- Tag-Editor inline mit Farb-Chips und Autocomplete
+- SHA-256-Duplikatprüfung beim Upload; ZIP-Download ganzer Ordner
+
+**KI-Untertitel (optional)**
+- Transkription mit Whisper: mlx-whisper (Apple Silicon), faster-
+  whisper (portabel), openai-whisper (Referenz). Modelle werden
+  lokal gesucht -- keine doppelten Downloads, wenn ein HuggingFace-
+  oder openai-Cache schon existiert.
+- Live-Anzeige: Segmente erscheinen im Panel, während transkribiert
+  wird; abbrechbar ohne Neustart; auswählbares Modell.
+- Mitlaufendes Transkript beim Abspielen (eigener Follow-Toggle),
+  Inline-Suche mit Treffer-Navigation, Untertitel-Overlay im Player.
+- Export als **SRT** und **WebVTT** -- auch für geschnittene Exports
+  (Segmente werden aus der EDL auf die neue Zeitachse umgerechnet).
+
+**Export & Download**
 - Fertige Videos wieder in die Bibliothek übernehmen für weiteren Schnitt
-- Export mit Codec-Empfehlung für die erkannte Hardware
-- Optional: KI-Transkription mit Whisper (mlx/faster/openai) und
-  SRT-Untertitel samt klickbarem Transkript-Panel im Editor
-- Live-Fortschritt aller Jobs per WebSocket
+- Bundle-ZIP je Datei und je Ordner: Video + passende SRT + VTT
+- Codec-Empfehlung für die erkannte Hardware
+
+**Session & UI**
+- Status-LEDs im Footer für Backend, Live-Events und Transkription
+- Verschiebbares Info-Panel mit kontextabhängigem Inhalt
+  (Tastenkürzel im Editor, Tipps in der Bibliothek, usw.)
+- Pfad-basierte Deeplinks (`/library/Urlaub/2026`, `/editor/file/…`,
+  `/settings/transkription`) -- Browser-Back/Forward funktioniert
+- Dark- und Light-Mode, alle UI-Präferenzen bleiben lokal
 
 ## Stack
 
@@ -58,20 +89,110 @@ Pi, Software-Fallback sonst.
 
 ## Installation & Start
 
+**Einmalig einrichten:**
+
 ```bash
-./setup.sh                         # backend venv + pip install + ffmpeg-Check
-./setup.sh --with-transcription    # optional: zusätzlich Whisper für SRT-Untertitel
-cd frontend && npm install         # frontend deps
-cd ..
-./start.sh                         # startet beide Prozesse
+./setup.sh                         # Backend-venv + pip install + ffmpeg-Check
+./setup.sh --with-transcription    # optional: zusätzlich Whisper für KI-Untertitel
+cd frontend && npm install         # Frontend-Dependencies
 ```
 
-Weitere Befehle: `status`, `logs`, `stop`, `restart`, `backend`, `frontend`.
+**Starten:**
+
+```bash
+./start.sh                         # beide Prozesse starten
+```
+
+Das Start-Script kennt folgende Befehle:
+
+| Befehl                 | Was passiert                              |
+|------------------------|-------------------------------------------|
+| `./start.sh`           | Backend + Frontend hochfahren             |
+| `./start.sh status`    | PIDs und Port-Status anzeigen             |
+| `./start.sh logs`      | Logs beider Prozesse live mittailen       |
+| `./start.sh stop`      | beide sauber stoppen                      |
+| `./start.sh restart`   | beide neu starten                         |
+| `./start.sh backend`   | nur Backend (nützlich nach pip install)   |
+| `./start.sh frontend`  | nur Frontend                              |
+
+Nach dem Start:
 
 - Frontend: <http://127.0.0.1:10037>
-- Backend: <http://127.0.0.1:10036/docs>
+- Backend-Docs: <http://127.0.0.1:10036/docs>
+- Logs: `logs/backend.log`, `logs/frontend.log` (PIDs in `logs/*.pid`)
 
-Logs unter `logs/backend.log` und `logs/frontend.log`, PIDs in `logs/*.pid`.
+**Erste Schritte in der App:**
+
+1. Bibliothek öffnen, ein Video per Drag & Drop ins Fenster ziehen
+   oder den "Video hochladen"-Button nutzen.
+2. Nach dem Upload wird automatisch ein Proxy (480p) erzeugt;
+   während dieser Zeit läuft die Status-LED am unteren Rand.
+3. Kachel anklicken → Editor öffnet sich mit Timeline. Mit `I` / `O`
+   Anfang und Ende markieren, Enter übernimmt den Clip.
+4. Rechts unten auf **Rendern** klicken für das fertige Video.
+5. Unter **Einstellungen → Transkription** Whisper einrichten
+   (Details unten), danach im Editor den Tab *Transkript* nutzen.
+
+## KI-Transkription (optional)
+
+CuttOffl kann Videos lokal per Whisper transkribieren und daraus
+SRT- und WebVTT-Untertitel erzeugen -- sowohl für Originale als auch
+für geschnittene Exports. Nichts geht dabei in die Cloud.
+
+**Drei Engines werden unterstützt** (jeweils lazy geladen, die App
+läuft auch ohne). Welche du installierst, hängt von deiner Hardware ab:
+
+| Engine           | Empfohlen für               | Installation                     |
+|------------------|-----------------------------|----------------------------------|
+| `mlx-whisper`    | Apple Silicon (M1–M4)       | `pip install mlx-whisper`        |
+| `faster-whisper` | Pi 5, Linux, Intel, Windows | `pip install faster-whisper`     |
+| `openai-whisper` | Referenz / Fallback         | `pip install openai-whisper`     |
+
+**Einrichten:**
+
+```bash
+./setup.sh --with-transcription      # plattformpasend mlx + faster
+# oder in die bestehende venv
+cd backend && source .venv/bin/activate
+pip install -r requirements-transcription.txt
+./start.sh restart backend
+```
+
+**Modelle finden / wählen:**
+
+Unter **Einstellungen → Transkription** siehst du:
+
+- Ampel: grün = einsatzbereit, gelb = Engine da aber kein Modell,
+  rot = nichts installiert. Zusätzlich eine LED im Footer für den
+  Gesamtzustand.
+- Liste der **installierten Pakete** (mit empfohlener Engine für
+  deine Plattform).
+- Liste der **gefundenen Modelle** auf der Platte. CuttOffl scannt
+  dafür die üblichen Caches:
+  - `~/.cache/huggingface/hub/` (mlx- und faster-whisper)
+  - `~/.cache/whisper/` (openai-whisper)
+  - `~/Library/Caches/huggingface/hub/`
+  - und den Cache eines Voice2Text-Schwesterprojekts, falls vorhanden
+- Ein Klick auf **Auswählen** setzt ein Modell aktiv; die Wahl bleibt
+  in `user_config.json` erhalten.
+- **Festplatte scannen** findet nachträglich installierte Modelle.
+
+**Transkribieren:**
+
+Im Editor rechts auf den Tab **Transkript** klicken → **Transkribieren**.
+Der Job läuft in 25-Sekunden-Blöcken; Segmente erscheinen sofort
+im Panel, du kannst den Lauf jederzeit abbrechen. Während der
+Wiedergabe wandert das Highlight durch die Liste mit
+(Mitlaufen-Toggle oben rechts im Panel).
+
+**Untertitel exportieren:**
+
+- Im Transkript-Panel gibt es **SRT-** und **VTT-Download**.
+- In der Bibliothek erscheint bei jedem Video mit Transkript ein
+  **CC-Knopf** (nur SRT) und ein **ZIP-Knopf** (Video + SRT + VTT).
+- Für fertige geschnittene Videos gilt dasselbe unter **Fertige
+  Videos** -- die Zeitmarken werden dabei aus der EDL auf die
+  geschnittene Timeline umgerechnet, damit sie zum Export passen.
 
 ## Ports
 
@@ -89,6 +210,8 @@ Vollständig interaktiv in Swagger unter `/docs`. Die wichtigsten Pfade:
 |---------|-------------------------------------------|--------------------------------|
 | POST    | `/api/upload`                             | Video hochladen                |
 | GET     | `/api/files`                              | Originale listen               |
+| GET     | `/api/files/{id}/download`                | Nur Video                      |
+| GET     | `/api/files/{id}/bundle.zip`              | Video + SRT + VTT              |
 | GET     | `/api/proxy/{id}`                         | Proxy-Stream (Range-Support)   |
 | GET     | `/api/proxy/{id}/keyframes`               | Keyframe-Zeitstempel           |
 | GET     | `/api/sprite/{id}` / `/meta`              | Timeline-Tile-JPEG             |
@@ -96,7 +219,15 @@ Vollständig interaktiv in Swagger unter `/docs`. Die wichtigsten Pfade:
 | GET/POST/PUT/DELETE | `/api/projects`                 | EDL-Projekte                   |
 | POST    | `/api/projects/{id}/render`               | Render-Job starten             |
 | GET     | `/api/exports`                            | Fertige Renderings             |
+| GET     | `/api/exports/{id}/bundle.zip`            | Export + passende SRT + VTT    |
 | POST    | `/api/exports/{id}/import-to-library`     | Export als neue Quelle         |
+| GET     | `/api/transcription/status`               | Engines + gefundene Modelle    |
+| POST    | `/api/transcription/scan`                 | Platte nach Modellen scannen   |
+| PUT     | `/api/transcription/preference`           | aktives Modell setzen          |
+| POST    | `/api/transcript/{id}/generate`           | Transkription starten          |
+| GET     | `/api/transcript/{id}`                    | Geparste Segmente              |
+| GET     | `/api/transcript/{id}.srt` / `.vtt`       | Untertitel-Datei               |
+| POST    | `/api/jobs/{id}/cancel`                   | Laufenden Job abbrechen        |
 | WS      | `/ws/jobs`                                | Live-Fortschritt aller Jobs    |
 
 ## Verzeichnisse
@@ -106,7 +237,7 @@ CuttOffl/
 ├── backend/app/          FastAPI, Services, Router, Schemas
 ├── frontend/src/         Svelte-App (Views, Components, lib)
 ├── data/                 originals, proxies, exports, thumbs, sprites,
-│                         waveforms, tmp, db
+│                         waveforms, transcripts, tmp, db
 ├── logs/                 Laufzeit-Logs + PIDs
 ├── setup.sh
 └── start.sh
@@ -120,9 +251,9 @@ mit Ergänzungen. Copyright 2026 HalloWelt42. Private Nutzung erlaubt,
 kommerzielle Nutzung und Veröffentlichung modifizierter Versionen nicht.
 Vollständig in [`LICENSE`](LICENSE) und in der App unter **Über**.
 
-## Unterstuetzung
+## Unterstützung
 
-Wenn es nuetzlich ist und du die Weiterentwicklung unterstuetzen moechtest --
+Wenn es nützlich ist und du die Weiterentwicklung unterstützen möchtest --
 rein freiwillig:
 
 <p>
