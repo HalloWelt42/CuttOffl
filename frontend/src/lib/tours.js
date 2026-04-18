@@ -70,7 +70,10 @@ const SKELETONS = {
         // Clip ist durch den vorigen Schritt schon da -- der
         // Render-Button ist aktiv, der User sieht, wo der Export los geht.
         hint: 'Keine Sorge -- der Dialog öffnet sich nur, er startet nichts.' },
-      { view: 'exports' },
+      { view: 'exports',
+        // Spotlight auf die Liste der fertigen Videos (erster Eintrag
+        // reicht), fallback auf den Panel-Header wenn leer.
+        selector: ['.list li', '.body'] },
       { view: 'dashboard',
         hint: 'Klick auf "Beenden" oder Escape, um die Tour zu schließen.',
         demo_ms: 6500,
@@ -95,8 +98,9 @@ const SKELETONS = {
       { view: 'library',
         // Bevorzugt auf einen sichtbaren Unterordner zeigen (Demo-
         // Ordner liegt immer in der Basis). Fällt das weg, nehmen wir
-        // die Breadcrumb-Leiste.
-        selector: '.card.folder, [data-tour="lib-folders"]' },
+        // die Breadcrumb-Leiste. Array-Selektor = erste Option
+        // gewinnt, nicht DOM-Reihenfolge.
+        selector: ['.card.folder', '[data-tour="lib-folders"]'] },
       { view: 'library', selector: '[data-tour="lib-search"]' },
       { view: 'library',
         // Filter-Chips erscheinen nur, wenn tatsächlich ein Filter

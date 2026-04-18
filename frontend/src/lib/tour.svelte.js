@@ -294,14 +294,33 @@ async function runStep() {
   }
 
   // Vor-Aktion (z. B. Panel/Dialog öffnen), damit das Ziel-Element
-  // überhaupt existiert. Nie destruktiv.
+  // überhaupt existiert. Nie destruktiv. Danach genug Frames warten,
+  // damit Svelte-Reactive-Updates (z. B. Filter-Chips, Bulk-Bar)
+  // im DOM angekommen sind, bevor wir das Ziel-Rect messen.
   if (typeof step.before === 'function') {
     try { await step.before(); } catch (e) { console.warn('[tour] before:', e); }
     await nextFrame();
+    await nextFrame();
+    await wait(50);
   }
 
-  // Ziel-Element finden und Bounding-Rect messen
-  const el = step.selector ? document.querySelector(step.selector) : null;
+  // Ziel-Element finden und Bounding-Rect messen. Selektor kann ein
+  // String sein (querySelector), ein Array (erster Treffer gewinnt)
+  // oder eine Funktion, die ein Element oder null zurückgibt. Die
+  // Array-Variante hilft bei Prioritäten: "wenn das Spezifische
+  // (z. B. eine Ordner-Kachel) da ist, dort hervorheben; sonst
+  // fallback auf die Breadcrumb."
+  let el = null;
+  if (typeof step.selector === 'function') {
+    try { el = step.selector(); } catch {}
+  } else if (Array.isArray(step.selector)) {
+    for (const s of step.selector) {
+      const found = s ? document.querySelector(s) : null;
+      if (found) { el = found; break; }
+    }
+  } else if (step.selector) {
+    el = document.querySelector(step.selector);
+  }
   tour.target = el;
   tour.targetRect = el ? el.getBoundingClientRect() : null;
 

@@ -6,6 +6,7 @@
   import { wsOn, wsStart } from '../lib/ws.svelte.js';
   import { toast } from '../lib/toast.svelte.js';
   import {
+    tour,
     startTour, shouldOfferFirstTour, markFirstTourOffered,
   } from '../lib/tour.svelte.js';
   import { registerTours } from '../lib/tour.svelte.js';
@@ -40,8 +41,12 @@
     refresh();
     // Wenn der User noch nie eine Tour angeboten bekommen hat und keine
     // Videos in der Bibliothek sind, Tour einmal prominent anbieten.
-    if (shouldOfferFirstTour()) {
-      setTimeout(() => { showFirstRun = true; }, 500);
+    // Aber nicht, wenn gerade eine Tour läuft (dann ist der Dashboard-
+    // Besuch Teil der Tour und das Modal würde stören).
+    if (shouldOfferFirstTour() && !tour.running) {
+      setTimeout(() => {
+        if (!tour.running) showFirstRun = true;
+      }, 500);
     }
     return wsOn((m) => {
       if (m.type === 'file_event' || m.type === 'job_event') refresh();
