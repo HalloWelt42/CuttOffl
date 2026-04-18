@@ -109,6 +109,11 @@ async def _run_with_progress(
     on_out_seconds: Callable[[float], None],
 ) -> int:
     """Führt ffmpeg aus und ruft on_out_seconds(sec) während der Arbeit auf."""
+    # Argumente vollstaendig loggen, damit man im Log einsehen kann,
+    # welcher Encoder/Decoder tatsaechlich genutzt wurde (hevc_videotoolbox
+    # vs libx265 usw.). Wer nach "echtes HW-Rendering?" fragt, liest das
+    # hier direkt ab.
+    logger.info("ffmpeg-cmd: " + " ".join(args))
     proc = await asyncio.create_subprocess_exec(
         *args,
         stdout=asyncio.subprocess.PIPE,
