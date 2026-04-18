@@ -21,7 +21,10 @@
   const hasTarget = $derived(!!tour.targetRect);
 
   // Platzierung der Hinweisbox -- sucht die Seite des Ziel-Elements
-  // mit dem meisten Platz und richtet die Box dort aus.
+  // mit dem meisten Platz und richtet die Box dort aus. Am Ende
+  // klemmen wir die Position hart in den Viewport, damit die Box
+  // auch in Grenzfällen (kleines Fenster, Ziel am Viewport-Rand)
+  // immer vollständig sichtbar bleibt.
   const boxStyle = $derived.by(() => {
     if (!tour.running) return '';
     const pad = 18;
@@ -30,32 +33,36 @@
     const vw = window.innerWidth;
     const vh = window.innerHeight;
     const r = tour.targetRect;
-    if (!r) {
-      // Keine Zielkoordinate -> mittig im Viewport
-      return `left: ${(vw - boxW) / 2}px; top: ${(vh - boxH) / 2}px;`;
-    }
-    // Entscheidung: unten, oben, rechts, links vom Ziel?
-    const spaceBelow = vh - r.bottom;
-    const spaceAbove = r.top;
-    const spaceRight = vw - r.right;
-    const spaceLeft = r.left;
     let left, top;
-    if (spaceBelow >= boxH + pad) {
-      left = clamp(r.left + r.width / 2 - boxW / 2, pad, vw - boxW - pad);
-      top = r.bottom + pad;
-    } else if (spaceAbove >= boxH + pad) {
-      left = clamp(r.left + r.width / 2 - boxW / 2, pad, vw - boxW - pad);
-      top = r.top - boxH - pad;
-    } else if (spaceRight >= boxW + pad) {
-      left = r.right + pad;
-      top = clamp(r.top + r.height / 2 - boxH / 2, pad, vh - boxH - pad);
-    } else if (spaceLeft >= boxW + pad) {
-      left = r.left - boxW - pad;
-      top = clamp(r.top + r.height / 2 - boxH / 2, pad, vh - boxH - pad);
-    } else {
+    if (!r) {
       left = (vw - boxW) / 2;
-      top = (vh - boxH) / 2;
+      top  = (vh - boxH) / 2;
+    } else {
+      const spaceBelow = vh - r.bottom;
+      const spaceAbove = r.top;
+      const spaceRight = vw - r.right;
+      const spaceLeft  = r.left;
+      if (spaceBelow >= boxH + pad) {
+        left = r.left + r.width / 2 - boxW / 2;
+        top  = r.bottom + pad;
+      } else if (spaceAbove >= boxH + pad) {
+        left = r.left + r.width / 2 - boxW / 2;
+        top  = r.top - boxH - pad;
+      } else if (spaceRight >= boxW + pad) {
+        left = r.right + pad;
+        top  = r.top + r.height / 2 - boxH / 2;
+      } else if (spaceLeft >= boxW + pad) {
+        left = r.left - boxW - pad;
+        top  = r.top + r.height / 2 - boxH / 2;
+      } else {
+        left = (vw - boxW) / 2;
+        top  = (vh - boxH) / 2;
+      }
     }
+    // Harte Begrenzung in den Viewport -- die Box rutscht sonst
+    // teilweise unter JobsBar oder an den oberen Rand.
+    left = clamp(left, pad, Math.max(pad, vw - boxW - pad));
+    top  = clamp(top,  pad, Math.max(pad, vh - boxH - pad));
     return `left: ${left}px; top: ${top}px; width: ${boxW}px;`;
   });
 
@@ -387,7 +394,7 @@
      sichtbar auch das freigestellte Ziel-Element. Nur Abdunklung. */
   .tour-backdrop.solid {
     position: fixed; inset: 0;
-    background: rgba(5, 8, 12, 0.78);
+    background: rgba(5, 8, 12, 0.55);
     z-index: 9000;
     pointer-events: auto;
   }
@@ -404,7 +411,7 @@
   .tour-backdrop.has-hole::after {
     content: "";
     position: fixed;
-    background: rgba(5, 8, 12, 0.78);
+    background: rgba(5, 8, 12, 0.55);
     pointer-events: auto;
   }
   /* Oberer und unterer Streifen (volle Breite) */
@@ -421,7 +428,7 @@
   .tour-backdrop.has-hole .tour-hole::after {
     content: "";
     position: fixed;
-    background: rgba(5, 8, 12, 0.78);
+    background: rgba(5, 8, 12, 0.55);
     pointer-events: auto;
     top: var(--hy1);
     height: calc(var(--hy2) - var(--hy1));

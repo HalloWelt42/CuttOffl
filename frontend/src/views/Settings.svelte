@@ -458,7 +458,7 @@ pip install -r requirements-transcription.txt
         </div>
       {/if}
 
-      <h4 class="sub">Installierte Pakete</h4>
+      <h4 class="sub" data-tour="tx-engines">Installierte Pakete</h4>
       <ul class="engines">
         {#each (txStatus?.engines || []) as e (e.name)}
           <li>
@@ -486,7 +486,7 @@ pip install -r requirements-transcription.txt
         </p>
       {/if}
 
-      <h4 class="sub">Gefundene Modelle auf der Platte</h4>
+      <h4 class="sub" data-tour="tx-models">Gefundene Modelle auf der Platte</h4>
       {#if (txStatus?.models_found?.length || 0) === 0}
         <p class="meta">Bisher keine Modelle gefunden. Scanne weiter unten.</p>
       {:else}
@@ -526,7 +526,7 @@ pip install -r requirements-transcription.txt
         </ul>
       {/if}
 
-      <h4 class="sub">Weiteres Modell herunterladen</h4>
+      <h4 class="sub" data-tour="tx-download">Weiteres Modell herunterladen</h4>
       <p class="meta">
         Lädt direkt vom offiziellen HuggingFace-Repo in den Cache der
         gewählten Engine. Downloads laufen im Hintergrund, Fortschritt

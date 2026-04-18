@@ -133,6 +133,15 @@ export function stopTour(opts = {}) {
   // Reset-Aufrufe (z. B. aus startTour) setzen navBack=false.
   const wasRunning = tour.running;
   const navBack = opts.navBack !== false;
+  // Schritt-after sofern vorhanden ausführen (Cleanup). Im Queue-Fall
+  // wird hier der aktuelle Schritt aufgeräumt, bevor die nächste Tour
+  // startet.
+  if (wasRunning) {
+    const step = currentStep();
+    if (step && typeof step.after === 'function') {
+      try { step.after(); } catch {}
+    }
+  }
   clearAdvance();
   tour.activeId = null;
   tour.stepIndex = 0;
@@ -150,6 +159,10 @@ export async function nextStep() {
   const t = currentTour();
   if (!t) return;
   clearAdvance();
+  // after-Callback des aktuell verlassenen Schrittes aufrufen, damit
+  // Schritt-lokale Aufräumarbeit greift (z. B. Selektion zurücksetzen,
+  // Demo-Filter entfernen, Panels schließen).
+  await runAfter();
   if (tour.stepIndex >= t.steps.length - 1) {
     markCompleted(t.id);
     // Gibt es noch weitere Touren in der Queue? -> nahtlos weiter,
@@ -176,9 +189,17 @@ export async function prevStep() {
   const t = currentTour();
   if (!t) return;
   clearAdvance();
+  await runAfter();
   if (tour.stepIndex <= 0) return;
   tour.stepIndex--;
   await runStep();
+}
+
+async function runAfter() {
+  const step = currentStep();
+  if (step && typeof step.after === 'function') {
+    try { await step.after(); } catch (e) { console.warn('[tour] after:', e); }
+  }
 }
 
 export function toggleMode() {

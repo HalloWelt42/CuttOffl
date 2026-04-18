@@ -9,10 +9,11 @@
 // Dialog öffnen), demo_ms. Beim Zusammensetzen werden die Texte
 // aus der JSON an den jeweiligen Schritt gemerged.
 
-import { openInfo } from './panels.svelte.js';
-import { editor } from './editor.svelte.js';
-import { openInEditor } from './nav.svelte.js';
+import { openInfo, closeInfo } from './panels.svelte.js';
+import { editor, addClipFromRange } from './editor.svelte.js';
+import { openInEditor, setSettingsTab } from './nav.svelte.js';
 import { api } from './api.js';
+import { library, toggleSelect, clearSelection } from './library.svelte.js';
 import texts from './tour-texts.json';
 
 // Skelett je Tour: alles Strukturelle, aber keine Texte.
@@ -60,8 +61,27 @@ const SKELETONS = {
       { view: 'library' },
       { view: 'library', selector: '[data-tour="lib-folders"]' },
       { view: 'library', selector: '[data-tour="lib-search"]' },
-      { view: 'library', selector: '[data-tour="lib-filters"]' },
-      { view: 'library', selector: '[data-tour="lib-bulk-bar"]' },
+      { view: 'library',
+        // Filter-Chips erscheinen nur, wenn tatsächlich ein Filter
+        // aktiv ist. Für die Demo setzen wir deshalb einen sichtbaren
+        // Beispielfilter und nehmen ihn am Ende wieder raus.
+        before: () => { library.filterStatus = 'ready'; },
+        after: () => { library.filterStatus = 'all'; },
+        selector: '[data-tour="lib-filters"]' },
+      { view: 'library',
+        // Bulk-Bar erscheint nur bei Selection > 0. Wir selektieren die
+        // erste Datei aus dem Backend programmatisch, damit der Tour-
+        // Spotlight ein echtes Ziel hat; am Ende des Schrittes räumen
+        // wir das wieder weg.
+        before: async () => {
+          try {
+            const files = await api.listFiles();
+            const first = (files || [])[0];
+            if (first) toggleSelect(first.id);
+          } catch {}
+        },
+        after: () => { clearSelection(); },
+        selector: '[data-tour="lib-bulk-bar"]' },
       { demo_ms: 6000 },
     ],
   },
@@ -77,15 +97,29 @@ const SKELETONS = {
     runnable: true,
     steps: [
       { view: 'editor', selector: '[data-tour="editor-render"]',
-        before: ensureEditorHasVideo,
+        // Damit der Render-Button klickbar ist, muss mindestens ein
+        // Clip in der Timeline liegen. Für die Tour legen wir einen
+        // kleinen Demo-Clip an (wird beim after wieder entfernt).
+        before: ensureEditorHasClip,
         hint: 'Der Dialog wird gleich für dich geöffnet -- nichts wird gerendert.' },
       { view: 'editor',
         before: () => clickIfExists('[data-tour="editor-render"]'),
         selector: '.modal [data-tour="render-tab-profile"]' },
-      { view: 'editor', selector: '.modal [data-tour="render-tab-video"]' },
-      { view: 'editor', selector: '.modal [data-tour="render-tab-audio"]' },
+      { view: 'editor',
+        before: () => clickIfExists('.modal [data-tour="render-tab-video"]'),
+        selector: '.modal [data-tour="render-tab-video"]' },
+      { view: 'editor',
+        before: () => clickIfExists('.modal [data-tour="render-tab-audio"]'),
+        selector: '.modal [data-tour="render-tab-audio"]' },
       { view: 'editor', selector: '.modal [data-tour="render-estimate"]' },
-      { view: 'editor', demo_ms: 7000 },
+      { view: 'editor', demo_ms: 7000,
+        // Am Ende der Tour den Dialog wieder schließen und die
+        // Timeline auf den Ursprungsstand bringen.
+        after: () => {
+          closeExportDialog();
+          resetDemoTimeline();
+        },
+      },
     ],
   },
 
@@ -100,10 +134,23 @@ const SKELETONS = {
     runnable: true,
     steps: [
       { view: 'editor',
-        before: async () => { await ensureEditorHasVideo(); openInfo(); } },
+        // Das Info-Panel erst zu, dann frisch öffnen -- damit das
+        // Panel beim Re-Start der Tour (z. B. im Komplett-Rundgang)
+        // sichtbar "neu aufpoppt" und nicht von einer vorigen Tour
+        // noch als Schatten im Hintergrund klebt.
+        before: async () => {
+          await ensureEditorHasVideo();
+          closeInfo();
+          await new Promise((r) => setTimeout(r, 120));
+          openInfo();
+        } },
       { view: 'editor', selector: '[data-panel="info"]' },
       { view: 'editor', selector: '[data-panel="info"]' },
-      { view: 'editor', demo_ms: 5500 },
+      { view: 'editor', demo_ms: 5500,
+        // Letzter Schritt: Info-Panel wieder zu, sonst bleibt es
+        // nach dem Tour-Ende offen über der Help-Seite.
+        after: () => closeInfo(),
+      },
     ],
   },
 
@@ -118,11 +165,25 @@ const SKELETONS = {
     duration: '1-2 Min',
     runnable: false,
     steps: [
-      { view: 'settings', demo_ms: 6500 },
-      { view: 'settings', demo_ms: 7000 },
-      { view: 'settings', demo_ms: 7500 },
-      { view: 'settings', demo_ms: 7000 },
-      { view: 'editor', demo_ms: 7000 },
+      { view: 'settings',
+        before: () => setSettingsTab('transkription'),
+        demo_ms: 6500 },
+      { view: 'settings',
+        before: () => setSettingsTab('transkription'),
+        selector: '[data-tour="tx-engines"]',
+        demo_ms: 7000 },
+      { view: 'settings',
+        before: () => setSettingsTab('transkription'),
+        selector: '[data-tour="tx-models"]',
+        demo_ms: 7500 },
+      { view: 'settings',
+        before: () => setSettingsTab('transkription'),
+        selector: '[data-tour="tx-download"]',
+        demo_ms: 7000 },
+      { view: 'editor',
+        before: ensureEditorHasVideo,
+        selector: '[data-tour="editor-transcribe-btn"]',
+        demo_ms: 7000 },
       { demo_ms: 7000 },
     ],
   },
@@ -157,6 +218,32 @@ function clickIfExists(selector) {
   if (el && !el.disabled) el.click();
 }
 
+// Schließt den Export-Dialog (sofern offen) -- wird nach der Renderer-
+// Tour aufgerufen, damit der Dialog nicht unbeabsichtigt offen bleibt.
+// Wir klicken den X-Button im modalen Dialog, statt Render-Button
+// oder einen echten Cancel -- so wird nichts gerendert und nichts
+// gespeichert.
+function closeExportDialog() {
+  const x = document.querySelector('.modal .x');
+  if (x) x.click();
+}
+
+// Demo-Clip aus der Timeline wieder entfernen, wenn er per
+// ensureEditorHasClip angelegt wurde. Wir merken uns nicht extra,
+// ob "wir" den Clip erzeugt haben -- stattdessen: wenn die Timeline
+// aus exakt einem Clip mit src_start = 0 und src_end <= 3 besteht,
+// war das unserer.
+function resetDemoTimeline() {
+  if (!editor.edl) return;
+  const tl = editor.edl.timeline ?? [];
+  if (tl.length === 1
+      && tl[0].src_start === 0
+      && tl[0].src_end <= 3.001) {
+    editor.edl.timeline = [];
+    editor.selectedClipId = null;
+  }
+}
+
 // Damit die Editor-Schritte der Tour etwas zu zeigen haben: wenn noch
 // kein Video im Editor offen ist, wählen wir eins aus der Bibliothek
 // aus. Bevorzugt das geschützte Demo-Video (protected=1), sonst die
@@ -176,4 +263,21 @@ async function ensureEditorHasVideo() {
   openInEditor(target.id);
   // kurz warten, damit der Editor das Projekt und den Player lädt
   await new Promise((r) => setTimeout(r, 1500));
+}
+
+// Für die Renderer-Tour: Render-Button ist disabled solange die
+// Timeline leer ist. Wir legen einen kurzen Demo-Clip (0-3 Sekunden)
+// an, damit der Dialog sich öffnen lässt. Non-destruktiv: EDL wird
+// manipuliert, das Original-Video bleibt. Läuft nur, wenn die
+// Timeline tatsächlich leer ist.
+async function ensureEditorHasClip() {
+  await ensureEditorHasVideo();
+  // auf den Editor-Load warten, damit edl schon existiert
+  for (let i = 0; i < 20 && !editor.edl; i++) {
+    await new Promise((r) => setTimeout(r, 150));
+  }
+  if (!editor.edl) return;
+  if ((editor.edl.timeline?.length ?? 0) > 0) return;
+  addClipFromRange(0, 3);
+  await new Promise((r) => setTimeout(r, 300));
 }

@@ -698,7 +698,8 @@
   {#if activeFilters.length > 0}
     <!-- Chip-Leiste mit den aktuell aktiven Filtern. Ein Klick auf das
          × entfernt den jeweiligen Filter gezielt. -->
-    <div class="active-filters" role="status" aria-live="polite">
+    <div class="active-filters" role="status" aria-live="polite"
+         data-tour="lib-filters">
       <i class="fa-solid fa-filter"></i>
       <span class="af-label">Aktive Filter:</span>
       {#each activeFilters as af (af.key)}
@@ -714,7 +715,8 @@
   {/if}
 
   {#if selectedCount > 0}
-    <div class="bulk-bar" role="toolbar" aria-label="Mehrfachauswahl">
+    <div class="bulk-bar" role="toolbar" aria-label="Mehrfachauswahl"
+         data-tour="lib-bulk-bar">
       <div class="bulk-info">
         <i class="fa-solid fa-square-check"></i>
         <strong>{selectedCount}</strong> Datei(en) ausgewählt
@@ -744,7 +746,7 @@
   {/if}
 
   <!-- Breadcrumb -->
-  <nav class="breadcrumb" aria-label="Ordner-Navigation">
+  <nav class="breadcrumb" aria-label="Ordner-Navigation" data-tour="lib-folders">
     {#if library.currentFolder}
       <button class="up" class:drop-target={dragOverUp}
               onclick={() => setCurrentFolder(parentOf(library.currentFolder))}

@@ -270,6 +270,7 @@
                                                // hier nur umschalten, kein Auto-Start
                                              } }}
               class:active={editor.rightTab === 'transcript'}
+              data-tour="editor-transcribe-btn"
               title="Transkript-Panel öffnen (Tab rechts)">
         <i class="fa-solid fa-closed-captioning"></i>
         <span class="sm-hide">
