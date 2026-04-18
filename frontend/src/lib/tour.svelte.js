@@ -29,6 +29,10 @@ function dbg(...a) { if (recorderActive()) console.info('[tour]', ...a); }
 export const tour = $state({
   activeId: null,        // id der laufenden Tour oder null
   mode: 'guided',        // 'guided' | 'demo'
+  // tour-State wird unter globalThis.__cuttoffl_tour bereitgestellt,
+  // damit andere Module (z. B. editor.svelte.js) den Running-Status
+  // prufen können, ohne einen zirkularen Import aufzumachen.
+  // (wird am Modul-Ende an globalThis gehaengt)
   stepIndex: 0,          // aktueller Schritt (0-based)
   target: null,          // DOM-Element des aktuellen Schrittes
   targetRect: null,      // DOMRect für Spotlight-Position
@@ -133,8 +137,9 @@ export async function startTour(id, mode = 'guided', queue = []) {
 export async function startAllTours(mode = 'demo') {
   if (!TOURS.length) return;
   // Tour-Recorder: markiert t_ms=0 und leert eine bestehende Aufnahme.
-  // No-op ausserhalb des Aufnahme-Modus (?tour_record=1).
-  await markTourStart();
+  // No-op ausserhalb des Aufnahme-Modus (?tour_record=1). Bewusst
+  // kein await -- der Recorder darf die Tour nie ausbremsen.
+  void markTourStart();
   const ids = TOURS.map((t) => t.id);
   dbg(`startAllTours count=${ids.length} ids=[${ids.join(',')}]`);
   const first = ids[0];
@@ -205,9 +210,9 @@ export async function nextStep() {
     // Hilfe-Seite zurück, damit der User sieht, was er als nächstes tun
     // könnte.
     // Tour-Recorder: letzter Timestamp fuer die Aufnahme. No-op
-    // ausserhalb des Aufnahme-Modus.
+    // ausserhalb des Aufnahme-Modus. Kein await -- fire-and-forget.
     dbg('lastTourEnd -> stop + markTourEnd');
-    await markTourEnd();
+    void markTourEnd();
     stopTour();
     return;
   }
@@ -396,4 +401,12 @@ if (typeof window !== 'undefined') {
   window.addEventListener('scroll', () => {
     if (tour.target) tour.targetRect = tour.target.getBoundingClientRect();
   }, { capture: true, passive: true });
+}
+
+// Modulweiter Export auf globalThis, damit andere Module einen
+// read-only Blick auf den Running-Status werfen koennen ohne
+// zirkularen Import. NIE zum Schreiben benutzen -- der Tour-State
+// wird weiter ueber startTour/stopTour/... gesteuert.
+if (typeof globalThis !== 'undefined') {
+  try { globalThis.__cuttoffl_tour = tour; } catch {}
 }

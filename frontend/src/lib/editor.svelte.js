@@ -173,15 +173,26 @@ export async function loadFile(fileId) {
     // Wenn die Datei nicht existiert (404) oder das Projekt nicht
     // geladen werden kann, setzen wir den Editor auf sauberen Leerstand.
     // Sonst bohrt der Player weiter auf einem toten Proxy -> 404-Spam.
+    // Waehrend einer laufenden Tour KEINEN Hash-Redirect, sonst rei\u00dft
+    // die Navigation die Tour mit sich.
     const notFound = /\b404\b/.test(e.message);
     resetEditorState();
     if (notFound) {
       toast.warn('Diese Datei existiert nicht mehr -- zurück zur Bibliothek');
-      try { window.location.hash = '#/library'; } catch {}
+      if (!tourIsRunning()) {
+        try { window.location.hash = '#/library'; } catch {}
+      }
     } else {
       toast.error(`Projekt laden: ${e.message}`);
     }
   }
+}
+
+// Kleine Helfer-Funktion: liest den tour-State ohne harten Import,
+// damit wir in beide Richtungen (tour.svelte.js <-> editor.svelte.js)
+// keine Zirkular-Abhaengigkeit aufmachen.
+function tourIsRunning() {
+  try { return !!(globalThis.__cuttoffl_tour?.running); } catch { return false; }
 }
 
 // Editor-State leeren. Wird benutzt, wenn die aktive Datei geloescht
@@ -718,6 +729,9 @@ export function handleTranscribeEvent(msg) {
   // oder per bulk), setzen wir den Editor sauber zurueck und werfen
   // den User zurueck in die Bibliothek. Ohne diesen Zweig bohrt der
   // Player weiter auf dem toten Proxy und produziert 404-Spam.
+  //
+  // Ausnahme: solange eine Tour laeuft, KEINE Navigation ausloesen --
+  // der harte Hash-Wechsel wuerde die Tour aus dem View reissen.
   if (msg.type === 'file_event' && editor.fileId) {
     const ids = msg.event === 'deleted'
       ? [msg.file_id]
@@ -725,7 +739,9 @@ export function handleTranscribeEvent(msg) {
     if (ids.includes(editor.fileId)) {
       resetEditorState();
       toast.warn('Die aktive Datei wurde gelöscht');
-      try { window.location.hash = '#/library'; } catch {}
+      if (!tourIsRunning()) {
+        try { window.location.hash = '#/library'; } catch {}
+      }
     }
   }
 }
