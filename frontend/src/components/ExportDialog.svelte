@@ -1,24 +1,33 @@
 <script>
-  // Export-Dialog -- Tabs fuer Video und Audio, Toggle-Buttons statt
-  // Checkboxen, Segment-Switch fuer Qualitaet (CRF / feste Bitrate).
-  // Profile-Schnellwahl und Groessenabschaetzung kommen in einem
-  // weiteren Commit.
+  // Export-Dialog -- Tabs für Profil / Video / Audio, Toggle-Buttons
+  // statt Checkboxen, Segment-Switch für Qualität (CRF / feste
+  // Bitrate). Profile-Schnellwahl und Größen-Abschätzung sind in
+  // Renderer B dazugekommen.
 
-  import { onMount } from 'svelte';
-  import { editor, setOutput, startRender } from '../lib/editor.svelte.js';
+  import { onMount, untrack } from 'svelte';
+  import { editor, setOutput, startRender, cancelRender } from '../lib/editor.svelte.js';
   import { api } from '../lib/api.js';
   import { toast } from '../lib/toast.svelte.js';
+  import {
+    RENDER_PRESETS,
+    estimateFilesizeBytes,
+    estimateVideoBitrateKbps,
+    parseBitrateKbps,
+    formatBytes,
+  } from '../lib/renderPresets.js';
 
   let { open = $bindable(false) } = $props();
 
-  // --- State (jedes Feld wird beim Oeffnen aus dem EDL gezogen) ---
+  // --- State (jedes Feld wird beim Öffnen aus dem EDL gezogen) ---
   let codec         = $state(editor.edl?.output?.codec || 'h264');
   let container     = $state(editor.edl?.output?.container || 'mp4');
   let resolution    = $state(editor.edl?.output?.resolution || 'source');
   let crf           = $state(editor.edl?.output?.crf ?? 23);
   let bitrate       = $state(editor.edl?.output?.bitrate || '');
-  // Qualitaetsmodus: 'crf' oder 'bitrate' (Zielgroesse kommt in C dazu)
+  // qualityMode: 'crf' | 'bitrate' | 'size' -- size rechnet eine
+  // Ziel-Bitrate aus der gewünschten Dateigröße aus.
   let qualityMode   = $state(editor.edl?.output?.bitrate ? 'bitrate' : 'crf');
+  let targetSizeMb  = $state(50);  // Default für Zielgrößen-Modus
 
   // Audio
   let audioCodec     = $state(editor.edl?.output?.audio_codec || 'aac');
@@ -27,28 +36,38 @@
   let audioMono      = $state(!!editor.edl?.output?.audio_mono);
   let audioMute      = $state(!!editor.edl?.output?.audio_mute);
 
-  let codecInfo  = $state(null);
-  let activeTab  = $state('video');   // 'video' | 'audio' | 'profile'
+  let codecInfo      = $state(null);
+  let activeTab      = $state('profile');   // 'profile' | 'video' | 'audio'
+  let activePresetId = $state(null);
 
   onMount(async () => {
     try { codecInfo = await api.systemCodecs(); } catch {}
   });
 
-  // Beim Oeffnen: EDL -> State synchronisieren
+  // Beim Öffnen: EDL -> State synchronisieren. WICHTIG: untrack um
+  // den Inhalt des Lesens, sonst wird der Effect bei jeder EDL-
+  // Änderung erneut ausgeführt und setzt qualityMode zurück --
+  // der Segment-Switch ließe sich dadurch nicht mehr umschalten.
   $effect(() => {
-    if (!open || !editor.edl) return;
-    const o = editor.edl.output;
-    codec = o.codec;
-    container = o.container;
-    resolution = o.resolution;
-    crf = o.crf ?? 23;
-    bitrate = o.bitrate || '';
-    qualityMode = o.bitrate ? 'bitrate' : 'crf';
-    audioCodec     = o.audio_codec || 'aac';
-    audioBitrate   = o.audio_bitrate || '160k';
-    audioNormalize = !!o.audio_normalize;
-    audioMono      = !!o.audio_mono;
-    audioMute      = !!o.audio_mute;
+    if (!open) return;
+    untrack(() => {
+      if (!editor.edl) return;
+      const o = editor.edl.output;
+      codec = o.codec;
+      container = o.container;
+      resolution = o.resolution;
+      crf = o.crf ?? 23;
+      bitrate = o.bitrate || '';
+      qualityMode = o.bitrate ? 'bitrate' : 'crf';
+      audioCodec     = o.audio_codec || 'aac';
+      audioBitrate   = o.audio_bitrate || '160k';
+      audioNormalize = !!o.audio_normalize;
+      audioMono      = !!o.audio_mono;
+      audioMute      = !!o.audio_mute;
+      // Wenn der aktuelle Profil-Satz exakt einem Preset entspricht,
+      // markieren wir das -- sonst bleibt die Karte passiv.
+      activePresetId = matchPreset();
+    });
   });
 
   const hintForCodec = $derived.by(() => {
@@ -68,9 +87,48 @@
     return { total, copyN, reN, count: tl.length };
   });
 
-  // Wenn ein Audio-Filter aktiv ist, laufen alle Clips automatisch als
-  // reencode durch -- das muss sichtbar sein, damit der User versteht,
-  // warum "copy" vielleicht nicht mehr greift.
+  // Wenn Zielgrößen-Modus aktiv: Bitrate aus (MB - Audio) / Dauer
+  // rechnen. 8192 = 8 bit/Byte * 1024 (kbit/MB). Mit etwas Puffer
+  // für Container-Overhead (~2 %) auf die sichere Seite.
+  const sizeBasedBitrateK = $derived.by(() => {
+    const dur = stats.total;
+    if (!dur || dur <= 0) return 0;
+    const totalKbitsAvail = (targetSizeMb * 8192) / 1.02;
+    const audioKbps = audioMute ? 0 : parseBitrateKbps(audioBitrate);
+    const videoKbps = Math.max(200, totalKbitsAvail / dur - audioKbps);
+    return Math.round(videoKbps);
+  });
+  const sizeBasedBitrateStr = $derived(`${sizeBasedBitrateK}k`);
+
+  // Aktueller OutputProfile-Snapshot für Abschätzungen + Preset-
+  // Abgleich. Neu berechnet, wenn eines der Felder sich ändert.
+  const currentProfile = $derived({
+    codec, container, resolution,
+    bitrate: qualityMode === 'bitrate' ? bitrate
+           : qualityMode === 'size'    ? sizeBasedBitrateStr
+           : null,
+    crf:     qualityMode === 'crf'     ? Number(crf) : null,
+    audio_codec:     audioCodec,
+    audio_bitrate:   audioBitrate,
+    audio_normalize: audioNormalize,
+    audio_mono:      audioMono,
+    audio_mute:      audioMute,
+  });
+
+  // Größe schätzen -- Hausnummer, keine Messung.
+  const estimatedBytes = $derived(
+    estimateFilesizeBytes(currentProfile, stats.total),
+  );
+  const estimatedLabel = $derived(formatBytes(estimatedBytes));
+  const videoMbps = $derived(
+    (estimateVideoBitrateKbps(currentProfile) / 1000).toFixed(
+      estimateVideoBitrateKbps(currentProfile) >= 10_000 ? 0 : 1
+    )
+  );
+  const audioKbps = $derived(
+    audioMute ? 0 : parseBitrateKbps(audioBitrate),
+  );
+
   const filtersForceReencode = $derived(
     audioNormalize || audioMono || audioMute,
   );
@@ -95,45 +153,259 @@
     return 'Klein';
   }
 
+  function applyPreset(preset) {
+    const p = preset.profile;
+    codec = p.codec;
+    container = p.container;
+    resolution = p.resolution;
+    if (p.bitrate) {
+      bitrate = p.bitrate;
+      qualityMode = 'bitrate';
+    } else {
+      bitrate = '';
+      crf = p.crf;
+      qualityMode = 'crf';
+    }
+    audioCodec     = p.audio_codec;
+    audioBitrate   = p.audio_bitrate;
+    audioNormalize = p.audio_normalize;
+    audioMono      = p.audio_mono;
+    audioMute      = p.audio_mute;
+    activePresetId = preset.id;
+  }
+
+  // Haben die aktuellen Felder genau die Werte eines bekannten
+  // Presets? -> Id zurückgeben. Nützlich für die Karten-Markierung.
+  // Im Zielgrößen-Modus matcht bewusst nie ein Preset, weil die
+  // Bitrate dort aus Dauer und MB berechnet ist.
+  function matchPreset() {
+    if (qualityMode === 'size') return null;
+    for (const preset of RENDER_PRESETS) {
+      const p = preset.profile;
+      const same =
+        p.codec === codec &&
+        p.container === container &&
+        p.resolution === resolution &&
+        (p.bitrate ?? null) === (qualityMode === 'bitrate' ? (bitrate || null) : null) &&
+        (p.crf ?? null) === (qualityMode === 'crf' ? Number(crf) : null) &&
+        p.audio_codec === audioCodec &&
+        p.audio_bitrate === audioBitrate &&
+        p.audio_normalize === audioNormalize &&
+        p.audio_mono === audioMono &&
+        p.audio_mute === audioMute;
+      if (same) return preset.id;
+    }
+    return null;
+  }
+
+  // Bei jeder Änderung im Dialog: aktive Preset-Markierung aktualisieren.
+  $effect(() => {
+    // eslint-disable-next-line no-unused-expressions
+    codec; container; resolution; crf; bitrate; qualityMode;
+    audioCodec; audioBitrate; audioNormalize; audioMono; audioMute;
+    activePresetId = matchPreset();
+  });
+
   async function onStart() {
-    setOutput({
-      codec, container, resolution,
-      bitrate: qualityMode === 'bitrate' ? bitrate : null,
-      crf:     qualityMode === 'crf'     ? Number(crf) : null,
-      audio_codec:     audioCodec,
-      audio_bitrate:   audioBitrate,
-      audio_normalize: audioNormalize,
-      audio_mono:      audioMono,
-      audio_mute:      audioMute,
-    });
+    setOutput(currentProfile);
+    // Reset der Rendering-View-Felder, damit alte Einträge aus einem
+    // vorherigen Render nicht durchblitzen.
+    editor.renderInfo = null;
+    editor.renderHistory = [];
+    editor.renderLastStep = null;
+    editor.renderProgress = 0;
+    editor.renderPhase = 'queued';
+    editor.renderStartedAt = Date.now();
     const jobId = await startRender();
     if (jobId) {
+      editor.renderJobId = jobId;
       toast.info('Render gestartet');
-      open = false;
+      // Dialog bleibt offen -- wechselt in die Rendering-View.
     }
   }
+
+  // Formatiert Millisekunden-Deltas als "0:12 min" / "1:34 min".
+  function fmtDelta(ms) {
+    const s = Math.max(0, Math.round(ms / 1000));
+    const mm = Math.floor(s / 60);
+    const ss = s % 60;
+    return `${mm}:${String(ss).padStart(2, '0')} min`;
+  }
+
+  // Dauer seit Render-Start als tickender Zähler. Nur aktiv, solange
+  // der Dialog in der Rendering-View steht.
+  let now = $state(Date.now());
+  let tickHandle = null;
+  $effect(() => {
+    if (editor.rendering && editor.renderStartedAt) {
+      if (tickHandle) clearInterval(tickHandle);
+      tickHandle = setInterval(() => { now = Date.now(); }, 500);
+      return () => { if (tickHandle) { clearInterval(tickHandle); tickHandle = null; } };
+    }
+    if (tickHandle) { clearInterval(tickHandle); tickHandle = null; }
+  });
+
+  const elapsedMs = $derived(
+    editor.renderStartedAt ? (now - editor.renderStartedAt) : 0,
+  );
+  const etaMs = $derived.by(() => {
+    const p = editor.renderProgress || 0;
+    if (p <= 0.01 || p >= 0.999) return 0;
+    return (elapsedMs / p) * (1 - p);
+  });
+
+  const STEP_LABELS = {
+    preparing: 'Vorbereiten',
+    encoding_clip: 'Clip kodieren',
+    clip_done: 'Clip fertig',
+    merging: 'Zusammenfügen',
+    done: 'Fertig',
+    cancelled: 'Abgebrochen',
+    failed: 'Fehler',
+  };
+
+  async function onCancel() {
+    await cancelRender();
+  }
+
+  function onClose() {
+    // Dialog schließen -- wenn ein Render noch läuft, läuft der im
+    // Hintergrund weiter. Das ist Absicht; der Render-Status bleibt
+    // im Footer-Fortschrittsbalken sichtbar.
+    open = false;
+  }
+
+  // Wenn der Render-Abschluss reinkommt, bleibt der Dialog offen und
+  // zeigt das Ergebnis (done / failed / cancelled). Der User sieht
+  // die komplette Pipeline und kann dann selbst schließen.
 </script>
 
 {#if open}
   <!-- svelte-ignore a11y_click_events_have_key_events -->
   <!-- svelte-ignore a11y_no_static_element_interactions -->
-  <div class="backdrop" onclick={() => (open = false)} role="presentation">
+  <div class="backdrop" onclick={onClose} role="presentation">
     <div class="modal" onclick={(e) => e.stopPropagation()} role="dialog" aria-modal="true" tabindex="-1">
       <header>
-        <i class="fa-solid fa-film"></i>
-        <h2>Rendern & Exportieren</h2>
-        <button class="x" onclick={() => (open = false)} aria-label="Schließen">
+        <i class="fa-solid {editor.rendering ? 'fa-circle-notch fa-spin' : 'fa-film'}"></i>
+        <h2>
+          {#if editor.rendering}
+            Rendern läuft
+          {:else if editor.renderPhase === 'done'}
+            Render fertig
+          {:else if editor.renderPhase === 'failed'}
+            Render fehlgeschlagen
+          {:else if editor.renderPhase === 'cancelled'}
+            Render abgebrochen
+          {:else}
+            Rendern & Exportieren
+          {/if}
+        </h2>
+        <button class="x" onclick={onClose} aria-label="Schließen">
           <i class="fa-solid fa-xmark"></i>
         </button>
       </header>
 
-      <div class="summary mono">
-        <div><b>{stats.count}</b> Clips · <b>{stats.total.toFixed(2)}</b> s gesamt</div>
-        <div class="dim">copy: {stats.copyN} · reencode: {stats.reN}{filtersForceReencode ? ' (Audio-Filter aktiv → alles re-encodes)' : ''}</div>
-      </div>
+      {#if editor.rendering || ['done', 'failed', 'cancelled'].includes(editor.renderPhase)}
+        <!-- Rendering-View: bleibt offen, zeigt Pipeline + Log + Zeiten -->
+        <div class="render-body">
+          <div class="render-progress">
+            <div class="progress-track">
+              <div class="progress-fill"
+                   class:is-done={editor.renderPhase === 'done'}
+                   class:is-failed={editor.renderPhase === 'failed'}
+                   class:is-cancelled={editor.renderPhase === 'cancelled'}
+                   style="width: {((editor.renderProgress || 0) * 100).toFixed(1)}%"></div>
+            </div>
+            <div class="progress-meta mono">
+              <span class="pct">{((editor.renderProgress || 0) * 100).toFixed(1)} %</span>
+              {#if editor.renderInfo?.clip_index}
+                <span class="dim">
+                  · Clip {editor.renderInfo.clip_index}/{editor.renderInfo.clip_total}
+                </span>
+              {/if}
+              <span class="dim">· Zeit {fmtDelta(elapsedMs)}</span>
+              {#if etaMs > 0 && editor.rendering}
+                <span class="dim">· ETA {fmtDelta(etaMs)}</span>
+              {/if}
+            </div>
+          </div>
+
+          <!-- Aktueller Status in einem prominenten Label -->
+          <div class="current-step" data-phase={editor.renderPhase}>
+            <i class="fa-solid {editor.renderPhase === 'done' ? 'fa-circle-check'
+                              : editor.renderPhase === 'failed' ? 'fa-circle-exclamation'
+                              : editor.renderPhase === 'cancelled' ? 'fa-ban'
+                              : 'fa-gears fa-spin'}"></i>
+            <div class="current-text">
+              <div class="current-title">
+                {#if editor.renderInfo?.step}
+                  {STEP_LABELS[editor.renderInfo.step] ?? editor.renderInfo.step}
+                {:else if editor.renderPhase === 'queued'}
+                  In der Warteschlange
+                {:else if editor.renderPhase === 'done'}
+                  Fertig
+                {:else if editor.renderPhase === 'failed'}
+                  Fehlgeschlagen
+                {:else if editor.renderPhase === 'cancelled'}
+                  Abgebrochen
+                {:else}
+                  Rendern
+                {/if}
+              </div>
+              {#if editor.renderInfo?.note}
+                <div class="current-note mono">{editor.renderInfo.note}</div>
+              {/if}
+            </div>
+          </div>
+
+          <!-- Pipeline-History -->
+          {#if editor.renderHistory.length > 0}
+            <div class="pipeline">
+              <div class="pipeline-label">Pipeline</div>
+              <ul class="pipeline-list mono">
+                {#each editor.renderHistory as h (h.t)}
+                  <li>
+                    <span class="p-time">
+                      {#if editor.renderStartedAt}
+                        +{fmtDelta(h.t - editor.renderStartedAt)}
+                      {/if}
+                    </span>
+                    <span class="p-step">{STEP_LABELS[h.step] ?? h.step}</span>
+                    <span class="p-note dim">{h.note}</span>
+                  </li>
+                {/each}
+              </ul>
+            </div>
+          {/if}
+        </div>
+
+        <footer class="render-footer">
+          {#if editor.rendering}
+            <button class="btn btn-danger" onclick={onCancel}>
+              <i class="fa-solid fa-stop"></i> Abbrechen
+            </button>
+            <button class="btn" onclick={onClose} title="Dialog schließen -- Render läuft im Hintergrund weiter">
+              Schließen
+            </button>
+          {:else}
+            <button class="btn btn-primary" onclick={onClose}>
+              <i class="fa-solid fa-check"></i> Schließen
+            </button>
+          {/if}
+        </footer>
+      {:else}
+        <div class="summary mono">
+          <div><b>{stats.count}</b> Clips · <b>{stats.total.toFixed(2)}</b> s gesamt</div>
+          <div class="dim">copy: {stats.copyN} · reencode: {stats.reN}{filtersForceReencode ? ' (Audio-Filter aktiv → alles re-encodes)' : ''}</div>
+        </div>
 
       <!-- Tab-Leiste -->
       <div class="tabs" role="tablist">
+        <button class="tab" role="tab" aria-selected={activeTab === 'profile'}
+                class:active={activeTab === 'profile'}
+                onclick={() => (activeTab = 'profile')}>
+          <i class="fa-solid fa-sliders"></i> Profil
+        </button>
         <button class="tab" role="tab" aria-selected={activeTab === 'video'}
                 class:active={activeTab === 'video'}
                 onclick={() => (activeTab = 'video')}>
@@ -147,7 +419,40 @@
       </div>
 
       <div class="body">
-        {#if activeTab === 'video'}
+        {#if activeTab === 'profile'}
+          <div class="presets-label">
+            Schnellwahl -- ein Klick setzt passende Video- und Audio-Werte.
+            In den Tabs <i class="fa-solid fa-film"></i> <b>Video</b> und
+            <i class="fa-solid fa-volume-high"></i> <b>Audio</b> lassen sich
+            die Werte danach feintunen.
+          </div>
+          <div class="presets-grid">
+            {#each RENDER_PRESETS as preset (preset.id)}
+              <button class="preset" class:is-active={activePresetId === preset.id}
+                      onclick={() => applyPreset(preset)}
+                      title={preset.hint ?? preset.note}>
+                <i class={preset.icon} style:color={preset.color}></i>
+                <div class="preset-body">
+                  <div class="preset-title">{preset.title}</div>
+                  <div class="preset-note">{preset.note}</div>
+                </div>
+                {#if activePresetId === preset.id}
+                  <i class="fa-solid fa-check check"></i>
+                {/if}
+              </button>
+            {/each}
+          </div>
+          {#if activePresetId}
+            {@const active = RENDER_PRESETS.find((p) => p.id === activePresetId)}
+            {#if active?.hint}
+              <div class="preset-hint">
+                <i class="fa-solid fa-circle-info"></i>
+                <span>{active.hint}</span>
+              </div>
+            {/if}
+          {/if}
+
+        {:else if activeTab === 'video'}
           <div class="row">
             <label>Codec
               <select bind:value={codec}
@@ -212,8 +517,8 @@
             </select>
           </label>
 
-          <!-- Qualitaetsmodus als Segment-Switch (kein Checkbox) -->
-          <div class="seg-switch" role="group" aria-label="Qualitaetsmodus">
+          <!-- Qualitätsmodus als Segment-Switch (kein Checkbox) -->
+          <div class="seg-switch" role="group" aria-label="Qualitätsmodus">
             <button class="seg" class:active={qualityMode === 'crf'}
                     onclick={() => (qualityMode = 'crf')}
                     title="Konstante Qualität -- Dateigröße variiert je nach Szene">
@@ -224,6 +529,11 @@
                     title="Feste Bitrate -- Dateigröße vorhersehbar">
               Feste Bitrate
             </button>
+            <button class="seg" class:active={qualityMode === 'size'}
+                    onclick={() => (qualityMode = 'size')}
+                    title="Zielgröße -- passende Bitrate wird aus Dauer und Audio berechnet">
+              Zielgröße
+            </button>
           </div>
 
           {#if qualityMode === 'crf'}
@@ -233,10 +543,26 @@
                 <span>14 Archiv</span><span>23 Standard</span><span>32 Klein</span>
               </span>
             </label>
-          {:else}
+          {:else if qualityMode === 'bitrate'}
             <label>Bitrate
               <input type="text" placeholder="z. B. 8M, 2500k" bind:value={bitrate} />
               <span class="dim small">Format: Zahl + K oder M (z. B. 8M = 8 Mbit/s)</span>
+            </label>
+          {:else}
+            <label>Zielgröße (MB)
+              <input type="number" min="1" max="10000" step="1" bind:value={targetSizeMb} />
+              <span class="dim small">
+                Berechnete Video-Bitrate: <b>{sizeBasedBitrateK} kbit/s</b>
+                {#if sizeBasedBitrateK <= 400}
+                  · sehr knapp, Qualität kann sichtbar leiden
+                {:else if sizeBasedBitrateK <= 1000}
+                  · sparsam
+                {:else if sizeBasedBitrateK <= 5000}
+                  · okay für Web
+                {:else}
+                  · reichlich
+                {/if}
+              </span>
             </label>
           {/if}
 
@@ -266,7 +592,7 @@
               <button class="btn-toggle" class:is-on={audioNormalize}
                       disabled={audioMute}
                       onclick={() => (audioNormalize = !audioNormalize)}
-                      title="EBU R128 loudnorm -- bringt den Pegel auf eine vergleichbare Lautheit (gut fuer Social Media). Zwingt auf reencode.">
+                      title="EBU R128 loudnorm -- bringt den Pegel auf eine vergleichbare Lautheit (gut für Social Media). Zwingt auf reencode.">
                 <i class="fa-solid fa-wave-square"></i>
                 Lautheit normalisieren
               </button>
@@ -295,12 +621,28 @@
         {/if}
       </div>
 
+      <!-- Abschätzung direkt über dem Footer -->
+      <div class="estimate mono" title="Grobschätzung der Dateigröße. Je nach Bildmaterial kann das Ergebnis 20-30 % abweichen.">
+        <i class="fa-solid fa-weight-hanging"></i>
+        <span class="est-label">Circa</span>
+        <span class="est-size">{estimatedLabel}</span>
+        <span class="dim">
+          · Video {videoMbps} Mbit/s
+          {#if audioKbps > 0}
+            · Audio {audioKbps} kbit/s
+          {:else if audioMute}
+            · kein Ton
+          {/if}
+        </span>
+      </div>
+
       <footer>
         <button class="btn" onclick={() => (open = false)}>Abbrechen</button>
         <button class="btn btn-primary" onclick={onStart} disabled={!stats.count}>
           <i class="fa-solid fa-play"></i> Render starten
         </button>
       </footer>
+      {/if}
     </div>
   </div>
 {/if}
@@ -314,7 +656,7 @@
     backdrop-filter: blur(2px);
   }
   .modal {
-    width: min(560px, 94vw);
+    width: min(820px, 96vw);
     max-height: 92vh;
     background: var(--bg-panel);
     color: var(--fg-primary);
@@ -403,6 +745,70 @@
     font-size: 10px; color: var(--fg-faint);
     margin-top: 2px;
   }
+
+  /* Presets */
+  .presets-label {
+    font-size: 12px;
+    color: var(--fg-muted);
+    line-height: 1.55;
+  }
+  .presets-label b { color: var(--fg-primary); font-weight: 600; }
+  .presets-label i { color: var(--accent); }
+  .presets-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+    gap: 8px;
+  }
+  .preset {
+    display: flex; align-items: center; gap: 12px;
+    padding: 12px 14px;
+    background: var(--bg-elev);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    color: var(--fg-primary);
+    cursor: pointer;
+    font: inherit;
+    text-align: left;
+    transition: background 120ms, border-color 120ms;
+    position: relative;
+  }
+  .preset:hover { background: var(--bg-panel); border-color: var(--border-strong); }
+  .preset.is-active {
+    background: var(--accent-soft);
+    border-color: var(--accent);
+  }
+  .preset > i:first-child {
+    font-size: 22px;
+    width: 30px;
+    flex: 0 0 auto;
+    text-align: center;
+    /* Farbe kommt aus preset.color per inline style:color */
+    filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.3));
+  }
+  .preset-body { flex: 1; min-width: 0; }
+  .preset-title { font-weight: 600; font-size: 13px; }
+  .preset-note {
+    font-size: 11px;
+    color: var(--fg-muted);
+    margin-top: 2px;
+    line-height: 1.4;
+  }
+  .preset .check {
+    color: var(--accent);
+    font-size: 14px;
+    flex: 0 0 auto;
+  }
+  .preset-hint {
+    display: flex; gap: 8px; align-items: flex-start;
+    padding: 8px 12px;
+    background: color-mix(in oklab, var(--warning) 15%, var(--bg-elev));
+    border: 1px solid color-mix(in oklab, var(--warning) 35%, var(--border));
+    border-radius: 6px;
+    font-size: 12px;
+    line-height: 1.45;
+    color: var(--fg-primary);
+  }
+  .preset-hint i { color: var(--warning); margin-top: 2px; }
 
   /* Segment-Switch */
   .seg-switch {
@@ -507,7 +913,137 @@
   }
   .filter-note i { color: var(--accent); }
 
+  /* Abschätzung */
+  .estimate {
+    display: flex; align-items: center; gap: 10px;
+    padding: 10px 16px;
+    background: var(--bg-sink);
+    border-top: 1px solid var(--border);
+    font-size: 12px;
+  }
+  .estimate > i { color: var(--fg-muted); }
+  .est-label { color: var(--fg-muted); }
+  .est-size {
+    font-weight: 700;
+    color: var(--accent);
+    font-size: 14px;
+  }
+
   footer {
+    padding: 12px 16px;
+    border-top: 1px solid var(--border);
+    display: flex; justify-content: flex-end; gap: 8px;
+    background: var(--bg-sink);
+  }
+
+  /* Rendering-View */
+  .render-body {
+    padding: 20px;
+    display: flex; flex-direction: column; gap: 18px;
+    overflow-y: auto;
+  }
+  .render-progress {
+    display: flex; flex-direction: column; gap: 6px;
+  }
+  .progress-track {
+    height: 10px;
+    background: var(--bg-elev);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    overflow: hidden;
+  }
+  .progress-fill {
+    height: 100%;
+    background: var(--accent);
+    transition: width 200ms ease-out;
+  }
+  .progress-fill.is-done { background: var(--success); }
+  .progress-fill.is-failed { background: var(--danger); }
+  .progress-fill.is-cancelled { background: var(--warning); }
+  .progress-meta {
+    font-size: 12px;
+    display: flex; flex-wrap: wrap; gap: 4px;
+  }
+  .progress-meta .pct {
+    color: var(--accent);
+    font-weight: 700;
+    font-size: 14px;
+  }
+
+  .current-step {
+    display: flex; align-items: center; gap: 14px;
+    padding: 14px 16px;
+    background: var(--accent-soft);
+    border: 1px solid color-mix(in oklab, var(--accent) 35%, var(--border));
+    border-radius: 8px;
+  }
+  .current-step[data-phase="done"] {
+    background: color-mix(in oklab, var(--success) 18%, var(--bg-elev));
+    border-color: color-mix(in oklab, var(--success) 40%, var(--border));
+  }
+  .current-step[data-phase="failed"] {
+    background: color-mix(in oklab, var(--danger) 15%, var(--bg-elev));
+    border-color: color-mix(in oklab, var(--danger) 40%, var(--border));
+  }
+  .current-step[data-phase="cancelled"] {
+    background: color-mix(in oklab, var(--warning) 15%, var(--bg-elev));
+    border-color: color-mix(in oklab, var(--warning) 40%, var(--border));
+  }
+  .current-step > i {
+    font-size: 22px;
+    color: var(--accent);
+    flex: 0 0 auto;
+    width: 28px;
+    text-align: center;
+  }
+  .current-step[data-phase="done"] > i { color: var(--success); }
+  .current-step[data-phase="failed"] > i { color: var(--danger); }
+  .current-step[data-phase="cancelled"] > i { color: var(--warning); }
+  .current-text { min-width: 0; flex: 1; }
+  .current-title { font-weight: 600; font-size: 14px; }
+  .current-note {
+    font-size: 12px;
+    color: var(--fg-muted);
+    margin-top: 2px;
+  }
+
+  .pipeline {
+    display: flex; flex-direction: column; gap: 6px;
+  }
+  .pipeline-label {
+    font-size: 12px;
+    color: var(--fg-muted);
+    letter-spacing: 0.3px;
+  }
+  .pipeline-list {
+    list-style: none;
+    margin: 0; padding: 8px 12px;
+    background: var(--bg-sink);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    font-size: 12px;
+    max-height: 220px;
+    overflow-y: auto;
+  }
+  .pipeline-list li {
+    display: grid;
+    grid-template-columns: 70px 140px 1fr;
+    gap: 10px;
+    padding: 3px 0;
+    align-items: baseline;
+  }
+  .pipeline-list .p-time {
+    color: var(--accent);
+    font-weight: 600;
+  }
+  .pipeline-list .p-step {
+    color: var(--fg-primary);
+  }
+  .pipeline-list .p-note {
+    font-size: 11px;
+  }
+
+  .render-footer {
     padding: 12px 16px;
     border-top: 1px solid var(--border);
     display: flex; justify-content: flex-end; gap: 8px;

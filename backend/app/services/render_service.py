@@ -13,7 +13,7 @@ Wandelt eine EDL in eine Folge von FFmpeg-Kommandos um:
 
 Die Hybrid-Strategie macht den Unterschied: Clips zwischen zwei
 Keyframe-Snaps bleiben bit-identisch (Sekunden pro Stunde Material),
-nur frame-genaue Clips muessen transkodiert werden.
+nur frame-genaue Clips müssen transkodiert werden.
 """
 
 from __future__ import annotations
@@ -33,7 +33,11 @@ from app.services.hwaccel_service import detect_hw_encoder
 logger = logging.getLogger(__name__)
 
 
-ProgressCb = Optional[Callable[[float, str], None]]
+# progress_cb(pct, phase, info=None). info enthaelt optionale Zusatz-
+# Angaben für die Frontend-Pipeline-Anzeige: clip_index, clip_total,
+# step (z. B. "preparing", "encoding_clip", "merging"), note (ein
+# lesbarer Status-Text).
+ProgressCb = Optional[Callable[[float, str, Optional[dict]], None]]
 
 
 _RE_KV = re.compile(r"^([a-zA-Z_]+)=(.*)$")
@@ -44,7 +48,7 @@ _RE_KV = re.compile(r"^([a-zA-Z_]+)=(.*)$")
 # ---------------------------------------------------------------------------
 
 async def _pick_video_encoder(codec: str) -> tuple[str, list[str]]:
-    """Gibt (Encoder-Name, zusaetzliche Codec-Flags) zurueck."""
+    """Gibt (Encoder-Name, zusätzliche Codec-Flags) zurück."""
     hw = await detect_hw_encoder()
     codec = codec.lower()
     if codec == "h264":
@@ -80,7 +84,7 @@ async def _run_with_progress(
     args: list[str],
     on_out_seconds: Callable[[float], None],
 ) -> int:
-    """Fuehrt ffmpeg aus und ruft on_out_seconds(sec) waehrend der Arbeit auf."""
+    """Führt ffmpeg aus und ruft on_out_seconds(sec) während der Arbeit auf."""
     proc = await asyncio.create_subprocess_exec(
         *args,
         stdout=asyncio.subprocess.PIPE,
@@ -120,14 +124,14 @@ async def _run_with_progress(
 # ---------------------------------------------------------------------------
 
 def _audio_filter_chain(output: OutputProfile) -> Optional[str]:
-    """Baut die Audio-Filterkette aus den Flags. None = kein Filter noetig.
+    """Baut die Audio-Filterkette aus den Flags. None = kein Filter nötig.
     Reihenfolge: Mono-Downmix vor loudnorm, damit loudnorm auf dem
     finalen Mix rechnet."""
     filters = []
     if output.audio_mono:
         filters.append("pan=mono|c0=.5*c0+.5*c1")
     if output.audio_normalize:
-        # Standard-Ziel nach EBU R128 -- ausreichend fuer Web/SocialMedia
+        # Standard-Ziel nach EBU R128 -- ausreichend für Web/SocialMedia
         filters.append("loudnorm=I=-16:TP=-1.5:LRA=11")
     return ",".join(filters) if filters else None
 
@@ -200,7 +204,7 @@ async def _build_clip(
 
 
 async def _concat_segments(segments: list[Path], dest: Path) -> None:
-    """Fuehrt alle Segmente per concat-Demuxer zu einem File zusammen (-c copy)."""
+    """Führt alle Segmente per concat-Demuxer zu einem File zusammen (-c copy)."""
     list_file = dest.with_suffix(".list.txt")
     with list_file.open("w", encoding="utf-8") as f:
         for s in segments:
@@ -232,7 +236,7 @@ async def render_edl(
     progress_cb: ProgressCb = None,
     filename_suffix: str = "",
 ) -> Path:
-    """Rendert die EDL gegen `source` und gibt den Pfad zum fertigen Video zurueck."""
+    """Rendert die EDL gegen `source` und gibt den Pfad zum fertigen Video zurück."""
     if not edl.timeline:
         raise RuntimeError("EDL ist leer")
     if not source.exists():
@@ -250,23 +254,44 @@ async def render_edl(
     encoder, encoder_flags = await _pick_video_encoder(output.codec)
     scale_vf = _scale_filter(output.resolution)
 
-    # Wenn alle Clips copy + keine Skalierung noetig + nur Container-kompatibel,
-    # koennte man auf den Concat-Merge ohne Re-Encode auch alles belassen.
+    # Wenn alle Clips copy + keine Skalierung nötig + nur Container-kompatibel,
+    # könnte man auf den Concat-Merge ohne Re-Encode auch alles belassen.
     # Das passiert hier automatisch, weil die Segmente dann bereits mit `-c copy` entstehen.
 
     segments: list[Path] = []
     done_sec = 0.0
+    n_clips = len(edl.timeline)
 
-    def make_segment_cb(clip_duration: float):
+    if progress_cb is not None:
+        progress_cb(
+            0.0, "preparing",
+            {"clip_index": 0, "clip_total": n_clips, "step": "preparing",
+             "note": f"Vorbereiten: Encoder {encoder}, {n_clips} Clip(s)"},
+        )
+
+    def make_segment_cb(idx: int, clip_duration: float, mode: str):
         def inner(clip_sec: float) -> None:
             pct = (done_sec + min(clip_sec, clip_duration)) / total
             if progress_cb is not None:
-                progress_cb(max(0.0, min(pct, 0.999)), "rendering")
+                progress_cb(
+                    max(0.0, min(pct, 0.999)), "rendering",
+                    {"clip_index": idx + 1, "clip_total": n_clips,
+                     "step": "encoding_clip",
+                     "note": f"Clip {idx + 1}/{n_clips} ({mode})"},
+                )
         return inner
 
     try:
         for i, clip in enumerate(edl.timeline):
             seg = work / f"seg_{i:04d}.{container}"
+            mode = "copy" if not _needs_reencode(clip, output) else "reencode"
+            if progress_cb is not None:
+                progress_cb(
+                    min(0.999, done_sec / total), "rendering",
+                    {"clip_index": i + 1, "clip_total": n_clips,
+                     "step": "encoding_clip",
+                     "note": f"Clip {i + 1}/{n_clips} startet ({mode})"},
+                )
             await _build_clip(
                 source=source,
                 clip=clip,
@@ -275,15 +300,24 @@ async def render_edl(
                 encoder=encoder,
                 encoder_flags=encoder_flags,
                 scale_vf=scale_vf,
-                on_sec=make_segment_cb(clip.duration),
+                on_sec=make_segment_cb(i, clip.duration, mode),
             )
             segments.append(seg)
             done_sec += clip.duration
             if progress_cb is not None:
-                progress_cb(min(0.999, done_sec / total), "rendering")
+                progress_cb(
+                    min(0.999, done_sec / total), "rendering",
+                    {"clip_index": i + 1, "clip_total": n_clips,
+                     "step": "clip_done",
+                     "note": f"Clip {i + 1}/{n_clips} fertig"},
+                )
 
         if progress_cb is not None:
-            progress_cb(0.999, "merging")
+            progress_cb(
+                0.999, "merging",
+                {"clip_index": n_clips, "clip_total": n_clips,
+                 "step": "merging", "note": "Segmente zusammenfuehren"},
+            )
 
         EXPORTS_DIR.mkdir(parents=True, exist_ok=True)
         # Dateiname darf die UUID behalten, aber bei Einzel-Clip-Render wird
@@ -297,7 +331,7 @@ async def render_edl(
             await _concat_segments(segments, final)
 
     finally:
-        # work-Verzeichnis aufraeumen
+        # work-Verzeichnis aufräumen
         try:
             shutil.rmtree(work, ignore_errors=True)
         except Exception:

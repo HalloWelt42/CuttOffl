@@ -47,7 +47,7 @@ Broadcaster = Callable[[dict], Awaitable[None]]
 
 
 class CancelledByUser(Exception):
-    """Signal, das Worker-Handler werfen koennen, wenn der Job vom
+    """Signal, das Worker-Handler werfen können, wenn der Job vom
     Nutzer per cancel-Event abgebrochen wurde. Unterscheidet den Fall
     sauber von echten Fehlern."""
     pass
@@ -66,7 +66,7 @@ class Job:
     error: Optional[str] = None
     payload: dict = field(default_factory=dict)
     # cancel_event wird beim Anlegen erzeugt und kann vom Worker
-    # ueberprueft werden (event.is_set()). Der Cancel-Endpunkt setzt es.
+    # ueberprüft werden (event.is_set()). Der Cancel-Endpunkt setzt es.
     cancel_event: Optional[asyncio.Event] = None
 
 
@@ -83,9 +83,49 @@ class JobService:
 
     async def start(self) -> None:
         self._loop = asyncio.get_running_loop()
+        await self._cleanup_zombie_jobs()
         if self._worker_task is None or self._worker_task.done():
             self._worker_task = asyncio.create_task(self._run_worker(), name="job-worker")
             logger.info("Job-Worker gestartet")
+
+    async def _cleanup_zombie_jobs(self) -> None:
+        """Alle Jobs, die laut DB noch 'running', 'queued' oder 'pending'
+        sind, beim Start auf 'failed' setzen. Nach einem Backend-Neustart
+        können diese Jobs nicht mehr weiterlaufen -- sie würden die
+        JobsBar-Anzeige sonst dauerhaft rotieren lassen."""
+        rows = await db.fetch_all(
+            "SELECT id, kind, status FROM jobs "
+            "WHERE status IN ('running', 'queued', 'pending')"
+        )
+        if not rows:
+            return
+        ids = [r["id"] for r in rows]
+        kinds = [f"{r['kind']}({r['id'][:8]})" for r in rows]
+        placeholders = ",".join("?" * len(ids))
+        await db.execute(
+            f"UPDATE jobs SET status='failed', "
+            f"error='Backend-Neustart -- Job wurde unterbrochen', "
+            f"updated_at=datetime('now') WHERE id IN ({placeholders})",
+            tuple(ids),
+        )
+        # Proxy-Status der betroffenen Dateien mit zurücksetzen, damit
+        # sie nicht "in Bearbeitung" hängen.
+        proxy_rows = await db.fetch_all(
+            f"SELECT file_id FROM jobs WHERE id IN ({placeholders}) "
+            f"AND kind = 'proxy' AND file_id IS NOT NULL",
+            tuple(ids),
+        )
+        if proxy_rows:
+            file_ids = [r["file_id"] for r in proxy_rows]
+            fph = ",".join("?" * len(file_ids))
+            await db.execute(
+                f"UPDATE files SET proxy_status='failed' "
+                f"WHERE id IN ({fph}) AND proxy_status='processing'",
+                tuple(file_ids),
+            )
+        logger.info(
+            f"Zombie-Jobs beim Start aufgeräumt: {len(rows)} ({', '.join(kinds)})"
+        )
 
     async def stop(self) -> None:
         if self._worker_task and not self._worker_task.done():
@@ -117,10 +157,10 @@ class JobService:
 
     async def cancel(self, job_id: str) -> bool:
         """Markiert einen Job zum Abbrechen. Laufende Jobs beachten das
-        Event an definierten Pruefpunkten (aktuell: Transkriptions-Chunks).
+        Event an definierten Prüfpunkten (aktuell: Transkriptions-Chunks).
         Queue-Jobs, die noch nicht gestartet sind, werden beim Aufruf
         direkt als cancelled markiert."""
-        # Wenn der aktive Job das ist: Event setzen, Worker prueft selber
+        # Wenn der aktive Job das ist: Event setzen, Worker prüft selber
         if self._active and self._active.id == job_id:
             if self._active.cancel_event is not None:
                 self._active.cancel_event.set()
@@ -137,7 +177,7 @@ class JobService:
     async def _run_worker(self) -> None:
         while True:
             job = await self._queue.get()
-            # Vor-Cancel pruefen (Job wurde in der Queue schon gecancelt)
+            # Vor-Cancel prüfen (Job wurde in der Queue schon gecancelt)
             pre = await db.fetch_one("SELECT status FROM jobs WHERE id = ?", (job.id,))
             if pre and pre["status"] == "cancelled":
                 self._queue.task_done()
@@ -289,13 +329,27 @@ class JobService:
             edl = EDL.model_validate(_json.loads(prow["edl_json"] or "{}"))
 
         last_sent = -1.0
+        last_step: str | None = None
 
-        def on_progress(pct: float, phase: str) -> None:
-            nonlocal last_sent
+        def on_progress(pct: float, phase: str, info: dict | None = None) -> None:
+            nonlocal last_sent, last_step
             job.progress = pct
-            if pct - last_sent >= 0.02 or phase in ("merging", "done"):
+            step = (info or {}).get("step")
+            # Broadcast, wenn:
+            #  - >= 2 % Fortschritt seit letztem Event ODER
+            #  - der Pipeline-Schritt wechselt (preparing -> encoding_clip
+            #    -> clip_done -> merging -> done) ODER
+            #  - wir in einer Finalisierungs-Phase sind
+            should = (
+                pct - last_sent >= 0.02
+                or phase in ("merging", "done")
+                or (step is not None and step != last_step)
+            )
+            if should:
                 last_sent = pct
-                self._schedule_broadcast({
+                if step is not None:
+                    last_step = step
+                msg = {
                     "type": "job_progress",
                     "job_id": job.id,
                     "kind": job.kind,
@@ -303,7 +357,10 @@ class JobService:
                     "file_id": job.file_id,
                     "progress": pct,
                     "phase": phase,
-                })
+                }
+                if info:
+                    msg["info"] = info
+                self._schedule_broadcast(msg)
 
         clip_tag = (job.payload or {}).get("clip_id")
         final = await render_edl(
@@ -324,7 +381,7 @@ class JobService:
             raise RuntimeError("Datei nicht gefunden")
         src = Path(row["proxy_path"] or row["path"])
         if not src.exists():
-            raise RuntimeError("Quelle fuer Sprite fehlt")
+            raise RuntimeError("Quelle für Sprite fehlt")
         dest = SPRITES_DIR / f"{job.file_id}.jpg"
         meta = await generate_sprite(src, dest, duration_s=row["duration_s"])
         await db.execute(
@@ -347,7 +404,7 @@ class JobService:
             raise RuntimeError("Datei nicht gefunden")
         src = Path(row["proxy_path"] or row["path"])
         if not src.exists():
-            raise RuntimeError("Quelle fuer Waveform fehlt")
+            raise RuntimeError("Quelle für Waveform fehlt")
         dest = WAVEFORMS_DIR / f"{job.file_id}.json"
         meta = await generate_waveform(src, dest, duration_s=row["duration_s"])
         await db.execute(
@@ -361,7 +418,7 @@ class JobService:
 
     async def _process_transcribe(self, job: Job) -> None:
         """KI-Transkription: Audio aus dem Original extrahieren, Whisper
-        darueber laufen lassen, Segmente als SRT schreiben. Payload kann
+        darüber laufen lassen, Segmente als SRT schreiben. Payload kann
         `engine` und `model` enthalten -- fehlen sie, nimmt der Service
         die Empfehlung aus capabilities()."""
         assert job.file_id, "transcribe-Job benötigt file_id"
@@ -424,8 +481,8 @@ class JobService:
                     })
 
             # Segmente live pushen, sobald sie fertig sind -- das Frontend
-            # ergaenzt die Panel-Liste und zeigt Text mit, waehrend der
-            # Rest noch laeuft.
+            # ergänzt die Panel-Liste und zeigt Text mit, während der
+            # Rest noch läuft.
             def on_segment(seg: dict) -> None:
                 self._schedule_broadcast({
                     "type": "transcript_segment",
@@ -461,14 +518,14 @@ class JobService:
             job.message = f"Fertig ({len(result.segments)} Segmente, {result.language or '?'})"
             await self._broadcast_file_event(job.file_id, "transcript_ready")
         finally:
-            # Temp-WAV wegraeumen -- unabhaengig davon ob erfolgreich
+            # Temp-WAV wegraeumen -- unabhängig davon ob erfolgreich
             try:
                 audio_path.unlink(missing_ok=True)
             except OSError:
                 pass
 
     async def _process_download_model(self, job: Job) -> None:
-        """Laedt ein Whisper-Modell in den Standard-Cache der jeweiligen
+        """Lädt ein Whisper-Modell in den Standard-Cache der jeweiligen
         Engine. payload = { engine, model }."""
         payload = job.payload or {}
         engine = payload.get("engine")

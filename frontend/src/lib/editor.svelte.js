@@ -38,11 +38,16 @@ export const editor = $state({
   rendering: false,
   renderProgress: 0,
   renderPhase: '',
+  renderJobId: null,
+  renderInfo: null,          // { clip_index, clip_total, step, note }
+  renderHistory: [],         // [{ step, note, t }]
+  renderLastStep: null,
+  renderStartedAt: null,
   history: [],
   future: [],
   // Preview / Playback-Steuerung
   preview: null,           // { kind: 'range'|'clip'|'timeline', start, end, clipIndex?, autoPlay? }
-  playingClipId: null,     // id des aktuell abspielenden Clips (fuer Timeline-Highlight)
+  playingClipId: null,     // id des aktuell abspielenden Clips (für Timeline-Highlight)
   // Timeline-Visualisierung
   spriteMeta: null,        // { interval, tile_w, tile_h, cols, rows, count }
   spriteImage: null,       // HTMLImageElement (wird bei load befuellt)
@@ -51,13 +56,13 @@ export const editor = $state({
   followOn: persisted('editor.followOn', true),
   // Timeline-Zoom in Pixel pro Sekunde. Die Timeline-Komponente spiegelt
   // diesen Wert in ihren lokalen Zustand und schreibt Mausrad-Zoom hierher
-  // zurueck. So kann die Editor-Toolbar Zoom-Presets setzen.
+  // zurück. So kann die Editor-Toolbar Zoom-Presets setzen.
   timelineZoom: persisted('editor.timelineZoom', 40),
   // Transkript -- Segmente aus SRT, aktiver Tab, Untertitel-Overlay
   transcript: null,          // { segments, language, model, has_transcript }
   transcribing: false,
   transcribePct: 0,
-  // Live-Segmente waehrend der Transkription (aus WebSocket), werden
+  // Live-Segmente während der Transkription (aus WebSocket), werden
   // beim Abschluss durch das gespeicherte SRT ersetzt.
   liveSegments: [],
   transcribeJobId: null,
@@ -158,10 +163,10 @@ export async function loadFile(fileId) {
 }
 
 export async function loadProject(projectId) {
-  // Laedt ein bestimmtes Projekt (mit seiner Quelldatei). Anders als
-  // loadFile, das fuer eine Datei automatisch das erste vorhandene Projekt
+  // Lädt ein bestimmtes Projekt (mit seiner Quelldatei). Anders als
+  // loadFile, das für eine Datei automatisch das erste vorhandene Projekt
   // verwendet oder ein neues anlegt, wird hier genau dieses Projekt
-  // verwendet -- wichtig fuer Export-Rueckkehr in den Editor.
+  // verwendet -- wichtig für Export-Rueckkehr in den Editor.
   try {
     const project = await api.getProject(projectId);
     const fileId = project.source_file_id;
@@ -375,7 +380,7 @@ export function setFollow(v) {
 // Preview-Playback: Bereich, einzelner Clip, oder ganze Timeline.
 // Der Player-Component ruft tickPreview(t) bei jedem timeupdate auf.
 // Dieser Callback entscheidet, ob der Player weiterspringen oder stoppen soll.
-// Rueckgabe: { seekTo: number } oder { stop: true } oder null.
+// Rückgabe: { seekTo: number } oder { stop: true } oder null.
 // ---------------------------------------------------------------------------
 
 export function startRangePreview(start, end) {
@@ -470,19 +475,69 @@ export function handleJobEvent(msg) {
       && msg.project_id === editor.projectId) {
     editor.renderProgress = msg.progress || 0;
     editor.renderPhase = msg.phase || 'rendering';
+    if (msg.info) {
+      // Pipeline-Detail-Anzeige: Clip-Index, Gesamt, Schritt, lesbarer Text.
+      // Wir spiegeln nur die Felder, die die Prozess-Transparenz braucht.
+      editor.renderInfo = {
+        clip_index: msg.info.clip_index ?? null,
+        clip_total: msg.info.clip_total ?? null,
+        step: msg.info.step ?? null,
+        note: msg.info.note ?? null,
+      };
+      // Letzte N Pipeline-Schritte merken, damit der Dialog eine History
+      // mit Zeitstempeln zeigen kann.
+      const step = msg.info.step;
+      if (step && step !== editor.renderLastStep) {
+        editor.renderLastStep = step;
+        editor.renderHistory = [
+          ...editor.renderHistory,
+          { step, note: msg.info.note ?? '', t: Date.now() },
+        ].slice(-20);
+      }
+    }
   }
   if (msg.type === 'job_event' && msg.job?.kind === 'render'
       && msg.job.project_id === editor.projectId) {
-    if (msg.event === 'completed') {
+    if (msg.event === 'running') {
+      editor.renderStartedAt = Date.now();
+    } else if (msg.event === 'completed') {
       editor.rendering = false;
       editor.renderProgress = 1;
       editor.renderPhase = 'done';
+      editor.renderHistory = [
+        ...editor.renderHistory,
+        { step: 'done', note: 'Fertig', t: Date.now() },
+      ].slice(-20);
       toast.success('Render fertig');
     } else if (msg.event === 'failed') {
       editor.rendering = false;
       editor.renderPhase = 'failed';
+      editor.renderHistory = [
+        ...editor.renderHistory,
+        { step: 'failed', note: msg.job.error || 'fehlgeschlagen', t: Date.now() },
+      ].slice(-20);
       toast.error(`Render: ${msg.job.error || 'fehlgeschlagen'}`);
+    } else if (msg.event === 'cancelled') {
+      editor.rendering = false;
+      editor.renderPhase = 'cancelled';
+      editor.renderHistory = [
+        ...editor.renderHistory,
+        { step: 'cancelled', note: 'Abgebrochen', t: Date.now() },
+      ].slice(-20);
     }
+  }
+}
+
+// Laufenden Render-Job abbrechen. Wird vom ExportDialog aus der
+// Rendering-View gerufen.
+export async function cancelRender() {
+  const jid = editor.renderJobId;
+  if (!jid) return;
+  try {
+    await api.cancelJob(jid);
+    toast.info('Abbruch angefordert');
+  } catch (e) {
+    toast.error(`Abbruch: ${e.message}`);
   }
 }
 
@@ -512,7 +567,7 @@ export async function startTranscribe(fileId, opts = {}) {
   } catch (e) {
     editor.transcribing = false;
     editor.transcribeJobId = null;
-    // Spezialfall 409: Server meldet "nicht verfuegbar" -- wir geben die
+    // Spezialfall 409: Server meldet "nicht verfügbar" -- wir geben die
     // Meldung weiter, aber crashen nicht.
     toast.error(`Transkription: ${e.message}`);
   }
@@ -553,7 +608,7 @@ export function handleTranscribeEvent(msg) {
     editor.transcribePct = msg.progress || 0;
     editor.transcribing = true;
   }
-  // Live-Segmente: wir ergaenzen die Liste direkt, damit der User
+  // Live-Segmente: wir ergänzen die Liste direkt, damit der User
   // schon Text sieht, bevor die ganze Transkription fertig ist.
   if (msg.type === 'transcript_segment'
       && msg.file_id === editor.fileId && msg.segment) {
@@ -565,7 +620,7 @@ export function handleTranscribeEvent(msg) {
       editor.transcribing = false;
       editor.transcribePct = 1;
       editor.transcribeJobId = null;
-      editor.liveSegments = [];  // endgueltige Segmente kommen jetzt aus loadTranscript
+      editor.liveSegments = [];  // endgültige Segmente kommen jetzt aus loadTranscript
       void loadTranscript(editor.fileId);
       toast.success('Transkription fertig');
     } else if (msg.event === 'cancelled') {
@@ -586,7 +641,7 @@ export function handleTranscribeEvent(msg) {
   }
 }
 
-/** Segment anhand der aktuellen Abspielzeit finden (fuer Subtitle-Overlay
+/** Segment anhand der aktuellen Abspielzeit finden (für Subtitle-Overlay
  *  und Highlighting im Panel). Liefert null, wenn keines passt. */
 export function activeSegmentAt(t, segments) {
   if (!Array.isArray(segments) || segments.length === 0) return null;
