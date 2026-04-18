@@ -18,8 +18,10 @@ ClipMode = Literal["copy", "reencode"]
 Codec = Literal["h264", "hevc"]
 Container = Literal["mp4", "mkv", "mov"]
 
-# Erlaubte Bitrate-Formate: 500k, 2M, 800K, 1500000
-_RE_BITRATE = re.compile(r"^\d{2,9}[KkMm]?$")
+# Erlaubte Bitrate-Formate: 500k, 2M, 8M, 800K, 1500000
+# Mindestens eine Ziffer (nicht zwei!) -- "8M" ist ein gebräuchlicher
+# Wert und muss durchgehen.
+_RE_BITRATE = re.compile(r"^\d{1,9}[KkMm]?$")
 # Erlaubte Resolution-Formate: 'source', '1080p', '1280x720'
 _RE_RES_P   = re.compile(r"^\d{3,4}p$")
 _RE_RES_WH  = re.compile(r"^\d{3,5}x\d{3,5}$")
