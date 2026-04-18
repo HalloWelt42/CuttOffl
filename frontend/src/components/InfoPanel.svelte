@@ -20,21 +20,44 @@
 
   const currentTitle = $derived(TITLE_BY_VIEW[nav.view] ?? 'Information');
 
-  // Editor-Shortcuts bleiben die wichtigsten Info-Inhalte
-  const EDITOR_SHORTCUTS = [
-    ['Leertaste',            'Play / Pause'],
-    ['Shift + Leertaste',    'Timeline abspielen (alle Clips)'],
-    ['J / L',                '5 s zurück / vor'],
-    ['← / →',                '1 Frame zurück / vor (+ Shift = 10 Frames)'],
-    [', / .',                'vorheriger / nächster Keyframe'],
-    ['I / O',                'In- / Out-Punkt setzen'],
-    ['P',                    'Auswahl oder Clip vorspielen'],
-    ['Enter',                'Clip aus In/Out erzeugen'],
-    ['S',                    'Clip am Playhead teilen'],
-    ['Esc',                  'Vorschau / Dialog stoppen'],
-    ['Entf / ⌫',             'ausgewählten Clip löschen'],
-    ['⌘/Ctrl + Z',           'Undo · + Shift = Redo'],
-    ['⌘/Ctrl + Mausrad',     'Timeline zoomen'],
+  // Editor-Shortcuts in Gruppen -- damit die Tour gezielt auf eine
+  // Gruppe springen (scrollen + Spotlight) kann. Jede Gruppe trägt
+  // eine id, die Tour lenkt den Spotlight per data-tour-Selector.
+  const EDITOR_SHORTCUT_GROUPS = [
+    {
+      id: 'playback',
+      title: 'Playback',
+      icon: 'fa-play',
+      items: [
+        ['Leertaste',            'Play / Pause'],
+        ['Shift + Leertaste',    'Timeline abspielen (alle Clips)'],
+        ['J / L',                '5 s zurück / vor'],
+        ['← / →',                '1 Frame zurück / vor (+ Shift = 10 Frames)'],
+        [', / .',                'vorheriger / nächster Keyframe'],
+      ],
+    },
+    {
+      id: 'cut',
+      title: 'Schnitt',
+      icon: 'fa-scissors',
+      items: [
+        ['I / O',                'In- / Out-Punkt setzen'],
+        ['P',                    'Auswahl oder Clip vorspielen'],
+        ['Enter',                'Clip aus In/Out erzeugen'],
+        ['S',                    'Clip am Playhead teilen'],
+        ['Entf / ⌫',             'ausgewählten Clip löschen'],
+      ],
+    },
+    {
+      id: 'general',
+      title: 'Allgemein',
+      icon: 'fa-keyboard',
+      items: [
+        ['Esc',                  'Vorschau / Dialog stoppen'],
+        ['⌘/Ctrl + Z',           'Undo · + Shift = Redo'],
+        ['⌘/Ctrl + Mausrad',     'Timeline zoomen'],
+      ],
+    },
   ];
 </script>
 
@@ -54,12 +77,19 @@
       Tasten bleiben auch beim Bewegen dieses Fensters erreichbar -- Esc
       schließt nur den Hinweis, nicht die Vorschau.
     </p>
-    <dl class="kbd">
-      {#each EDITOR_SHORTCUTS as [k, desc] (k)}
-        <dt><kbd>{k}</kbd></dt>
-        <dd>{desc}</dd>
-      {/each}
-    </dl>
+    {#each EDITOR_SHORTCUT_GROUPS as group (group.id)}
+      <section class="kbd-group" data-tour="kbd-{group.id}">
+        <h4 class="kbd-group-head">
+          <i class="fa-solid {group.icon}"></i> {group.title}
+        </h4>
+        <dl class="kbd">
+          {#each group.items as [k, desc] (k)}
+            <dt><kbd>{k}</kbd></dt>
+            <dd>{desc}</dd>
+          {/each}
+        </dl>
+      </section>
+    {/each}
 
   {:else if nav.view === 'library'}
     <p class="lead">
@@ -160,6 +190,22 @@
   ul li { margin-bottom: 4px; }
   ul li b { color: var(--accent); }
 
+  .kbd-group {
+    margin-top: 14px;
+  }
+  .kbd-group:first-of-type { margin-top: 10px; }
+  .kbd-group-head {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin: 0 0 8px;
+    font-size: 12px;
+    letter-spacing: 0.5px;
+    text-transform: uppercase;
+    color: var(--fg-muted);
+    font-weight: 600;
+  }
+  .kbd-group-head i { color: var(--accent); }
   .kbd {
     display: grid;
     grid-template-columns: max-content 1fr;

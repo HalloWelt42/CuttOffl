@@ -191,18 +191,20 @@ const SKELETONS = {
     runnable: true,
     steps: [
       { view: 'editor',
-        // Das Info-Panel erst zu, dann frisch öffnen -- damit das
-        // Panel beim Re-Start der Tour (z. B. im Komplett-Rundgang)
-        // sichtbar "neu aufpoppt" und nicht von einer vorigen Tour
-        // noch als Schatten im Hintergrund klebt.
+        // Info-Panel erst zu, dann frisch öffnen -- damit es auch
+        // beim Komplett-Rundgang sichtbar "neu aufpoppt" und nicht
+        // aus einer früheren Tour übrig bleibt.
         before: async () => {
           await ensureEditorHasVideo();
           closeInfo();
           await new Promise((r) => setTimeout(r, 120));
           openInfo();
         } },
-      { view: 'editor', selector: '[data-panel="info"]' },
-      { view: 'editor', selector: '[data-panel="info"]' },
+      // Schritt 2: Spotlight auf den Playback-Abschnitt.
+      { view: 'editor', selector: '[data-panel="info"] [data-tour="kbd-playback"]' },
+      // Schritt 3: Spotlight auf den Schnitt-Abschnitt -- die Tour
+      // scrollt das Info-Panel bei Bedarf automatisch dahin.
+      { view: 'editor', selector: '[data-panel="info"] [data-tour="kbd-cut"]' },
       { view: 'editor', demo_ms: 5500,
         // Letzter Schritt: Info-Panel wieder zu, sonst bleibt es
         // nach dem Tour-Ende offen über der Help-Seite.

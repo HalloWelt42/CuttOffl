@@ -156,6 +156,12 @@ export function stopTour(opts = {}) {
   tour.running = false;
   tour.paused = false;
   tour.queue = [];
+  if (wasRunning) {
+    // Alle von der Tour eventuell geöffneten Panels sicher zumachen.
+    // Ohne das hängt z. B. das Info-Panel aus der Tastenkürzel-Tour
+    // weiter über der Hilfe-Seite und überdeckt die nächste Tour.
+    try { closeInfo(); closeAbout(); } catch {}
+  }
   if (wasRunning && navBack) {
     try { go('help'); } catch {}
   }
