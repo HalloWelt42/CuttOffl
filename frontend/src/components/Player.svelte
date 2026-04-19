@@ -32,6 +32,14 @@
     }
   });
 
+  // Original-Video-Ton je nach editor.edl.mute_original stummschalten --
+  // sonst wuerde beim aktiven Audio-Override der Video-Ton und das
+  // Override-Audio gleichzeitig laufen.
+  $effect(() => {
+    if (!videoEl) return;
+    videoEl.muted = !!editor.edl?.mute_original;
+  });
+
   function onTimeUpdate() {
     if (!videoEl) return;
     lastExternal = videoEl.currentTime;

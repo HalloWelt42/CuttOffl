@@ -5,6 +5,7 @@
   import Resizer from '../components/Resizer.svelte';
   import Timeline from '../components/Timeline.svelte';
   import AudioTrack from '../components/AudioTrack.svelte';
+  import AudioPreview from '../components/AudioPreview.svelte';
   import ExportDialog from '../components/ExportDialog.svelte';
   import { persisted, persist } from '../lib/persist.svelte.js';
   import { nav, go } from '../lib/nav.svelte.js';
@@ -548,6 +549,9 @@
         <Timeline />
         <AudioTrack />
       </div>
+
+      <!-- Headless: synchronisiert Override-Audios live zum Video-Playhead -->
+      <AudioPreview />
 
     </div>
   {/if}

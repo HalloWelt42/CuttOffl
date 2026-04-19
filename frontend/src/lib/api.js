@@ -162,6 +162,7 @@ export const api = {
   spriteUrl:  (id) => `${BASE}/sprite/${id}`,
   spriteMeta: (id) => request(`/sprite/${id}/meta`),
   waveform:   (id) => request(`/waveform/${id}`),
+  audioUrl:   (id) => `${BASE}/audio/${id}`,
 
   // Jobs
   listJobs: (limit = 50) => request(`/jobs?limit=${limit}`),
