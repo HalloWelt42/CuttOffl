@@ -1,8 +1,7 @@
-// Separate Vitest-Konfiguration. Ohne das Svelte-Plugin -- die
-// aktuellen Versionen von @sveltejs/vite-plugin-svelte und vitest
-// kollidieren beim Startup. Unsere Unit-Tests decken reine
-// JS-Module ab (kein Svelte-Component-Rendering), deshalb brauchen
-// wir das Plugin hier nicht.
+// Vitest-Konfiguration ohne Svelte-Plugin (Kollision mit aktuellem
+// vite/vitest an configureServer). Tests importieren deshalb nur
+// reine JS-Module aus src/lib -- keine .svelte-Komponenten und
+// keine Files, die Runes ($state, $derived, $effect) direkt nutzen.
 
 import { defineConfig } from 'vitest/config';
 

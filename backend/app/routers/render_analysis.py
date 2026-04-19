@@ -181,9 +181,15 @@ def analyze_output(
         estimated_bytes = int((total_kbits * 1000 / 8) * overhead)
 
     resolved = output.codec
-    if resolved == "source" and source_meta:
-        src = _norm_vcodec(source_meta.get("video_codec"))
-        resolved = src if src in ("h264", "hevc") else "h264"
+    if resolved == "source":
+        if source_meta:
+            src = _norm_vcodec(source_meta.get("video_codec"))
+            resolved = src if src in ("h264", "hevc") else "h264"
+        else:
+            # Ohne Quell-Metadaten faellt der Renderer auf h264 zurueck
+            # (siehe _pick_video_encoder). Die Analyse-Antwort muss
+            # dieselbe Entscheidung widerspiegeln, sonst luegt der Dialog.
+            resolved = "h264"
 
     # Audio-Modus ableiten: was der User beim Abspielen hoert.
     if audio_track_count > 0 and mute_original:
