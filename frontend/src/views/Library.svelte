@@ -14,6 +14,7 @@
   import { openFolderPicker } from '../lib/folderPicker.svelte.js';
   import PanelHeader from '../components/PanelHeader.svelte';
   import HoverScrubThumb from '../components/HoverScrubThumb.svelte';
+  import AudioThumb from '../components/AudioThumb.svelte';
   import TagChips from '../components/TagChips.svelte';
   import TagEditorPopover from '../components/TagEditorPopover.svelte';
 
@@ -877,16 +878,26 @@
                            onchange={() => toggleSelect(f.id)}
                            aria-label="Datei auswählen" />
                   </label>
-                  <button class="thumb-btn" onclick={() => f.has_proxy && openInEditor(f.id)}
-                          disabled={!f.has_proxy}
-                          title={f.has_proxy ? 'Im Editor öffnen' : 'Proxy noch nicht fertig'}>
+                  <button class="thumb-btn" onclick={() => !f.is_audio_only && f.has_proxy && openInEditor(f.id)}
+                          disabled={f.is_audio_only || !f.has_proxy}
+                          title={f.is_audio_only
+                            ? 'Audio-Datei -- kann als Tonspur im Editor eingelegt werden'
+                            : (f.has_proxy ? 'Im Editor öffnen' : 'Proxy noch nicht fertig')}>
                     <div class="thumb">
-                      <HoverScrubThumb
-                        fileId={f.id}
-                        alt={f.original_name}
-                        hasThumb={f.has_thumb}
-                        hasSprite={f.has_sprite}
-                      />
+                      {#if f.is_audio_only}
+                        <AudioThumb
+                          fileId={f.id}
+                          alt={f.original_name}
+                          hasWaveform={f.has_waveform}
+                        />
+                      {:else}
+                        <HoverScrubThumb
+                          fileId={f.id}
+                          alt={f.original_name}
+                          hasThumb={f.has_thumb}
+                          hasSprite={f.has_sprite}
+                        />
+                      {/if}
                       <span class="badge {s.c}">{s.t}</span>
                     </div>
                   </button>
@@ -895,23 +906,33 @@
                     {#if f.tags && f.tags.length > 0}
                       <TagChips tags={f.tags} maxShown={4} onClick={onTagClick} />
                     {/if}
-                    <div class="row mono">
-                      <span>{fmtDur(f.duration_s)}</span>
-                      <span>{f.width}x{f.height}</span>
-                      <span>{f.video_codec ?? '-'}</span>
-                      <span>{fmtSize(f.size_bytes)}</span>
-                    </div>
-                    <div class="row mono subtle">
-                      <span>FPS {f.fps ?? '-'}</span>
-                      <span>KF {f.keyframe_count ?? '-'}</span>
-                    </div>
+                    {#if f.is_audio_only}
+                      <div class="row mono">
+                        <span>{fmtDur(f.duration_s)}</span>
+                        <span>{f.audio_codec ?? 'audio'}</span>
+                        <span>{fmtSize(f.size_bytes)}</span>
+                      </div>
+                    {:else}
+                      <div class="row mono">
+                        <span>{fmtDur(f.duration_s)}</span>
+                        <span>{f.width}x{f.height}</span>
+                        <span>{f.video_codec ?? '-'}</span>
+                        <span>{fmtSize(f.size_bytes)}</span>
+                      </div>
+                      <div class="row mono subtle">
+                        <span>FPS {f.fps ?? '-'}</span>
+                        <span>KF {f.keyframe_count ?? '-'}</span>
+                      </div>
+                    {/if}
                     <div class="actions">
                       <button class="btn btn-primary" onclick={() => openInEditor(f.id)}
-                              disabled={!f.has_proxy}
+                              disabled={f.is_audio_only || !f.has_proxy}
                               data-tour="lib-file-open"
-                              title={f.has_proxy
-                                ? 'Dieses Video im Schnitt-Editor öffnen'
-                                : 'Bitte warten bis die Proxy-Vorschau fertig ist'}>
+                              title={f.is_audio_only
+                                ? 'Audio-Datei -- im Editor als Tonspur ueber ein Video legen'
+                                : (f.has_proxy
+                                  ? 'Dieses Video im Schnitt-Editor öffnen'
+                                  : 'Bitte warten bis die Proxy-Vorschau fertig ist')}>
                         <i class="fa-solid fa-scissors"></i> Öffnen
                       </button>
                       <button class="btn" onclick={() => onRename(f)}
@@ -997,10 +1018,15 @@
                                aria-label="Datei auswählen" />
                       </td>
                       <td class="c-thumb">
-                        <button class="thumb-mini" onclick={() => f.has_proxy && openInEditor(f.id)}
-                                disabled={!f.has_proxy}
-                                title={f.has_proxy ? 'Im Editor öffnen' : 'Proxy noch nicht fertig'}>
-                          {#if f.has_thumb}
+                        <button class="thumb-mini"
+                                onclick={() => !f.is_audio_only && f.has_proxy && openInEditor(f.id)}
+                                disabled={f.is_audio_only || !f.has_proxy}
+                                title={f.is_audio_only
+                                  ? 'Audio-Datei'
+                                  : (f.has_proxy ? 'Im Editor öffnen' : 'Proxy noch nicht fertig')}>
+                          {#if f.is_audio_only}
+                            <i class="fa-solid fa-music"></i>
+                          {:else if f.has_thumb}
                             <img src={api.thumbUrl(f.id)} alt="" />
                           {:else}
                             <i class="fa-solid fa-image"></i>
