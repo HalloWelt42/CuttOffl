@@ -78,10 +78,20 @@ CORS_ALLOW_ANY = "*" in CORS_ORIGINS
 CORS_ALLOW_CREDENTIALS = not CORS_ALLOW_ANY
 
 MAX_UPLOAD_MB = int(os.getenv("CUTTOFFL_MAX_UPLOAD_MB", "10240"))
-ALLOWED_EXTENSIONS = {
+# Video-Formate werden wie gewohnt voll unterstuetzt (ffprobe +
+# Thumbnail + Sprite + Proxy). Audio-Formate landen ebenfalls in der
+# Library (siehe AUDIO_EXTENSIONS unten), werden aber als
+# "audio-only"-Eintrag behandelt (kein Thumbnail, kein Video-Proxy,
+# nur Waveform). Das Frontend kann sie dann im Editor als
+# Audio-Track-Override einbinden.
+VIDEO_EXTENSIONS = {
     ".mp4", ".mov", ".mkv", ".webm", ".avi", ".m4v",
     ".mts", ".ts", ".mpg", ".mpeg", ".flv", ".wmv",
 }
+AUDIO_EXTENSIONS = {
+    ".wav", ".mp3", ".m4a", ".flac", ".aac", ".ogg", ".opus",
+}
+ALLOWED_EXTENSIONS = VIDEO_EXTENSIONS | AUDIO_EXTENSIONS
 
 # Vorlese-Proxy -- leitet /api/speak an das txt2voice-Schwesterprojekt
 # weiter, damit Texte in der App per Klick vorgelesen werden können.

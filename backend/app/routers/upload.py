@@ -144,8 +144,25 @@ async def upload(
     row = await db.fetch_one("SELECT * FROM files WHERE id = ?", (file_id,))
     assert row is not None
 
-    thumb_job_id = await job_service.enqueue("thumbnail", file_id=file_id)
-    proxy_job_id = await job_service.enqueue("proxy", file_id=file_id)
+    # Audio-only-Dateien haben keinen Video-Stream. Fuer sie entfaellt
+    # sowohl Thumbnail als auch Proxy -- wir generieren nur die
+    # Waveform, die auch auf reinen Audio-Files (mp3, wav) direkt aus
+    # der Quelldatei arbeitet.
+    is_audio_only = (
+        row["audio_codec"] is not None
+        and row["video_codec"] is None
+    )
+
+    thumb_job_id = None
+    proxy_job_id = None
+    waveform_job_id = None
+    if is_audio_only:
+        waveform_job_id = await job_service.enqueue(
+            "waveform", file_id=file_id,
+        )
+    else:
+        thumb_job_id = await job_service.enqueue("thumbnail", file_id=file_id)
+        proxy_job_id = await job_service.enqueue("proxy", file_id=file_id)
 
     return UploadStartResponse(
         file=FileOut(
@@ -160,6 +177,7 @@ async def upload(
             fps=row["fps"],
             video_codec=row["video_codec"],
             audio_codec=row["audio_codec"],
+            is_audio_only=is_audio_only,
             has_proxy=bool(row["has_proxy"]),
             proxy_status=row["proxy_status"],
             has_thumb=bool(row["thumb_path"]),
@@ -171,4 +189,5 @@ async def upload(
         ),
         proxy_job_id=proxy_job_id,
         thumb_job_id=thumb_job_id,
+        waveform_job_id=waveform_job_id,
     )

@@ -31,6 +31,11 @@ class FileOut(BaseModel):
     fps: Optional[float] = None
     video_codec: Optional[str] = None
     audio_codec: Optional[str] = None
+    # Leitet sich aus den Streams ab: audio-only heisst kein Video-
+    # Stream in der Quelldatei. Solche Dateien werden in der Library
+    # als Waveform-Kachel statt Thumbnail dargestellt und sind als
+    # Audio-Track-Override im Editor auswaehlbar.
+    is_audio_only: bool = False
     has_proxy: bool = False
     proxy_status: str = "none"
     has_thumb: bool = False
@@ -48,8 +53,11 @@ class FileOut(BaseModel):
 
 class UploadStartResponse(BaseModel):
     file: "FileOut"
-    proxy_job_id: str
-    thumb_job_id: str
+    # Bei Audio-Only-Files gibt es weder proxy_job_id noch thumb_job_id
+    # -- nur einen waveform_job_id. Die Felder sind deshalb optional.
+    proxy_job_id: Optional[str] = None
+    thumb_job_id: Optional[str] = None
+    waveform_job_id: Optional[str] = None
 
 
 class FileRenameBody(BaseModel):

@@ -115,6 +115,9 @@ def _row_to_fileout(row) -> FileOut:
         fps=row["fps"],
         video_codec=row["video_codec"],
         audio_codec=row["audio_codec"],
+        is_audio_only=(
+            row["audio_codec"] is not None and row["video_codec"] is None
+        ),
         has_proxy=bool(row["has_proxy"]),
         proxy_status=row["proxy_status"] if "proxy_status" in row.keys() else "none",
         has_thumb=bool(row["thumb_path"]) if "thumb_path" in row.keys() else False,

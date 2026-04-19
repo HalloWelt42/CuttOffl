@@ -100,9 +100,55 @@ class OutputProfile(BaseModel):
         return v
 
 
+class AudioClip(BaseModel):
+    """Ein Audio-Stueck auf der Audio-Spur der EDL.
+
+    - file_id verweist auf eine Audio- oder Video-Datei in der Library;
+      der Audio-Stream wird beim Render extrahiert.
+    - src_start/src_end schneiden den Clip aus der Quelldatei (in s).
+    - timeline_start legt fest, an welcher Stelle der Video-Timeline
+      der Clip einsetzt (in s, >= 0). Ist der Clip laenger als das
+      Video, wird er beim Render per -shortest abgeschnitten.
+    - gain_db (-30..+12), fade_in_s / fade_out_s (0..10) als Effekte.
+    - Ein laengerer Audio-Block wird per Split (im UI) in zwei Clips
+      mit passenden src_*- und timeline_start-Werten aufgeteilt. Dadurch
+      lassen sich Drift-Korrekturen durch Verschieben des rechten Teils
+      erledigen, ohne die Quell-Datei zu veraendern.
+    """
+    id: str
+    file_id: str
+    src_start: float = Field(ge=0.0)
+    src_end: float = Field(gt=0.0)
+    timeline_start: float = Field(ge=0.0, default=0.0)
+    gain_db: float = Field(default=0.0, ge=-30.0, le=12.0)
+    fade_in_s: float = Field(default=0.0, ge=0.0, le=10.0)
+    fade_out_s: float = Field(default=0.0, ge=0.0, le=10.0)
+
+    @field_validator("src_end")
+    @classmethod
+    def _end_after_start(cls, v, info):
+        start = (info.data or {}).get("src_start", 0.0)
+        if v <= start:
+            raise ValueError("src_end muss größer als src_start sein")
+        return v
+
+    @property
+    def duration(self) -> float:
+        return self.src_end - self.src_start
+
+
 class EDL(BaseModel):
     source_file_id: str
     timeline: list[Clip] = Field(default_factory=list)
+    # Audio-Override-Spur: 0..N Clips, moeglicherweise aus verschiedenen
+    # Dateien. Ueberlappen sich Clips zeitlich, werden sie im Render
+    # gemischt; Luecken liefern Stille (oder das Original, falls
+    # mute_original=False).
+    audio_track: list[AudioClip] = Field(default_factory=list)
+    # Original-Video-Audio beim Render komplett stummschalten (nur die
+    # audio_track-Clips bleiben hoerbar). Default aus, damit bestehende
+    # Projekte ohne Audio-Override unveraendert funktionieren.
+    mute_original: bool = False
     output: OutputProfile = Field(default_factory=OutputProfile)
 
     @field_validator("timeline", mode="before")
@@ -110,33 +156,52 @@ class EDL(BaseModel):
     def _sanitize_timeline(cls, v):
         """Filtert degenerierte Clips heraus (src_end <= src_start,
         negative src_start, NaN), bevor die Einzel-Clip-Validierung
-        greift. Rundet Zeit-Werte auf 3 Nachkommastellen.
+        greift. Rundet Zeit-Werte auf 3 Nachkommastellen."""
+        return _sanitize_clip_list(v, ("src_start", "src_end"))
 
-        Grund: das Frontend erzeugt waehrend Drag-Operationen oder
-        Animationen kurzfristig degenerate Clips. Frueher hat ein
-        Frontend-Sanitize das abgefangen -- jetzt macht das Backend
-        das zentral, sonst muessten beide Seiten die Regel kennen.
-        """
-        if not isinstance(v, list):
-            return v
-        cleaned = []
-        for item in v:
-            if not isinstance(item, dict):
-                cleaned.append(item)
-                continue
-            try:
-                s = float(item.get("src_start"))
-                e = float(item.get("src_end"))
-            except (TypeError, ValueError):
-                continue
-            if not (s >= 0 and e > s):
-                continue
-            # Flache Kopie, damit der Aufrufer-Dict nicht mutiert wird
-            patched = dict(item)
-            patched["src_start"] = round(s, 3)
-            patched["src_end"] = round(e, 3)
-            cleaned.append(patched)
-        return cleaned
+    @field_validator("audio_track", mode="before")
+    @classmethod
+    def _sanitize_audio_track(cls, v):
+        """Gleiches Prinzip wie bei timeline: degenerate AudioClips raus
+        (src_end <= src_start, negative Werte) und Zeiten runden.
+        timeline_start wird ebenfalls gerundet und negativ abgelehnt."""
+        return _sanitize_clip_list(
+            v, ("src_start", "src_end", "timeline_start"),
+        )
+
+
+def _sanitize_clip_list(v, numeric_fields: tuple[str, ...]) -> list:
+    """Shared Helper: filtert ungueltige Clip-Dicts und rundet die
+    genannten Felder auf 3 Nachkommastellen. Felder, die in den
+    Einzelfeldern required=True mit ge=0.0 sind, duerfen hier nicht
+    negativ sein -- wir filtern statt zu werfen, damit eine EDL mit
+    einem kaputten Clip nicht die ganze Timeline ablehnt."""
+    if not isinstance(v, list):
+        return v
+    cleaned = []
+    for item in v:
+        if not isinstance(item, dict):
+            cleaned.append(item)
+            continue
+        try:
+            vals = {k: float(item.get(k)) for k in numeric_fields
+                    if item.get(k) is not None}
+        except (TypeError, ValueError):
+            continue
+        s = vals.get("src_start")
+        e = vals.get("src_end")
+        if s is None or e is None:
+            continue
+        if not (s >= 0 and e > s):
+            continue
+        tl = vals.get("timeline_start", 0.0)
+        if tl < 0:
+            continue
+        patched = dict(item)
+        for k, val in vals.items():
+            patched[k] = round(val, 3)
+        cleaned.append(patched)
+    return cleaned
 
 
 class ProjectCreate(BaseModel):
