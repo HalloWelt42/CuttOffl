@@ -30,7 +30,7 @@ from app.config import (
 )
 from app.db import db
 from app.routers import (
-    exports, files, folders, jobs, probe, projects, proxy, recorder,
+    exports, files, folders, jobs, probe, projects, proxy,
     render_analysis, speak, sprite, system, thumbnail, transcription,
     upload, ws,
 )
@@ -113,12 +113,6 @@ app.add_middleware(
                     "Content-Disposition"],
     max_age=600,
 )
-
-# Tour-Recorder-Middleware: loggt Audio/Video-Requests waehrend einer
-# aktiven Aufnahme-Session (zwischen POST /api/_recorder/start und
-# /stop). Ausserhalb einer Session ist sie ein trivialer Passthrough.
-app.middleware("http")(recorder.record_middleware)
-
 @app.exception_handler(RequestValidationError)
 async def _log_422(request: Request, exc: RequestValidationError) -> JSONResponse:
     """422-Antworten in den Server-Log schreiben, inklusive Pfad und
@@ -171,7 +165,6 @@ app.include_router(thumbnail.router)
 app.include_router(sprite.router)
 app.include_router(projects.router)
 app.include_router(render_analysis.router)
-app.include_router(recorder.router)
 app.include_router(exports.router)
 app.include_router(transcription.router)
 app.include_router(speak.router)

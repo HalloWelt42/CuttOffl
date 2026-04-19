@@ -102,15 +102,6 @@ async def speak(body: SpeakRequest):
     if len(text) < 2:
         raise HTTPException(status_code=400, detail="Text zu kurz")
 
-    # Tour-Recorder: wenn gerade eine Aufnahme-Session laeuft, loggen
-    # wir den TTS-Text (mit Hash im tts-cache findet ihn das Build-Tool).
-    try:
-        from app.routers.recorder import _Session, session_is_active
-        if session_is_active():
-            _Session.append({"kind": "tts", "text": text})
-    except Exception:
-        pass
-
     TTS_CACHE_DIR.mkdir(parents=True, exist_ok=True)
     path = cache_path_for(text)
     if path.exists() and path.stat().st_size > 0:
