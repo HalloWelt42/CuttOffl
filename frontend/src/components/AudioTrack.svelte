@@ -13,9 +13,13 @@
 
   import { api } from '../lib/api.js';
   import {
-    editor, seek, selectAudioClip,
-    setAudioClipOffset, setAudioClipRange,
+    editor, seek, selectAudioClip, setMuteOriginal,
+    setAudioClipOffset, setAudioClipRange, setAudioClipGain,
+    splitAudioAtPlayhead, deleteAudioClip,
   } from '../lib/editor.svelte.js';
+  import AudioLibraryPicker from './AudioLibraryPicker.svelte';
+
+  let pickerOpen = $state(false);
 
   let host;
   let width = $state(800);
@@ -169,6 +173,46 @@
   }
 </script>
 
+<div class="audio-toolbar mono">
+  <span class="lbl"><i class="fa-solid fa-music"></i> Audio</span>
+  <button class="bbtn" onclick={() => (pickerOpen = true)}
+          title="Audio-Datei aus der Bibliothek am Playhead einfuegen">
+    <i class="fa-solid fa-plus"></i> Hinzufügen
+  </button>
+  <button class="bbtn"
+          onclick={() => splitAudioAtPlayhead()}
+          disabled={!editor.edl?.audio_track?.length}
+          title="Ausgewählten Audio-Clip am Playhead teilen (Taste S)">
+    <i class="fa-solid fa-scissors"></i> Split
+  </button>
+  <button class="bbtn"
+          disabled={!editor.selectedAudioClipId}
+          onclick={() => editor.selectedAudioClipId && deleteAudioClip(editor.selectedAudioClipId)}
+          title="Ausgewählten Audio-Clip entfernen (Taste Entf)">
+    <i class="fa-solid fa-trash"></i>
+  </button>
+  <span class="spacer"></span>
+  {#if editor.selectedAudioClipId}
+    {@const sel = editor.edl?.audio_track?.find((c) => c.id === editor.selectedAudioClipId)}
+    {#if sel}
+      <label class="gain" title="Lautstärke des ausgewählten Clips (dB)">
+        Gain
+        <input type="range" min="-30" max="12" step="1"
+               value={sel.gain_db}
+               oninput={(e) => setAudioClipGain(sel.id, Number(e.currentTarget.value))} />
+        <span class="db mono">{sel.gain_db > 0 ? '+' : ''}{sel.gain_db} dB</span>
+      </label>
+    {/if}
+  {/if}
+  <label class="mute" title="Originalton des Videos beim Render stummschalten">
+    <input type="checkbox"
+           checked={!!editor.edl?.mute_original}
+           onchange={(e) => setMuteOriginal(e.currentTarget.checked)} />
+    <i class="fa-solid {editor.edl?.mute_original ? 'fa-volume-xmark' : 'fa-volume-high'}"></i>
+    <span>Original stumm</span>
+  </label>
+</div>
+
 <!-- svelte-ignore a11y_no_static_element_interactions -->
 <div class="audio-track"
      bind:this={host}
@@ -198,13 +242,57 @@
   {#if (editor.edl?.audio_track ?? []).length === 0}
     <div class="empty mono">
       <i class="fa-solid fa-music"></i>
-      Keine Audio-Spur. Ziehe eine Audio-Datei aus der Bibliothek hierher
-      oder nutze den Picker in der Toolbar.
+      Keine Audio-Spur. Nutze "Hinzufügen" in der Toolbar oben.
     </div>
   {/if}
 </div>
 
+<AudioLibraryPicker bind:open={pickerOpen} />
+
 <style>
+  .audio-toolbar {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 4px 10px;
+    background: var(--bg-elev);
+    border-top: 1px solid var(--border);
+    font-size: 12px;
+  }
+  .audio-toolbar .lbl {
+    color: var(--accent);
+    font-weight: 600;
+    margin-right: 4px;
+  }
+  .audio-toolbar .lbl i { margin-right: 4px; }
+  .audio-toolbar .spacer { flex: 1; }
+  .audio-toolbar .bbtn {
+    background: transparent;
+    border: 1px solid var(--border);
+    color: var(--fg-primary);
+    padding: 3px 8px;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 11px;
+  }
+  .audio-toolbar .bbtn:hover:not(:disabled) { border-color: var(--accent); }
+  .audio-toolbar .bbtn:disabled { opacity: 0.4; cursor: default; }
+  .audio-toolbar .bbtn i { margin-right: 4px; }
+  .audio-toolbar .gain {
+    display: inline-flex; align-items: center; gap: 6px;
+    font-size: 11px;
+    color: var(--fg-muted);
+  }
+  .audio-toolbar .gain input[type="range"] { width: 100px; }
+  .audio-toolbar .db { min-width: 44px; text-align: right; }
+  .audio-toolbar .mute {
+    display: inline-flex; align-items: center; gap: 4px;
+    cursor: pointer;
+    font-size: 11px;
+    color: var(--fg-muted);
+  }
+  .audio-toolbar .mute input { margin: 0; }
+
   .audio-track {
     position: relative;
     height: 52px;

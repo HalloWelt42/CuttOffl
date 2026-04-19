@@ -10,6 +10,7 @@
   import { nav, go } from '../lib/nav.svelte.js';
   import {
     editor, loadFile, loadProject, seek, snapTime, addClipFromRange, splitAtPlayhead,
+    splitAudioAtPlayhead,
     deleteSelected, undo, redo, setSnap, setFollow, handleJobEvent, toggleClipMode,
     saveNow, jumpToPrevKeyframe, jumpToNextKeyframe,
     startRangePreview, startClipPreview, startTimelinePreview, stopPreview,
@@ -132,7 +133,13 @@
         if (inPoint != null && outPoint != null) startRangePreview(inPoint, outPoint);
         else if (editor.selectedClipId) startClipPreview(editor.selectedClipId);
         break;
-      case 's':        splitAtPlayhead(); break;
+      case 's':
+        // Wenn gerade ein Audio-Clip selektiert ist, schneide den --
+        // sonst den Video-Clip am Playhead. Gleiche Taste, je nach
+        // Kontext, damit das Bedien-Muster konsistent bleibt.
+        if (editor.selectedAudioClipId) splitAudioAtPlayhead();
+        else splitAtPlayhead();
+        break;
       case 'Backspace':
       case 'Delete':   deleteSelected(); break;
       case 'Enter':    if (inPoint != null && outPoint != null) commitInOut(); break;
