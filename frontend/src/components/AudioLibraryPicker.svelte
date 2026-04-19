@@ -135,7 +135,7 @@
     border-bottom: 1px solid var(--border);
     background: var(--bg-elev);
   }
-  header > i { color: var(--accent); }
+  header > i { color: var(--audio-color); }
   header h2 { margin: 0; font-size: 16px; flex: 1; }
   .x { background: transparent; border: none; color: var(--fg-muted);
        cursor: pointer; font-size: 16px; }
@@ -163,13 +163,13 @@
     cursor: pointer;
     text-align: left;
   }
-  .tile:hover { background: var(--bg-elev); border-color: var(--accent); }
+  .tile:hover { background: var(--bg-elev); border-color: var(--audio-color); }
   .icon {
     width: 36px; height: 36px;
     display: grid; place-items: center;
     background: var(--bg-panel);
     border-radius: 4px;
-    color: var(--accent);
+    color: var(--audio-color);
     flex: 0 0 auto;
   }
   .meta { flex: 1; min-width: 0; }
@@ -194,5 +194,5 @@
     border-radius: 4px;
     cursor: pointer;
   }
-  .btn:hover { border-color: var(--accent); }
+  .btn:hover { border-color: var(--audio-color); }
 </style>

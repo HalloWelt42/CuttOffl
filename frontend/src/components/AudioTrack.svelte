@@ -18,7 +18,6 @@
     splitAudioAtPlayhead, deleteAudioClip,
   } from '../lib/editor.svelte.js';
   import { toast } from '../lib/toast.svelte.js';
-  import { persist as persistLocal } from '../lib/persist.svelte.js';
   import AudioLibraryPicker from './AudioLibraryPicker.svelte';
 
   let pickerOpen = $state(false);
@@ -28,15 +27,14 @@
   let mixNormalize = $state(true);
   let mixMono = $state(false);
 
-  function toggleOpen() {
-    editor.audioTrackOpen = !editor.audioTrackOpen;
-    persistLocal('editor.audioTrackOpen', editor.audioTrackOpen);
-  }
-
   async function runAudioMix() {
     const track = editor.edl?.audio_track ?? [];
-    if (track.length === 0) {
-      toast.info('Keine Audio-Clips zum Rendern');
+    const sourceId = editor.fileId || null;
+    // Ohne Clips nehmen wir die Originalspur der geladenen Quelldatei
+    // (include_source_file_id). Das erlaubt dem User, das Original
+    // einfach zu normalisieren, ohne Override-Clips anlegen zu muessen.
+    if (track.length === 0 && !sourceId) {
+      toast.info('Keine Audio-Quelle vorhanden');
       return;
     }
     mixing = true;
@@ -46,6 +44,7 @@
         normalize: mixNormalize,
         mono: mixMono,
         name: `${projectName} -- Audio`,
+        include_source_file_id: track.length === 0 ? sourceId : null,
       });
       toast.success(
         'Audio-Mix gestartet -- sobald fertig, liegt die WAV '
@@ -214,11 +213,6 @@
 </script>
 
 <div class="audio-toolbar mono">
-  <button class="chev" onclick={toggleOpen}
-          title={editor.audioTrackOpen ? 'Audio-Spur einklappen' : 'Audio-Spur ausklappen'}
-          aria-label="Audio-Spur ein-/ausklappen">
-    <i class="fa-solid {editor.audioTrackOpen ? 'fa-caret-down' : 'fa-caret-right'}"></i>
-  </button>
   <span class="lbl"><i class="fa-solid fa-music"></i> Audio
     {#if (editor.edl?.audio_track ?? []).length > 0}
       <span class="count">· {editor.edl.audio_track.length} Clip(s)</span>
@@ -241,20 +235,24 @@
     <i class="fa-solid fa-trash"></i>
   </button>
   <button class="bbtn primary"
-          disabled={mixing || !(editor.edl?.audio_track?.length)}
+          disabled={mixing || !(editor.edl?.audio_track?.length || editor.fileId)}
           onclick={runAudioMix}
-          title="Alle Audio-Clips jetzt zu einer einzigen WAV rendern. Die WAV landet in der Bibliothek und kann wiederverwendet oder heruntergeladen werden.">
+          title="Audio zu einer WAV rendern. Ohne Override-Clips wird die Originalspur des aktuellen Videos verwendet (z.B. nur normalisieren). Die WAV landet in der Bibliothek.">
     <i class="fa-solid {mixing ? 'fa-spinner fa-spin' : 'fa-wave-square'}"></i>
     {mixing ? 'Audio rendert...' : 'Audio rendern'}
   </button>
-  <label class="mixopt" title="Beim Audio-Render EBU R128 Loudnorm anwenden (gleich laute Clips, keine dynamischen Spruenge).">
-    <input type="checkbox" bind:checked={mixNormalize} disabled={mixing} />
-    <span>Normalisieren</span>
-  </label>
-  <label class="mixopt" title="Beim Audio-Render Stereo auf Mono mischen.">
-    <input type="checkbox" bind:checked={mixMono} disabled={mixing} />
-    <span>Mono</span>
-  </label>
+  <button type="button" class="bbtn" class:active={mixNormalize}
+          disabled={mixing}
+          onclick={() => (mixNormalize = !mixNormalize)}
+          title="Beim Audio-Render EBU R128 Loudnorm anwenden (gleich laute Clips, keine dynamischen Spruenge).">
+    <i class="fa-solid fa-gauge-high"></i> Normalisieren
+  </button>
+  <button type="button" class="bbtn" class:active={mixMono}
+          disabled={mixing}
+          onclick={() => (mixMono = !mixMono)}
+          title="Beim Audio-Render Stereo auf Mono mischen.">
+    <i class="fa-solid fa-compress"></i> Mono
+  </button>
   <span class="spacer"></span>
   {#if editor.selectedAudioClipId}
     {@const sel = editor.edl?.audio_track?.find((c) => c.id === editor.selectedAudioClipId)}
@@ -268,16 +266,14 @@
       </label>
     {/if}
   {/if}
-  <label class="mute" title="Originalton des Videos beim Render stummschalten">
-    <input type="checkbox"
-           checked={!!editor.edl?.mute_original}
-           onchange={(e) => setMuteOriginal(e.currentTarget.checked)} />
+  <button type="button" class="bbtn" class:active={!!editor.edl?.mute_original}
+          onclick={() => setMuteOriginal(!editor.edl?.mute_original)}
+          title="Originalton des Videos beim Render stummschalten">
     <i class="fa-solid {editor.edl?.mute_original ? 'fa-volume-xmark' : 'fa-volume-high'}"></i>
-    <span>Original stumm</span>
-  </label>
+    Original stumm
+  </button>
 </div>
 
-{#if editor.audioTrackOpen}
 <!-- svelte-ignore a11y_no_static_element_interactions -->
 <div class="audio-track"
      bind:this={host}
@@ -311,7 +307,6 @@
     </div>
   {/if}
 </div>
-{/if}
 
 <AudioLibraryPicker bind:open={pickerOpen} />
 
@@ -326,7 +321,7 @@
     font-size: 12px;
   }
   .audio-toolbar .lbl {
-    color: var(--accent);
+    color: var(--audio-color);
     font-weight: 600;
     margin-right: 4px;
   }
@@ -337,15 +332,6 @@
     font-size: 11px;
   }
   .audio-toolbar .spacer { flex: 1; }
-  .audio-toolbar .chev {
-    background: transparent;
-    border: none;
-    color: var(--fg-muted);
-    padding: 0 4px;
-    cursor: pointer;
-    font-size: 13px;
-  }
-  .audio-toolbar .chev:hover { color: var(--accent); }
   .audio-toolbar .bbtn {
     background: transparent;
     border: 1px solid var(--border);
@@ -355,23 +341,22 @@
     cursor: pointer;
     font-size: 11px;
   }
-  .audio-toolbar .bbtn:hover:not(:disabled) { border-color: var(--accent); }
+  .audio-toolbar .bbtn:hover:not(:disabled) { border-color: var(--audio-color); }
   .audio-toolbar .bbtn:disabled { opacity: 0.4; cursor: default; }
   .audio-toolbar .bbtn i { margin-right: 4px; }
   .audio-toolbar .bbtn.primary {
-    border-color: var(--accent);
-    color: var(--accent);
+    border-color: var(--audio-color);
+    color: var(--audio-color);
   }
   .audio-toolbar .bbtn.primary:hover:not(:disabled) {
-    background: color-mix(in srgb, var(--accent) 15%, transparent);
+    background: color-mix(in srgb, var(--audio-color) 15%, transparent);
   }
-  .audio-toolbar .mixopt {
-    display: inline-flex; align-items: center; gap: 4px;
-    cursor: pointer;
-    font-size: 11px;
-    color: var(--fg-muted);
+  /* Toggle-State fuer Normalisieren / Mono / Original stumm */
+  .audio-toolbar .bbtn.active {
+    border-color: var(--audio-color);
+    color: var(--audio-color);
+    background: color-mix(in srgb, var(--audio-color) 18%, transparent);
   }
-  .audio-toolbar .mixopt input { margin: 0; }
   .audio-toolbar .gain {
     display: inline-flex; align-items: center; gap: 6px;
     font-size: 11px;
@@ -379,13 +364,6 @@
   }
   .audio-toolbar .gain input[type="range"] { width: 100px; }
   .audio-toolbar .db { min-width: 44px; text-align: right; }
-  .audio-toolbar .mute {
-    display: inline-flex; align-items: center; gap: 4px;
-    cursor: pointer;
-    font-size: 11px;
-    color: var(--fg-muted);
-  }
-  .audio-toolbar .mute input { margin: 0; }
 
   .audio-track {
     position: relative;
@@ -405,16 +383,16 @@
     position: absolute;
     top: 4px;
     height: 44px;
-    background: color-mix(in srgb, var(--accent) 22%, var(--bg-panel));
-    border: 1px solid color-mix(in srgb, var(--accent) 50%, var(--border));
+    background: color-mix(in srgb, var(--audio-color) 22%, var(--bg-panel));
+    border: 1px solid color-mix(in srgb, var(--audio-color) 50%, var(--border));
     border-radius: 4px;
     pointer-events: auto;
     cursor: grab;
     overflow: hidden;
   }
   .audio-clip.selected {
-    border-color: var(--accent);
-    box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent) 30%, transparent);
+    border-color: var(--audio-color);
+    box-shadow: 0 0 0 2px color-mix(in srgb, var(--audio-color) 30%, transparent);
   }
   .audio-clip:active { cursor: grabbing; }
   .wf {
@@ -423,7 +401,7 @@
     width: 100%; height: 100%;
     pointer-events: none;
   }
-  .wf polygon { fill: var(--accent); opacity: 0.55; }
+  .wf polygon { fill: var(--audio-color); opacity: 0.55; }
   .label {
     position: absolute;
     left: 6px; top: 4px;
@@ -439,7 +417,7 @@
     top: 0; bottom: 0;
     width: 6px;
     cursor: ew-resize;
-    background: var(--accent);
+    background: var(--audio-color);
     opacity: 0;
     transition: opacity 80ms linear;
   }

@@ -28,6 +28,11 @@ router = APIRouter(prefix="/api/audio", tags=["audio"])
 
 class AudioMixRequest(BaseModel):
     audio_track: list[AudioClip] = Field(default_factory=list)
+    # Wenn gesetzt, wird die Audio-Spur dieser Quelldatei als zusaetzlicher
+    # Clip dem Mix hinzugefuegt (als waere sie ein weiterer AudioClip bei
+    # timeline_start=0). Damit kann der User das Original normalisieren,
+    # ohne einen Override-Clip anlegen zu muessen.
+    include_source_file_id: Optional[str] = None
     normalize: bool = False
     mono: bool = False
     name: Optional[str] = None
@@ -49,14 +54,19 @@ async def start_audio_mix(body: AudioMixRequest) -> AudioMixResponse:
     Antwort enthaelt nur die job_id. Ueber job_event 'completed'
     bekommt das Frontend die neue file_id und kann sofort in den
     Editor als Audio-Track-Override laden."""
-    if not body.audio_track:
+    # audio_track darf leer sein, wenn include_source_file_id gesetzt ist
+    # (dann wird die Originalspur dieser Datei als impliziter Clip gemixt --
+    # Use-Case: "Originalspur nur normalisieren").
+    if not body.audio_track and not body.include_source_file_id:
         raise HTTPException(
-            status_code=400, detail="audio_track darf nicht leer sein",
+            status_code=400,
+            detail="audio_track oder include_source_file_id erforderlich",
         )
     job_id = await job_service.enqueue(
         "audio_mix",
         payload={
             "audio_track": [c.model_dump() for c in body.audio_track],
+            "include_source_file_id": body.include_source_file_id,
             "normalize": body.normalize,
             "mono": body.mono,
             "name": body.name or "Audio-Mix",

@@ -46,10 +46,15 @@
   --clip-copy:     #0d9488;  /* Teal   -- keyframe-genauer, verlustfreier Clip */
   --clip-reencode: #6366f1;  /* Indigo -- frame-genauer, neu kodierter Clip */
   --kf-color:      #cfa06b;  /* Bronze -- Keyframes (Struktur des Originals) */
-  --wave-color:    #f59e0b;  /* Amber  -- Audio-Wellenform */
+  --wave-color:    #f59e0b;  /* Amber  -- Audio-Wellenform (Video-Timeline) */
   --playhead:      #f472b6;  /* Magenta-- Playhead außerhalb Keyframe */
   --playhead-kf:   #22c55e;  /* Grün   -- Playhead exakt auf Keyframe */
   --playing:       #eab308;  /* Gelb   -- Aktuell spielender Clip */
+  /* Audio-Spur (Toolbar, Clips, Toggle) -- eigene semantische Farbe,
+     damit die Audio-Bereiche visuell eindeutig vom Video getrennt sind. */
+  --audio-color:   #a78bfa;  /* Violet -- Audio-Spur + Audio-Toolbar */
+  --audio-hover:   #c4b5fd;
+  --audio-soft:    rgba(167, 139, 250, 0.16);
 
   --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.35);
   --shadow-md: 0 6px 20px rgba(0, 0, 0, 0.35);
@@ -83,6 +88,9 @@ html[data-theme='light'] {
   --playhead:      #db2777;
   --playhead-kf:   #16a34a;
   --playing:       #ca8a04;
+  --audio-color:   #7c3aed;
+  --audio-hover:   #6d28d9;
+  --audio-soft:    rgba(124, 58, 237, 0.14);
 }
 
 html, body {

@@ -164,11 +164,15 @@ export const api = {
   waveform:   (id) => request(`/waveform/${id}`),
   audioUrl:   (id) => `${BASE}/audio/${id}`,
   audioMix:   (audio_track, { normalize = false, mono = false,
-                              name = null, folder_path = null } = {}) =>
+                              name = null, folder_path = null,
+                              include_source_file_id = null } = {}) =>
     request('/audio/mix', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ audio_track, normalize, mono, name, folder_path }),
+      body: JSON.stringify({
+        audio_track, normalize, mono, name, folder_path,
+        include_source_file_id,
+      }),
     }),
 
   // Jobs

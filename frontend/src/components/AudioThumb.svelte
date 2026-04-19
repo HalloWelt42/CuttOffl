@@ -100,7 +100,7 @@
     display: block;
   }
   .wf polygon {
-    fill: var(--accent);
+    fill: var(--audio-color);
     opacity: 0.7;
   }
   .placeholder { font-size: 28px; }

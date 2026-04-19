@@ -411,6 +411,11 @@ class JobService:
 
         payload:
           - audio_track: list[AudioClip-dict]
+          - include_source_file_id: str | None -- wenn gesetzt, wird
+            die Originalspur dieser Datei als impliziter AudioClip
+            (timeline_start=0, voller Bereich) dem Mix hinzugefuegt.
+            Damit kann der User das Original normalisieren, ohne
+            Override-Clips anlegen zu muessen.
           - normalize: bool
           - mono: bool
           - name: str         (optional, Anzeige-Name)
@@ -421,13 +426,44 @@ class JobService:
 
         payload = job.payload or {}
         raw_clips = payload.get("audio_track") or []
-        if not raw_clips:
-            raise RuntimeError("audio_mix: keine Audio-Clips im Payload")
+        include_source_id = payload.get("include_source_file_id") or None
 
         # AudioClip-Objekte wieder aufbauen (Sanitize + Validierung
         # ueber das Pydantic-Schema, dann haben wir die gleiche
         # Rundung wie im Backend-EDL).
         clips = [AudioClip.model_validate(c) for c in raw_clips]
+
+        # Optional: Originalspur als impliziten Clip ergaenzen.
+        if include_source_id:
+            src_row = await db.fetch_one(
+                "SELECT path, duration_s FROM files WHERE id = ?",
+                (include_source_id,),
+            )
+            if src_row and src_row["path"]:
+                src_duration = float(src_row["duration_s"] or 0.0)
+                if src_duration <= 0.0:
+                    # Fallback: ffprobe direkt
+                    try:
+                        pj = await probe_file(Path(src_row["path"]))
+                        src_duration = float(summarize(pj).get("duration_s") or 0.0)
+                    except Exception:
+                        src_duration = 0.0
+                if src_duration > 0.0:
+                    clips.append(AudioClip(
+                        id=f"source-{include_source_id}",
+                        file_id=include_source_id,
+                        src_start=0.0,
+                        src_end=src_duration,
+                        timeline_start=0.0,
+                        gain_db=0.0,
+                        fade_in_s=0.0,
+                        fade_out_s=0.0,
+                    ))
+
+        if not clips:
+            raise RuntimeError(
+                "audio_mix: keine Audio-Clips und keine Quelldatei im Payload",
+            )
 
         # Quelldateien pro file_id ermitteln
         audio_sources: dict[str, Path] = {}

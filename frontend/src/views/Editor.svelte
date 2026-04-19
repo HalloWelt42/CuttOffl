@@ -514,6 +514,18 @@
             <i class="fa-solid fa-location-crosshairs"></i>
             Timeline folgt
           </label>
+          <button type="button" class="btn-toggle audio-toggle"
+                  class:is-on={editor.audioTrackOpen}
+                  onclick={() => {
+                    editor.audioTrackOpen = !editor.audioTrackOpen;
+                    persist('editor.audioTrackOpen', editor.audioTrackOpen);
+                  }}
+                  title={editor.audioTrackOpen
+                    ? 'Audio-Spur ausblenden (Toolbar + Waveform-Track werden eingeklappt)'
+                    : 'Audio-Spur einblenden (Toolbar + Waveform-Track unter der Timeline)'}>
+            <i class="fa-solid fa-music"></i>
+            Audio-Spur
+          </button>
 
           <!-- Zoom-Presets für die Timeline -->
           <span class="zoom-wrap" title="Timeline-Zoom (auch mit Cmd/Ctrl + Mausrad über der Timeline)">
@@ -547,7 +559,9 @@
 
       <div data-tour="editor-timeline">
         <Timeline />
-        <AudioTrack />
+        {#if editor.audioTrackOpen}
+          <AudioTrack />
+        {/if}
       </div>
 
       <!-- Headless: synchronisiert Override-Audios live zum Video-Playhead -->
@@ -560,6 +574,17 @@
 <ExportDialog bind:open={exportOpen} />
 
 <style>
+  /* Audio-Toggle greift in das globale .btn-toggle-Design ein und
+     faerbt Akzent + Icon in die Audio-Farbe (lila). Damit ist optisch
+     klar, dass dieser Toggle die Audio-Spur ein-/ausblendet. */
+  .audio-toggle i { color: var(--audio-color); }
+  .audio-toggle:hover:not(:disabled) { border-color: var(--audio-color); }
+  .audio-toggle.is-on {
+    background: var(--audio-soft);
+    border-color: var(--audio-color);
+  }
+  .audio-toggle.is-on i { color: var(--audio-color); }
+
   .wrap { display: flex; flex-direction: column; height: 100%; }
   .empty {
     flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center;
