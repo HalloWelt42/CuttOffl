@@ -114,6 +114,11 @@ app.add_middleware(
     max_age=600,
 )
 
+# Tour-Recorder-Middleware: loggt Audio/Video-Requests waehrend einer
+# aktiven Aufnahme-Session (zwischen POST /api/_recorder/start und
+# /stop). Ausserhalb einer Session ist sie ein trivialer Passthrough.
+app.middleware("http")(recorder.record_middleware)
+
 @app.exception_handler(RequestValidationError)
 async def _log_422(request: Request, exc: RequestValidationError) -> JSONResponse:
     """422-Antworten in den Server-Log schreiben, inklusive Pfad und

@@ -1,14 +1,19 @@
-// Tour-Recorder (einmaliger Helfer, kein Produkt-Feature).
+// Tour-Recorder (Frontend-Minimal-Hook).
 //
-// Aktiviert sich nur, wenn die URL ?tour_record=1 enthaelt. Sonst
-// sind alle Funktionen no-ops -- das Programm merkt nichts davon.
+// Architektur: die Intelligenz liegt im Backend. Sobald der Recorder
+// aktiv ist, loggt die Backend-Middleware alle relevanten HTTP-Calls
+// (Tour-Audios, TTS, Proxy-Video) automatisch mit Zeitstempel.
 //
-// Nutzungs-Ablauf:
-//   1. Browser mit http://127.0.0.1:10037/?tour_record=1 oeffnen
-//   2. macOS-Bildschirmaufnahme starten
-//   3. "Kompletter Rundgang" starten
-//   4. Nach Ende laeuft tools/build_tour_audio.py ueber die gespeicherten
-//      Events und baut daraus die Audio-Spur
+// Das Frontend muss nur:
+//   - beim Tour-Start  POST /api/_recorder/start  rufen
+//   - beim Tour-Ende   POST /api/_recorder/stop   rufen
+//
+// Keine Hooks mehr in speak.svelte.js oder Player.svelte. Damit
+// kann der Recorder auch keine Nebenwirkungen auf die Tour-Logik
+// haben -- die Aufnahme laeuft ausschliesslich serverseitig.
+//
+// Aktiviert per URL-Param ?tour_record=1. Ohne den Param sind alle
+// Funktionen no-op.
 
 const ENABLED = (() => {
   try {
@@ -18,74 +23,28 @@ const ENABLED = (() => {
   }
 })();
 
-let t0 = null;  // performance.now() beim tour_start
-
-function now() { return performance.now(); }
-
-async function post(body) {
+async function post(path) {
   if (!ENABLED) return;
   try {
-    await fetch('/api/_recorder/event', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(body),
-    });
+    await fetch(path, { method: 'POST' });
   } catch (e) {
-    // Recorder darf die Tour nicht stoeren -- Fehler werden stumm
-    // geschluckt, im Tool sieht man dann ob alles drin ist.
-    console.warn('[tour-recorder] event post failed:', e);
+    console.warn('[tour-recorder] request failed:', e);
   }
 }
 
 export function recorderActive() { return ENABLED; }
 
-/** Markiert t_ms=0 und leert die Aufnahme-Datei. Wird beim Start der
- *  "Kompletter Rundgang"-Tour gerufen. */
+/** Startet die Recorder-Session. Wird beim "Kompletter Rundgang"
+ *  ausgeloest. Das Backend leert die vorige Session automatisch. */
 export async function markTourStart() {
   if (!ENABLED) return;
-  t0 = now();
-  await post({ t_ms: 0, kind: 'tour_start' });
-  console.info('[tour-recorder] tour_start (Aufnahme begonnen)');
+  await post('/api/_recorder/start');
+  console.info('[tour-recorder] Aufnahme begonnen');
 }
 
-/** Audio-Start loggen. text = der urspruengliche (cleaned) Text.
- *  Das Tool findet ueber cache_path_for(text) die passende MP3. */
-export async function markAudioStart(text) {
-  if (!ENABLED) return;
-  if (t0 == null) t0 = now();    // Fallback falls tour_start vergessen
-  const t_ms = now() - t0;
-  await post({ t_ms, kind: 'audio_start', text });
-}
-
-/** Optional: Tour-Ende loggen -- der User kann daraus ableiten, wie
- *  lang seine Bildschirmaufnahme insgesamt gehen muss. */
+/** Beendet die Recorder-Session. */
 export async function markTourEnd() {
   if (!ENABLED) return;
-  if (t0 == null) return;
-  const t_ms = now() - t0;
-  await post({ t_ms, kind: 'tour_end' });
-  console.info('[tour-recorder] tour_end');
-}
-
-/** Video-Start loggen: im Editor laeuft waehrend der Tour auch das
- *  Demo-Video. Dessen Tonspur soll in der finalen Audio-Mischung an
- *  der richtigen Stelle erscheinen.
- *    file_id:  die CuttOffl-File-ID der Quelldatei
- *    start_s:  Position im Video (Sekunden), ab der abgespielt wird
- */
-export async function markVideoPlay(file_id, start_s) {
-  if (!ENABLED) return;
-  if (t0 == null) t0 = now();
-  const t_ms = now() - t0;
-  await post({ t_ms, kind: 'video_play', file_id, start_s });
-}
-
-/** Video-Stop loggen (Pause, Seek, Ende). stop_s = Abspielposition
- *  zum Stopp-Zeitpunkt, damit das Tool den richtigen Audio-Ausschnitt
- *  aus der Quelle extrahiert. */
-export async function markVideoStop(stop_s) {
-  if (!ENABLED) return;
-  if (t0 == null) return;
-  const t_ms = now() - t0;
-  await post({ t_ms, kind: 'video_stop', stop_s });
+  await post('/api/_recorder/stop');
+  console.info('[tour-recorder] Aufnahme beendet');
 }
