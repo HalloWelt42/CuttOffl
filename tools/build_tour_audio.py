@@ -146,9 +146,13 @@ def build(output_path: Path) -> None:
             f"adelay={start}|{start}[a{idx}]"
         )
         labels.append(f"[a{idx}]")
+    # normalize=0: ffmpeg-amix teilt sonst stumpf durch die Anzahl der
+    # Inputs (hier 33) -- jedes Segment waere dann ~-30 dB leiser. Da
+    # unsere Segmente zeitlich nicht ueberlappen, ist stumpfes Addieren
+    # (normalize=0) korrekt und liefert den originalen Pegel.
     filter_parts.append(
         f"{''.join(labels)}amix=inputs={len(labels)}:"
-        f"duration=longest:dropout_transition=0[out]"
+        f"duration=longest:dropout_transition=0:normalize=0[out]"
     )
 
     args += [

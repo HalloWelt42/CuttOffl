@@ -1,7 +1,6 @@
 <script>
   import { onMount } from 'svelte';
   import PanelHeader from '../components/PanelHeader.svelte';
-  import SpeakButton from '../components/SpeakButton.svelte';
   import { api } from '../lib/api.js';
   import { toast } from '../lib/toast.svelte.js';
   import { confirmDialog } from '../lib/dialog.svelte.js';
@@ -595,7 +594,6 @@ pip install -r requirements-transcription.txt
          als eigene Karte mit Bestätigungsdialog. -->
     <div class="tab-body reset-body">
       <p class="lead">
-        <SpeakButton text="Hier setzt du einzelne Bereiche zurück -- kein Bereich reißt andere mit. Originale und Projekte bleiben immer erhalten." />
         Hier setzt du einzelne Bereiche zurück -- kein Bereich reißt
         andere mit. Originale und Projekte bleiben immer erhalten.
       </p>

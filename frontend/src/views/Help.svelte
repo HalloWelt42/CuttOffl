@@ -30,8 +30,6 @@
   <div class="body">
     <div class="intro">
       <div class="intro-head">
-        <SpeakButton size="md"
-          text="Du bist neu oder willst einen bestimmten Bereich noch einmal gezeigt bekommen? Die Touren hier führen dich Schritt für Schritt durch die App. Du kannst jederzeit mit Escape abbrechen oder mit den Pfeiltasten vor- und zurückspringen. Kein Tour-Schritt löscht etwas, startet einen Render oder verändert deine Daten -- es wird nur geklickt und erklärt." />
         <p>
           Du bist neu oder willst einen bestimmten Bereich noch einmal
           gezeigt bekommen? Die Touren hier führen dich Schritt für
@@ -94,7 +92,6 @@
             </div>
           </header>
           <p class="desc">
-            <SpeakButton text={t.description} />
             {t.description}
           </p>
           <footer>
