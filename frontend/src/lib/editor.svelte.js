@@ -76,6 +76,10 @@ export const editor = $state({
   // diesen Wert in ihren lokalen Zustand und schreibt Mausrad-Zoom hierher
   // zurück. So kann die Editor-Toolbar Zoom-Presets setzen.
   timelineZoom: persisted('editor.timelineZoom', 40),
+  // Horizontaler Scroll-Offset der Video-Timeline in Pixeln. Wird von
+  // Timeline.svelte geschrieben und von der Audio-Track-Zeile gelesen,
+  // damit beide Zeilen immer synchron bleiben.
+  timelineScrollX: 0,
   // Transkript -- Segmente aus SRT, aktiver Tab, Untertitel-Overlay
   transcript: null,          // { segments, language, model, has_transcript }
   transcribing: false,

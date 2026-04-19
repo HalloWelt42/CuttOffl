@@ -4,6 +4,7 @@
   import Player from '../components/Player.svelte';
   import Resizer from '../components/Resizer.svelte';
   import Timeline from '../components/Timeline.svelte';
+  import AudioTrack from '../components/AudioTrack.svelte';
   import ExportDialog from '../components/ExportDialog.svelte';
   import { persisted, persist } from '../lib/persist.svelte.js';
   import { nav, go } from '../lib/nav.svelte.js';
@@ -538,6 +539,7 @@
 
       <div data-tour="editor-timeline">
         <Timeline />
+        <AudioTrack />
       </div>
 
     </div>

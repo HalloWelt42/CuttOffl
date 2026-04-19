@@ -25,7 +25,15 @@
     const z = editor.timelineZoom;
     if (z && Math.abs(z - pxPerSec) > 0.1) pxPerSec = z;
   });
-  let scrollX = $state(0);
+  // scrollX wird in editor.timelineScrollX gespiegelt, damit die
+  // parallele Audio-Track-Zeile ohne zusaetzlichen Event-Bus
+  // dieselbe Scroll-Position nutzt.
+  let scrollX = $state(editor.timelineScrollX || 0);
+  $effect(() => {
+    if (Math.abs(scrollX - (editor.timelineScrollX || 0)) > 0.1) {
+      editor.timelineScrollX = scrollX;
+    }
+  });
 
   // Drag-State (scrubben oder Clip-Kanten verschieben)
   let drag = null;
