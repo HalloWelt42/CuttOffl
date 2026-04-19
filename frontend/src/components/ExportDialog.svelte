@@ -114,6 +114,11 @@
     // Abhängigkeiten reaktiv einsammeln:
     // eslint-disable-next-line no-unused-expressions
     currentProfile; stats.total; editor.file?.id;
+    // Audio-Override-State ebenfalls triggert das Analyze -- sonst
+    // wuerde die Groessen-/Modus-Anzeige nach dem Hinzufuegen eines
+    // Audio-Clips nicht aktualisieren.
+    // eslint-disable-next-line no-unused-expressions
+    editor.edl?.audio_track?.length; editor.edl?.mute_original;
     untrack(() => {
       if (!editor.file?.id || !stats.total) { analysis = null; return; }
       if (analyzeTimer) clearTimeout(analyzeTimer);
@@ -121,6 +126,10 @@
         try {
           analysis = await api.analyzeRender(
             currentProfile, editor.file.id, stats.total,
+            {
+              audio_track_count: editor.edl?.audio_track?.length ?? 0,
+              mute_original: !!editor.edl?.mute_original,
+            },
           );
         } catch (e) {
           // Bei Fehler behalten wir den letzten Stand; kein UI-Krach.

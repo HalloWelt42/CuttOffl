@@ -344,6 +344,125 @@ async def _build_clip(
     await _run_with_progress(args, on_sec)
 
 
+def _db_to_linear(db: float) -> float:
+    return 10 ** (float(db or 0) / 20.0)
+
+
+async def _apply_audio_override(
+    video_in: Path,
+    audio_clips: list,
+    audio_sources: dict[str, Path],
+    mute_original: bool,
+    output,
+    dest: Path,
+) -> None:
+    """Zweite Render-Phase: legt den Audio-Override-Track auf das
+    fertige Video. Video bleibt per `-c:v copy` unveraendert -- nur
+    die Audio-Spur wird neu gemuxt.
+
+    audio_clips: Liste von EDL.audio_track (AudioClip-Objekte).
+    audio_sources: Map file_id -> lokaler Pfad der Quelldatei.
+    mute_original: wenn True, Original-Ton komplett weg.
+    """
+    args: list[str] = [
+        ffmpeg_binary(), "-y", "-hide_banner", "-loglevel", "error",
+        "-i", str(video_in),
+    ]
+    # Pro Clip einen Input anhaengen (nur einmal pro Datei reicht
+    # eigentlich, aber pro Clip ist am einfachsten und macht die
+    # Filter-Graph-Labels uebersichtlich).
+    inputs: list[tuple[int, object]] = []  # (input_idx, clip)
+    for clip in audio_clips:
+        src = audio_sources.get(clip.file_id)
+        if not src or not Path(src).exists():
+            logger.warning(
+                f"Audio-Override: file_id={clip.file_id} nicht gefunden, "
+                "Clip uebersprungen"
+            )
+            continue
+        args += ["-i", str(src)]
+        inputs.append((len(inputs) + 1, clip))
+
+    # Filter-Graph bauen
+    filter_parts: list[str] = []
+    labels: list[str] = []
+    if not mute_original:
+        # Original-Audio-Spur aus dem Video behalten.
+        filter_parts.append(
+            "[0:a]aformat=sample_fmts=fltp:channel_layouts=stereo[orig]"
+        )
+        labels.append("[orig]")
+    for idx, clip in inputs:
+        src_start = float(clip.src_start)
+        src_end = float(clip.src_end)
+        dur = max(0.05, src_end - src_start)
+        delay_ms = int(float(clip.timeline_start) * 1000)
+        vol = _db_to_linear(clip.gain_db)
+        parts = [
+            f"[{idx}:a]atrim={src_start:.3f}:{src_end:.3f}",
+            "asetpts=PTS-STARTPTS",
+            "aformat=sample_fmts=fltp:channel_layouts=stereo",
+            f"volume={vol:.4f}",
+        ]
+        if clip.fade_in_s and clip.fade_in_s > 0:
+            parts.append(
+                f"afade=t=in:st=0:d={float(clip.fade_in_s):.3f}"
+            )
+        if clip.fade_out_s and clip.fade_out_s > 0:
+            fade_start = max(0.0, dur - float(clip.fade_out_s))
+            parts.append(
+                f"afade=t=out:st={fade_start:.3f}:"
+                f"d={float(clip.fade_out_s):.3f}"
+            )
+        if delay_ms > 0:
+            parts.append(f"adelay={delay_ms}|{delay_ms}")
+        label = f"[c{idx}]"
+        filter_parts.append(",".join(parts) + label)
+        labels.append(label)
+
+    if not labels:
+        # Kein einziger Audio-Input uebrig + Original stumm -> Video
+        # hat komplett keine Audio-Spur. `-an` reicht dann.
+        args += [
+            "-map", "0:v", "-c:v", "copy", "-an",
+            "-movflags", "+faststart",
+            "-shortest",
+            str(dest),
+        ]
+    else:
+        filter_parts.append(
+            f"{''.join(labels)}amix=inputs={len(labels)}:"
+            f"duration=longest:dropout_transition=0:normalize=0[mix]"
+        )
+        # Audio-Codec aus dem Output-Profil; "copy" macht beim Neu-Muxen
+        # keinen Sinn -- da fallen wir auf aac zurueck.
+        acodec = output.audio_codec if output.audio_codec != "copy" else "aac"
+        args += [
+            "-filter_complex", ";".join(filter_parts),
+            "-map", "0:v",
+            "-map", "[mix]",
+            "-c:v", "copy",
+            "-c:a", acodec,
+            "-b:a", output.audio_bitrate,
+            "-movflags", "+faststart",
+            "-shortest",
+            str(dest),
+        ]
+
+    logger.info("ffmpeg-audio-mix: " + " ".join(args))
+    proc = await asyncio.create_subprocess_exec(
+        *args,
+        stdout=asyncio.subprocess.PIPE,
+        stderr=asyncio.subprocess.PIPE,
+    )
+    _, stderr = await proc.communicate()
+    if proc.returncode != 0:
+        raise RuntimeError(
+            f"Audio-Merge fehlgeschlagen: "
+            f"{stderr.decode('utf-8', errors='replace').strip()}"
+        )
+
+
 async def _concat_segments(segments: list[Path], dest: Path) -> None:
     """Führt alle Segmente per concat-Demuxer zu einem File zusammen (-c copy)."""
     list_file = dest.with_suffix(".list.txt")
@@ -377,12 +496,16 @@ async def render_edl(
     progress_cb: ProgressCb = None,
     filename_suffix: str = "",
     source_meta: Optional[dict] = None,
+    audio_sources: Optional[dict[str, Path]] = None,
 ) -> Path:
     """Rendert die EDL gegen `source` und gibt den Pfad zum fertigen Video zurück.
 
     source_meta: {video_codec, audio_codec, width, height, fps} -- wird
     benötigt, um ehrlich zu entscheiden, ob der Copy-Mode reicht oder
     das Ziel-Profil Transcoding erzwingt.
+    audio_sources: Map file_id -> Quelldatei-Pfad fuer alle Dateien,
+    aus denen edl.audio_track Clips bezieht. Wenn None und der Audio-
+    Override leer, ist der zweite Pass nicht noetig.
     """
     if not edl.timeline:
         raise RuntimeError("EDL ist leer")
@@ -484,10 +607,38 @@ async def render_edl(
         suffix_part = f"-{filename_suffix}" if filename_suffix else ""
         final = EXPORTS_DIR / f"{job_id}{suffix_part}.{container}"
 
-        if len(segments) == 1:
-            shutil.move(str(segments[0]), str(final))
+        audio_override = bool(edl.audio_track) or bool(edl.mute_original)
+
+        if audio_override:
+            # Phase 1 baut das Video erst als Zwischendatei; Phase 2
+            # ersetzt/mischt die Tonspur.
+            video_tmp = work / f"video{suffix_part}.{container}"
+            if len(segments) == 1:
+                shutil.move(str(segments[0]), str(video_tmp))
+            else:
+                await _concat_segments(segments, video_tmp)
+
+            if progress_cb is not None:
+                progress_cb(
+                    0.999, "audio_merge",
+                    {"clip_index": n_clips, "clip_total": n_clips,
+                     "step": "audio_merge",
+                     "note": f"Audio-Override: {len(edl.audio_track)} Clip(s), "
+                             f"Original {'stumm' if edl.mute_original else 'aktiv'}"},
+                )
+            await _apply_audio_override(
+                video_in=video_tmp,
+                audio_clips=edl.audio_track,
+                audio_sources=audio_sources or {},
+                mute_original=bool(edl.mute_original),
+                output=output,
+                dest=final,
+            )
         else:
-            await _concat_segments(segments, final)
+            if len(segments) == 1:
+                shutil.move(str(segments[0]), str(final))
+            else:
+                await _concat_segments(segments, final)
 
     finally:
         # work-Verzeichnis aufräumen

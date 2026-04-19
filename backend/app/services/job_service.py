@@ -374,6 +374,20 @@ class JobService:
                 self._schedule_broadcast(msg)
 
         clip_tag = (job.payload or {}).get("clip_id")
+
+        # Audio-Override: Pfade aller beteiligten Quelldateien aus der
+        # DB holen. Der Render-Service mischt sie in Phase 2 ueber das
+        # fertige Video.
+        audio_sources: dict[str, str] = {}
+        for ac in edl.audio_track:
+            if ac.file_id in audio_sources:
+                continue
+            row = await db.fetch_one(
+                "SELECT path FROM files WHERE id = ?", (ac.file_id,),
+            )
+            if row and row["path"]:
+                audio_sources[ac.file_id] = Path(row["path"])
+
         final = await render_edl(
             source=Path(frow["path"]),
             edl=edl,
@@ -381,6 +395,7 @@ class JobService:
             progress_cb=on_progress,
             filename_suffix=f"clip-{clip_tag}" if clip_tag else "",
             source_meta=source_meta,
+            audio_sources=audio_sources,
         )
         job.result_path = str(final)
 

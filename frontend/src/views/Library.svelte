@@ -572,10 +572,11 @@
     </button>
     <label class="btn btn-primary" class:busy={uploading}
            data-tour="lib-upload"
-           title="Eine Video-Datei vom Rechner hochladen. Unterstützte Formate: MP4, MOV, MKV, WebM, AVI, M4V.">
+           title="Video- oder Audio-Datei vom Rechner hochladen. Video: MP4, MOV, MKV, WebM, AVI, M4V. Audio: WAV, MP3, M4A, FLAC, AAC, OGG, OPUS.">
       <i class="fa-solid fa-upload"></i>
-      <span>{uploading ? `Hochladen ${Math.round(uploadPct * 100)} %` : 'Video hochladen'}</span>
-      <input bind:this={fileInput} type="file" accept="video/*"
+      <span>{uploading ? `Hochladen ${Math.round(uploadPct * 100)} %` : 'Datei hochladen'}</span>
+      <input bind:this={fileInput} type="file"
+             accept="video/*,audio/*,.wav,.mp3,.m4a,.flac,.aac,.ogg,.opus"
              multiple onchange={onUpload} disabled={uploading} />
     </label>
     <a class="btn" href={api.folderZipUrl(library.currentFolder, true)} download

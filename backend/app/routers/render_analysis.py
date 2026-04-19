@@ -36,6 +36,11 @@ class AnalyzeRequest(BaseModel):
     source_file_id: Optional[str] = None
     # Dauer des zu rendernden Materials in Sekunden (Summe aller EDL-Clips).
     total_seconds: float = Field(ge=0.0)
+    # Audio-Override-Infos (fuer UI-Anzeige); das Backend rendert beim
+    # echten Job die volle EDL, die analyze-Route braucht nur die
+    # Zaehlung der Clips und die mute_original-Flag.
+    audio_track_count: int = 0
+    mute_original: bool = False
 
 
 class AnalyzeResponse(BaseModel):
@@ -51,6 +56,9 @@ class AnalyzeResponse(BaseModel):
     source_video_codec: Optional[str] = None
     source_audio_codec: Optional[str] = None
     source_bitrate_kbps: Optional[float] = None
+    # Audio-Override-Status fuer den Export-Dialog.
+    audio_mode: str = "original"   # 'original' | 'replaced' | 'mixed' | 'muted'
+    audio_track_count: int = 0
 
 
 def _parse_bitrate_kbps(s: Optional[str]) -> float:
@@ -123,6 +131,8 @@ def analyze_output(
     output: OutputProfile,
     source_meta: Optional[dict],
     total_seconds: float,
+    audio_track_count: int = 0,
+    mute_original: bool = False,
 ) -> AnalyzeResponse:
     """Die eine Funktion, die sowohl Render-Service als auch API nutzen."""
     forced, reason = _output_forces_reencode(output, source_meta)
@@ -175,6 +185,16 @@ def analyze_output(
         src = _norm_vcodec(source_meta.get("video_codec"))
         resolved = src if src in ("h264", "hevc") else "h264"
 
+    # Audio-Modus ableiten: was der User beim Abspielen hoert.
+    if audio_track_count > 0 and mute_original:
+        audio_mode = "replaced"     # Override-Clips ersetzen Original
+    elif audio_track_count > 0:
+        audio_mode = "mixed"        # Override-Clips zusaetzlich zu Original
+    elif mute_original:
+        audio_mode = "muted"        # Nur Video, kein Ton
+    else:
+        audio_mode = "original"
+
     return AnalyzeResponse(
         mode=mode,
         reason=reason,
@@ -187,6 +207,8 @@ def analyze_output(
         source_bitrate_kbps=(
             round(source_bitrate_kbps, 1) if source_bitrate_kbps else None
         ),
+        audio_mode=audio_mode,
+        audio_track_count=audio_track_count,
     )
 
 
@@ -227,4 +249,10 @@ async def analyze(body: AnalyzeRequest) -> AnalyzeResponse:
             "duration_s": row["duration_s"],
         }
 
-    return analyze_output(body.output, source_meta, body.total_seconds)
+    return analyze_output(
+        body.output,
+        source_meta,
+        body.total_seconds,
+        audio_track_count=body.audio_track_count,
+        mute_original=body.mute_original,
+    )
