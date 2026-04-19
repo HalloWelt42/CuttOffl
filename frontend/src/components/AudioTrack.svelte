@@ -17,10 +17,50 @@
     setAudioClipOffset, setAudioClipRange, setAudioClipGain,
     splitAudioAtPlayhead, deleteAudioClip,
   } from '../lib/editor.svelte.js';
+  import { toast } from '../lib/toast.svelte.js';
+  import { persist as persistLocal } from '../lib/persist.svelte.js';
   import AudioLibraryPicker from './AudioLibraryPicker.svelte';
 
   let pickerOpen = $state(false);
+  let mixing = $state(false);
+  // lokale Flags fuer den Pre-Render, damit der User Normalize / Mono
+  // beim Audio-Mix unabhaengig vom Output-Profil entscheiden kann.
+  let mixNormalize = $state(true);
+  let mixMono = $state(false);
 
+  function toggleOpen() {
+    editor.audioTrackOpen = !editor.audioTrackOpen;
+    persistLocal('editor.audioTrackOpen', editor.audioTrackOpen);
+  }
+
+  async function runAudioMix() {
+    const track = editor.edl?.audio_track ?? [];
+    if (track.length === 0) {
+      toast.info('Keine Audio-Clips zum Rendern');
+      return;
+    }
+    mixing = true;
+    try {
+      const projectName = editor.project?.name || 'Audio-Mix';
+      await api.audioMix(track, {
+        normalize: mixNormalize,
+        mono: mixMono,
+        name: `${projectName} -- Audio`,
+      });
+      toast.success(
+        'Audio-Mix gestartet -- sobald fertig, liegt die WAV '
+        + 'als Audio-Datei in der Bibliothek.',
+      );
+    } catch (e) {
+      toast.error(`Audio-Mix: ${e.message}`);
+    } finally {
+      mixing = false;
+    }
+  }
+
+  // DOM-Ref fuer das Track-Element -- wird nur zur ResizeObserver-
+  // Registrierung und fuer clientWidth verwendet, nicht reaktiv gelesen.
+  // svelte-ignore non_reactive_update
   let host;
   let width = $state(800);
   // pxPerSec spiegelt editor.timelineZoom (gleiche Skala wie Timeline).
@@ -174,7 +214,16 @@
 </script>
 
 <div class="audio-toolbar mono">
-  <span class="lbl"><i class="fa-solid fa-music"></i> Audio</span>
+  <button class="chev" onclick={toggleOpen}
+          title={editor.audioTrackOpen ? 'Audio-Spur einklappen' : 'Audio-Spur ausklappen'}
+          aria-label="Audio-Spur ein-/ausklappen">
+    <i class="fa-solid {editor.audioTrackOpen ? 'fa-caret-down' : 'fa-caret-right'}"></i>
+  </button>
+  <span class="lbl"><i class="fa-solid fa-music"></i> Audio
+    {#if (editor.edl?.audio_track ?? []).length > 0}
+      <span class="count">· {editor.edl.audio_track.length} Clip(s)</span>
+    {/if}
+  </span>
   <button class="bbtn" onclick={() => (pickerOpen = true)}
           title="Audio-Datei aus der Bibliothek am Playhead einfuegen">
     <i class="fa-solid fa-plus"></i> Hinzufügen
@@ -191,6 +240,21 @@
           title="Ausgewählten Audio-Clip entfernen (Taste Entf)">
     <i class="fa-solid fa-trash"></i>
   </button>
+  <button class="bbtn primary"
+          disabled={mixing || !(editor.edl?.audio_track?.length)}
+          onclick={runAudioMix}
+          title="Alle Audio-Clips jetzt zu einer einzigen WAV rendern. Die WAV landet in der Bibliothek und kann wiederverwendet oder heruntergeladen werden.">
+    <i class="fa-solid {mixing ? 'fa-spinner fa-spin' : 'fa-wave-square'}"></i>
+    {mixing ? 'Audio rendert...' : 'Audio rendern'}
+  </button>
+  <label class="mixopt" title="Beim Audio-Render EBU R128 Loudnorm anwenden (gleich laute Clips, keine dynamischen Spruenge).">
+    <input type="checkbox" bind:checked={mixNormalize} disabled={mixing} />
+    <span>Normalisieren</span>
+  </label>
+  <label class="mixopt" title="Beim Audio-Render Stereo auf Mono mischen.">
+    <input type="checkbox" bind:checked={mixMono} disabled={mixing} />
+    <span>Mono</span>
+  </label>
   <span class="spacer"></span>
   {#if editor.selectedAudioClipId}
     {@const sel = editor.edl?.audio_track?.find((c) => c.id === editor.selectedAudioClipId)}
@@ -213,6 +277,7 @@
   </label>
 </div>
 
+{#if editor.audioTrackOpen}
 <!-- svelte-ignore a11y_no_static_element_interactions -->
 <div class="audio-track"
      bind:this={host}
@@ -246,6 +311,7 @@
     </div>
   {/if}
 </div>
+{/if}
 
 <AudioLibraryPicker bind:open={pickerOpen} />
 
@@ -265,7 +331,21 @@
     margin-right: 4px;
   }
   .audio-toolbar .lbl i { margin-right: 4px; }
+  .audio-toolbar .lbl .count {
+    color: var(--fg-muted);
+    font-weight: 400;
+    font-size: 11px;
+  }
   .audio-toolbar .spacer { flex: 1; }
+  .audio-toolbar .chev {
+    background: transparent;
+    border: none;
+    color: var(--fg-muted);
+    padding: 0 4px;
+    cursor: pointer;
+    font-size: 13px;
+  }
+  .audio-toolbar .chev:hover { color: var(--accent); }
   .audio-toolbar .bbtn {
     background: transparent;
     border: 1px solid var(--border);
@@ -278,6 +358,20 @@
   .audio-toolbar .bbtn:hover:not(:disabled) { border-color: var(--accent); }
   .audio-toolbar .bbtn:disabled { opacity: 0.4; cursor: default; }
   .audio-toolbar .bbtn i { margin-right: 4px; }
+  .audio-toolbar .bbtn.primary {
+    border-color: var(--accent);
+    color: var(--accent);
+  }
+  .audio-toolbar .bbtn.primary:hover:not(:disabled) {
+    background: color-mix(in srgb, var(--accent) 15%, transparent);
+  }
+  .audio-toolbar .mixopt {
+    display: inline-flex; align-items: center; gap: 4px;
+    cursor: pointer;
+    font-size: 11px;
+    color: var(--fg-muted);
+  }
+  .audio-toolbar .mixopt input { margin: 0; }
   .audio-toolbar .gain {
     display: inline-flex; align-items: center; gap: 6px;
     font-size: 11px;

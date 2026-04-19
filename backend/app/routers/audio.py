@@ -17,10 +17,53 @@ from typing import Optional
 
 from fastapi import APIRouter, HTTPException, Request
 from fastapi.responses import FileResponse, Response, StreamingResponse
+from pydantic import BaseModel, Field
 
 from app.db import db
+from app.models.edl import AudioClip
+from app.services.job_service import job_service
 
 router = APIRouter(prefix="/api/audio", tags=["audio"])
+
+
+class AudioMixRequest(BaseModel):
+    audio_track: list[AudioClip] = Field(default_factory=list)
+    normalize: bool = False
+    mono: bool = False
+    name: Optional[str] = None
+    folder_path: Optional[str] = None
+
+
+class AudioMixResponse(BaseModel):
+    job_id: str
+    status: str = "queued"
+
+
+@router.post("/mix", response_model=AudioMixResponse)
+async def start_audio_mix(body: AudioMixRequest) -> AudioMixResponse:
+    """Startet einen Audio-Mix-Job: rendert die AudioClips per ffmpeg
+    zu einer einzelnen WAV-Datei und legt das Ergebnis als Library-
+    Audio-File ab. Synchronisiert ueber den Job-Worker, damit der
+    Fortschritt per WebSocket sichtbar ist (wie beim Video-Render).
+
+    Antwort enthaelt nur die job_id. Ueber job_event 'completed'
+    bekommt das Frontend die neue file_id und kann sofort in den
+    Editor als Audio-Track-Override laden."""
+    if not body.audio_track:
+        raise HTTPException(
+            status_code=400, detail="audio_track darf nicht leer sein",
+        )
+    job_id = await job_service.enqueue(
+        "audio_mix",
+        payload={
+            "audio_track": [c.model_dump() for c in body.audio_track],
+            "normalize": body.normalize,
+            "mono": body.mono,
+            "name": body.name or "Audio-Mix",
+            "folder_path": body.folder_path or "",
+        },
+    )
+    return AudioMixResponse(job_id=job_id)
 
 CHUNK = 1024 * 1024  # 1 MB pro Range-Chunk
 

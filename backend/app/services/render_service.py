@@ -348,6 +348,23 @@ def _db_to_linear(db: float) -> float:
     return 10 ** (float(db or 0) / 20.0)
 
 
+async def _has_audio_stream(path: Path) -> bool:
+    """Prueft per ffprobe, ob die Datei mindestens einen Audio-Stream
+    hat. Screen-Recordings von macOS enthalten oft keinen Ton -- der
+    Audio-Merge darf dann nicht auf [0:a] zugreifen."""
+    proc = await asyncio.create_subprocess_exec(
+        "ffprobe", "-v", "error",
+        "-select_streams", "a",
+        "-show_entries", "stream=codec_name",
+        "-of", "csv=p=0",
+        str(path),
+        stdout=asyncio.subprocess.PIPE,
+        stderr=asyncio.subprocess.PIPE,
+    )
+    out, _ = await proc.communicate()
+    return bool(out.decode("utf-8", errors="replace").strip())
+
+
 async def _apply_audio_override(
     video_in: Path,
     audio_clips: list,
@@ -364,6 +381,14 @@ async def _apply_audio_override(
     audio_sources: Map file_id -> lokaler Pfad der Quelldatei.
     mute_original: wenn True, Original-Ton komplett weg.
     """
+    # Wenn die Quelle keinen Audio-Stream hat (z. B. Screen-Recording
+    # ohne Mikrofon), duerfen wir [0:a] im filter_complex nicht mehr
+    # referenzieren -- ffmpeg wirft sonst einen "Stream specifier"-
+    # Fehler. Effektiv ist das Video dann eh stumm.
+    video_has_audio = await _has_audio_stream(video_in)
+    if not video_has_audio:
+        mute_original = True
+
     args: list[str] = [
         ffmpeg_binary(), "-y", "-hide_banner", "-loglevel", "error",
         "-i", str(video_in),
@@ -430,10 +455,28 @@ async def _apply_audio_override(
             str(dest),
         ]
     else:
+        # Wenn der User Post-Mix-Filter im Output-Profil gesetzt hat
+        # (audio_normalize=EBU R128 loudnorm, audio_mono=Stereo-auf-Mono-
+        # Downmix), haengen wir die NACH dem amix an. So wirkt die
+        # Normalisierung auf die gesamte Audio-Spur inkl. Override-Clips
+        # und Original -- stellen mit unterschiedlicher Lautstaerke
+        # werden ausgeglichen.
+        pre_mix_label = "[premix]" if (
+            output.audio_normalize or output.audio_mono
+        ) else "[mix]"
         filter_parts.append(
             f"{''.join(labels)}amix=inputs={len(labels)}:"
-            f"duration=longest:dropout_transition=0:normalize=0[mix]"
+            f"duration=longest:dropout_transition=0:normalize=0"
+            f"{pre_mix_label}"
         )
+        post: list[str] = []
+        if output.audio_mono:
+            post.append("pan=mono|c0=.5*c0+.5*c1")
+        if output.audio_normalize:
+            # EBU-R128-Ziel identisch zum Einzelclip-Pfad.
+            post.append("loudnorm=I=-16:TP=-1.5:LRA=11")
+        if post:
+            filter_parts.append(f"{pre_mix_label}{','.join(post)}[mix]")
         # Audio-Codec aus dem Output-Profil; "copy" macht beim Neu-Muxen
         # keinen Sinn -- da fallen wir auf aac zurueck.
         acodec = output.audio_codec if output.audio_codec != "copy" else "aac"

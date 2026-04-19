@@ -163,6 +163,13 @@ export const api = {
   spriteMeta: (id) => request(`/sprite/${id}/meta`),
   waveform:   (id) => request(`/waveform/${id}`),
   audioUrl:   (id) => `${BASE}/audio/${id}`,
+  audioMix:   (audio_track, { normalize = false, mono = false,
+                              name = null, folder_path = null } = {}) =>
+    request('/audio/mix', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ audio_track, normalize, mono, name, folder_path }),
+    }),
 
   // Jobs
   listJobs: (limit = 50) => request(`/jobs?limit=${limit}`),

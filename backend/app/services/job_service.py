@@ -27,6 +27,7 @@ from typing import Any, Awaitable, Callable, Optional
 import json as _json
 
 from app.config import (
+    ORIGINALS_DIR,
     PROXIES_DIR, SPRITES_DIR, THUMBS_DIR, TMP_DIR, TRANSCRIPTS_DIR, WAVEFORMS_DIR,
 )
 from app.db import db
@@ -34,6 +35,7 @@ from app.models.edl import EDL
 from app.services.error_helper import sanitize_error
 from app.services.keyframe_service import extract_keyframes
 from app.services.proxy_service import generate_proxy
+from app.services.audio_mix_service import build_audio_mix_wav
 from app.services.render_service import render_edl
 from app.services.sprite_service import generate_sprite
 from app.services.thumbnail_service import generate_thumbnail
@@ -226,6 +228,8 @@ class JobService:
             await self._process_waveform(job)
         elif job.kind == "render":
             await self._process_render(job)
+        elif job.kind == "audio_mix":
+            await self._process_audio_mix(job)
         elif job.kind == "transcribe":
             await self._process_transcribe(job)
         elif job.kind == "download_model":
@@ -398,6 +402,106 @@ class JobService:
             audio_sources=audio_sources,
         )
         job.result_path = str(final)
+
+    async def _process_audio_mix(self, job: Job) -> None:
+        """Mischt die AudioClips aus job.payload['audio_track'] zu einer
+        einzelnen WAV und registriert sie als Library-Datei. Das
+        Ergebnis ist damit als audio-only-File im Editor weiter nutzbar
+        und kann jederzeit heruntergeladen werden.
+
+        payload:
+          - audio_track: list[AudioClip-dict]
+          - normalize: bool
+          - mono: bool
+          - name: str         (optional, Anzeige-Name)
+          - folder_path: str  (optional, in welcher Library-Kategorie)
+        """
+        from app.models.edl import AudioClip
+        from app.services.probe_service import probe_file, summarize
+
+        payload = job.payload or {}
+        raw_clips = payload.get("audio_track") or []
+        if not raw_clips:
+            raise RuntimeError("audio_mix: keine Audio-Clips im Payload")
+
+        # AudioClip-Objekte wieder aufbauen (Sanitize + Validierung
+        # ueber das Pydantic-Schema, dann haben wir die gleiche
+        # Rundung wie im Backend-EDL).
+        clips = [AudioClip.model_validate(c) for c in raw_clips]
+
+        # Quelldateien pro file_id ermitteln
+        audio_sources: dict[str, Path] = {}
+        for c in clips:
+            if c.file_id in audio_sources:
+                continue
+            row = await db.fetch_one(
+                "SELECT path FROM files WHERE id = ?", (c.file_id,),
+            )
+            if row and row["path"]:
+                audio_sources[c.file_id] = Path(row["path"])
+
+        if not audio_sources:
+            raise RuntimeError("audio_mix: keine Quelldateien auffindbar")
+
+        # Ziel-Datei in originals/ ablegen, damit sie automatisch
+        # Teil der Library wird. UUID = job_id, Endung .wav.
+        new_file_id = uuid.uuid4().hex
+        dest = ORIGINALS_DIR / f"{new_file_id}.wav"
+
+        normalize = bool(payload.get("normalize", False))
+        mono = bool(payload.get("mono", False))
+        name_hint = payload.get("name") or "Audio-Mix"
+        folder_path = payload.get("folder_path") or ""
+
+        duration_s = await build_audio_mix_wav(
+            audio_clips=clips,
+            audio_sources=audio_sources,
+            dest=dest,
+            normalize=normalize,
+            mono=mono,
+        )
+
+        # Library-Eintrag fuer die neue WAV
+        original_name = f"{name_hint}.wav"
+        probe_raw: dict = {}
+        probe_summary: dict = {}
+        try:
+            probe_raw = await probe_file(dest)
+            probe_summary = summarize(probe_raw)
+        except Exception as e:
+            logger.warning(f"ffprobe nach audio_mix fehlgeschlagen: {e}")
+            probe_summary = {"duration_s": duration_s, "audio_codec": "pcm_s16le"}
+
+        stored_name = dest.name
+        size_bytes = dest.stat().st_size
+
+        await db.execute(
+            """
+            INSERT INTO files (
+                id, original_name, stored_name, path, size_bytes,
+                mime_type, duration_s, width, height, fps,
+                video_codec, audio_codec, folder_path, sha256, probe_json
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """,
+            (
+                new_file_id, original_name, stored_name, str(dest),
+                size_bytes, "audio/wav",
+                probe_summary.get("duration_s") or duration_s,
+                None, None, None,          # keine Video-Dimensions
+                None,                      # kein video_codec
+                probe_summary.get("audio_codec") or "pcm_s16le",
+                folder_path, None,
+                json.dumps(probe_raw) if probe_raw else None,
+            ),
+        )
+
+        # Waveform-Job anstossen, damit die Kachel in der Bibliothek
+        # direkt eine Waveform zeigt.
+        await self.enqueue("waveform", file_id=new_file_id)
+
+        job.result_path = str(dest)
+        job.payload["result_file_id"] = new_file_id
+        await self._broadcast_file_event(new_file_id, "created")
 
     async def _process_sprite(self, job: Job) -> None:
         assert job.file_id, "sprite-Job benötigt file_id"

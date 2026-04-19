@@ -81,6 +81,10 @@ export const editor = $state({
   // Timeline.svelte geschrieben und von der Audio-Track-Zeile gelesen,
   // damit beide Zeilen immer synchron bleiben.
   timelineScrollX: 0,
+  // Audio-Track-Zeile (inkl. Waveform-Blocks) ein-/ausgeklappt. Toolbar
+  // bleibt sichtbar, damit "Audio rendern" und "Hinzufuegen" erreichbar
+  // bleiben. Default: ausgeklappt, wenn schon Clips vorhanden sind.
+  audioTrackOpen: persisted('editor.audioTrackOpen', true),
   // Transkript -- Segmente aus SRT, aktiver Tab, Untertitel-Overlay
   transcript: null,          // { segments, language, model, has_transcript }
   transcribing: false,
