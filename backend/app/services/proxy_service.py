@@ -129,7 +129,14 @@ async def generate_proxy(
             key, value = m.group(1), m.group(2)
             current[key] = value
             if key == "progress":
-                out_us = int(current.get("out_time_us", "0") or 0)
+                # ffmpeg liefert bei Screen-Recordings und VFR-Quellen
+                # am Anfang gerne out_time_us="N/A". Ohne try/except
+                # crasht int() und der Job landet als failed, obwohl
+                # ffmpeg selbst sauber weiterlaeuft.
+                try:
+                    out_us = int(current.get("out_time_us", "0") or 0)
+                except ValueError:
+                    out_us = 0
                 out_s = out_us / 1_000_000.0
                 pct = 0.0
                 if duration_s and duration_s > 0:
