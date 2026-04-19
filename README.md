@@ -6,13 +6,7 @@
 
 Video schneiden -- lokal, ohne Cloud, ohne Konto.
 
-<p align="center">
-  <a href="https://www.youtube.com/watch?v=mwdJOydhMU8">
-    <img src="https://img.youtube.com/vi/mwdJOydhMU8/maxresdefault.jpg"
-         alt="CuttOffl – Video-Editor für Raspberry Pi & Mac"
-         width="720" />
-  </a>
-</p>
+[![CuttOffl – Video-Editor für Raspberry Pi & Mac](https://img.youtube.com/vi/mwdJOydhMU8/hqdefault.jpg)](https://www.youtube.com/watch?v=mwdJOydhMU8)
 
 <p align="center">
   <img src="https://img.shields.io/badge/license-NC--2.0-blue" alt="Lizenz">
