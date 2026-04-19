@@ -19,6 +19,10 @@ function emptyEdl(fileId) {
   return {
     source_file_id: fileId,
     timeline: [],
+    // Audio-Override-Track: 0..N Audio-Clips, die beim Render ueber/
+    // zusaetzlich zum Originalton gemischt werden. Default leer.
+    audio_track: [],
+    mute_original: false,
     output: {
       codec: 'h264', resolution: 'source', container: 'mp4',
       bitrate: null, crf: null,
@@ -41,6 +45,11 @@ export const editor = $state({
   playhead: 0,
   isPlaying: false,
   selectedClipId: null,
+  // Selektion auf der Audio-Track-Zeile. Parallele Unabhaengigkeit zu
+  // selectedClipId, damit Video- und Audio-Auswahl gleichzeitig leben
+  // koennen (z. B. Video-Clip ausgewaehlt waehrend man Audio-Clip
+  // verschiebt).
+  selectedAudioClipId: null,
   snapOn: persisted('editor.snapOn', true),
   dirty: false,
   saving: false,
@@ -130,7 +139,7 @@ export async function loadFile(fileId) {
     duration: 0,
     playhead: 0,
     isPlaying: false,
-    selectedClipId: null,
+    selectedClipId: null, selectedAudioClipId: null,
     dirty: false,
     history: [],
     future: [],
@@ -208,7 +217,7 @@ function resetEditorState() {
     duration: 0,
     playhead: 0,
     isPlaying: false,
-    selectedClipId: null,
+    selectedClipId: null, selectedAudioClipId: null,
     dirty: false,
     history: [],
     future: [],
@@ -250,7 +259,7 @@ export async function loadProject(projectId) {
       duration: 0,
       playhead: 0,
       isPlaying: false,
-      selectedClipId: null,
+      selectedClipId: null, selectedAudioClipId: null,
       dirty: false,
       history: [],
       future: [],
@@ -384,7 +393,14 @@ export function splitAtPlayhead() {
 }
 
 export function deleteSelected() {
-  if (!editor.edl || !editor.selectedClipId) return;
+  if (!editor.edl) return;
+  // Priorisiere Audio-Clip-Selektion, weil die Audio-Spur ueblicherweise
+  // aktiver ist (Drag + Split), wenn gerade dort gearbeitet wird.
+  if (editor.selectedAudioClipId) {
+    deleteAudioClip(editor.selectedAudioClipId);
+    return;
+  }
+  if (!editor.selectedClipId) return;
   pushHistory();
   editor.edl.timeline = editor.edl.timeline.filter((c) => c.id !== editor.selectedClipId);
   editor.selectedClipId = null;
@@ -407,6 +423,162 @@ export function toggleClipMode(id) {
 }
 
 export function selectClip(id) { editor.selectedClipId = id; }
+
+// ---------------------------------------------------------------------------
+// Audio-Track-Helpers (EDL.audio_track)
+// ---------------------------------------------------------------------------
+//
+// Eine Audio-Spur besteht aus 0..N AudioClips auf einer Zeile, die sich
+// ueber die Video-Timeline legen. Jeder Clip kommt aus einer Library-
+// Audio-Datei (oder aus dem Audio-Stream einer Video-Datei), bringt
+// einen Source-Range (src_start..src_end) aus dieser Datei mit und
+// wird an einer bestimmten timeline_start-Position platziert.
+//
+// Die Helpers hier kapseln State-Mutationen auf editor.edl.audio_track,
+// immer inkl. pushHistory() -- so landet jede Audio-Aenderung in
+// Undo/Redo und im Auto-Save ans Backend.
+
+function _ensureAudioTrack() {
+  if (!editor.edl) return null;
+  if (!Array.isArray(editor.edl.audio_track)) editor.edl.audio_track = [];
+  if (typeof editor.edl.mute_original !== 'boolean') {
+    editor.edl.mute_original = false;
+  }
+  return editor.edl.audio_track;
+}
+
+function _findAudioClip(id) {
+  return _ensureAudioTrack()?.find((c) => c.id === id) ?? null;
+}
+
+/** Fuegt einen Audio-Clip hinzu. file_duration_s wird verwendet, um
+ *  src_end zu begrenzen; timeline_start ist die gewuenschte
+ *  Anfangsposition auf der Video-Timeline (default 0). */
+export function addAudioClip(file_id, file_duration_s, timeline_start = 0) {
+  const track = _ensureAudioTrack();
+  if (!track) return null;
+  pushHistory();
+  const dur = Math.max(0.1, Number(file_duration_s) || 0.1);
+  const clip = {
+    id: uid(),
+    file_id,
+    src_start: 0,
+    src_end: Number(dur.toFixed(3)),
+    timeline_start: Math.max(0, Number(timeline_start.toFixed(3))),
+    gain_db: 0,
+    fade_in_s: 0,
+    fade_out_s: 0,
+  };
+  editor.edl.audio_track = [...track, clip].sort(
+    (a, b) => a.timeline_start - b.timeline_start,
+  );
+  editor.selectedAudioClipId = clip.id;
+  return clip.id;
+}
+
+/** Teilt einen Audio-Clip an der Video-Playhead-Position in zwei. Der
+ *  rechte Teil erbt den src-Offset entsprechend, so dass der Inhalt
+ *  an der Schnittkante nahtlos bleibt -- danach kann der rechte Teil
+ *  unabhaengig verschoben werden (Drift-Korrektur). */
+export function splitAudioAtPlayhead() {
+  const track = _ensureAudioTrack();
+  if (!track) return null;
+  const t = editor.playhead;
+  // Clip finden, in den der Playhead zeitlich faellt (min 10 ms Abstand
+  // von den Raendern, damit kein Null-Laengen-Clip entsteht).
+  const clip = track.find((c) => {
+    const start = c.timeline_start;
+    const end = c.timeline_start + (c.src_end - c.src_start);
+    return t > start + 0.01 && t < end - 0.01;
+  });
+  if (!clip) {
+    toast.info('Playhead liegt in keinem Audio-Clip');
+    return null;
+  }
+  pushHistory();
+  const offsetInClip = t - clip.timeline_start; // Sekunden im Source
+  const cutSrc = clip.src_start + offsetInClip;
+  const right = {
+    id: uid(),
+    file_id: clip.file_id,
+    src_start: Number(cutSrc.toFixed(3)),
+    src_end: clip.src_end,
+    timeline_start: Number(t.toFixed(3)),
+    gain_db: clip.gain_db,
+    fade_in_s: 0,
+    fade_out_s: clip.fade_out_s,
+  };
+  clip.src_end = Number(cutSrc.toFixed(3));
+  clip.fade_out_s = 0;
+  editor.edl.audio_track = [...track, right].sort(
+    (a, b) => a.timeline_start - b.timeline_start,
+  );
+  editor.selectedAudioClipId = right.id;
+  return right.id;
+}
+
+/** Verschiebt einen Audio-Clip auf der Timeline (timeline_start). */
+export function setAudioClipOffset(id, timeline_start) {
+  const c = _findAudioClip(id);
+  if (!c) return;
+  pushHistory();
+  c.timeline_start = Math.max(0, Number(Number(timeline_start).toFixed(3)));
+  editor.edl.audio_track = editor.edl.audio_track.slice().sort(
+    (a, b) => a.timeline_start - b.timeline_start,
+  );
+}
+
+/** Trimmt einen Audio-Clip innerhalb der Quelldatei (src_start/src_end). */
+export function setAudioClipRange(id, src_start, src_end) {
+  const c = _findAudioClip(id);
+  if (!c) return;
+  pushHistory();
+  const s = Math.max(0, Math.min(src_start, src_end));
+  const e = Math.max(src_end, src_start);
+  c.src_start = Number(s.toFixed(3));
+  c.src_end = Number(Math.max(s + 0.05, e).toFixed(3));
+}
+
+/** Gain pro Clip in dB (-30..+12). */
+export function setAudioClipGain(id, gain_db) {
+  const c = _findAudioClip(id);
+  if (!c) return;
+  pushHistory();
+  c.gain_db = Math.max(-30, Math.min(12, Number(gain_db) || 0));
+}
+
+/** Fade-In/Out pro Clip in Sekunden (0..10). */
+export function setAudioClipFades(id, fade_in_s, fade_out_s) {
+  const c = _findAudioClip(id);
+  if (!c) return;
+  pushHistory();
+  if (fade_in_s != null) {
+    c.fade_in_s = Math.max(0, Math.min(10, Number(fade_in_s) || 0));
+  }
+  if (fade_out_s != null) {
+    c.fade_out_s = Math.max(0, Math.min(10, Number(fade_out_s) || 0));
+  }
+}
+
+/** Loescht den Clip aus der Audio-Track-Liste. */
+export function deleteAudioClip(id) {
+  const track = _ensureAudioTrack();
+  if (!track) return;
+  pushHistory();
+  editor.edl.audio_track = track.filter((c) => c.id !== id);
+  if (editor.selectedAudioClipId === id) editor.selectedAudioClipId = null;
+}
+
+/** Selektion auf der Audio-Spur (fuer Tastenkuerzel + UI-Markierung). */
+export function selectAudioClip(id) { editor.selectedAudioClipId = id; }
+
+/** Original-Video-Tonspur stummschalten (global, nicht pro Clip). */
+export function setMuteOriginal(on) {
+  if (!editor.edl) return;
+  _ensureAudioTrack();
+  pushHistory();
+  editor.edl.mute_original = !!on;
+}
 
 export function undo() {
   if (!editor.history.length) return;
