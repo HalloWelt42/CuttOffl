@@ -6,6 +6,10 @@
 
 Video schneiden -- lokal, ohne Cloud, ohne Konto.
 
+<center>
+<iframe width="955" height="496" src="https://www.youtube.com/embed/mwdJOydhMU8" title="CuttOffl - Video-Editor für Raspberry Pi &amp; Mac, kostenlos OpenSource" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" referrerpolicy="strict-origin-when-cross-origin" allowfullscreen></iframe>
+</center>
+
 <p align="center">
   <img src="https://img.shields.io/badge/license-NC--2.0-blue" alt="Lizenz">
   <img src="https://img.shields.io/badge/python-3.11+-3776AB?logo=python&logoColor=white" alt="Python 3.11+">
